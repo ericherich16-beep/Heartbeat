@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Heartbeat</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❤️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..700,100&family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7e9e6;
+    --ink: #3a1a22;
+    --soft: #8a5a63;
+    --heart: #9e1b32;
+    --glow: #e8a4a9;
+    --line: #d9b8b6;
+    color-scheme: light;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1016;
+      --ink: #f5dfe0;
+      --soft: #b38a92;
+      --heart: #e0435c;
+      --glow: #5c1f2d;
+      --line: #4a2a33;
+      color-scheme: dark;
+    }
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Instrument Sans", system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  main { width: 100%; max-width: 420px; text-align: center; }
+  h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 400; font-variation-settings: "SOFT" 100, "opsz" 40;
+    font-size: 1.5rem; margin: 0 0 8px;
+  }
+  .stage { position: relative; width: 260px; height: 240px; margin: 8px auto 0; }
+  .heart {
+    width: 100%; height: 100%;
+    fill: var(--heart);
+    filter: drop-shadow(0 12px 32px var(--glow));
+    transform-origin: 50% 55%;
+    transition: fill .6s, opacity .6s;
+  }
+  .beating .heart { animation: beat var(--period, 1s) ease-out infinite; }
+  .stale .heart { opacity: .35; }
+  @keyframes beat {
+    0% { transform: scale(1); }
+    12% { transform: scale(1.09); }
+    24% { transform: scale(.98); }
+    36% { transform: scale(1.04); }
+    60%, 100% { transform: scale(1); }
+  }
+  .bpm {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding-bottom: 18px;
+    color: #fff;
+    pointer-events: none;
+  }
+  .bpm b {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600; font-variation-settings: "SOFT" 100, "opsz" 144;
+    font-size: 5rem; line-height: 1; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .bpm span { font-size: .9rem; opacity: .85; margin-top: 2px; }
+  .status { color: var(--soft); font-size: .95rem; margin: 18px 0 28px; min-height: 1.4em; }
+  .status i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--heart); margin-right: 6px; vertical-align: 1px; }
+  .stale .status i { background: var(--soft); }
+  svg.trace { width: 100%; height: 64px; display: block; }
+  svg.trace path { fill: none; stroke: var(--heart); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .range { display: flex; justify-content: space-between; color: var(--soft); font-size: .8rem; margin-top: 6px; }
+
+  /* Setup */
+  form { text-align: left; display: grid; gap: 14px; }
+  label { font-size: .9rem; color: var(--soft); display: grid; gap: 6px; }
+  input {
+    font: inherit; color: var(--ink); background: transparent;
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px;
+  }
+  button {
+    font: inherit; font-weight: 500; color: #fff; background: var(--heart);
+    border: 0; border-radius: 999px; padding: 13px 20px; cursor: pointer;
+  }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--heart); outline-offset: 2px; }
+  .out { word-break: break-all; font-size: .85rem; color: var(--soft); }
+  p.hint { color: var(--soft); font-size: .9rem; line-height: 1.5; margin: 0 0 18px; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { .beating .heart { animation: none; } }
+</style>
+</head>
+<body>
+
+<main id="live" hidden>
+  <h1 id="title">My heart, right now</h1>
+  <div class="stage">
+    <svg class="heart" viewBox="0 0 100 92" aria-hidden="true">
+      <path d="M50 90 C 20 68, 0 50, 0 27 C 0 11, 12 0, 27 0 C 37 0, 45 6, 50 14 C 55 6, 63 0, 73 0 C 88 0, 100 11, 100 27 C 100 50, 80 68, 50 90 Z"/>
+    </svg>
+    <div class="bpm" aria-live="polite"><b id="bpm">–</b><span>beats per minute</span></div>
+  </div>
+  <p class="status" id="status"><i></i>Connecting…</p>
+  <svg class="trace" viewBox="0 0 300 64" preserveAspectRatio="none" aria-label="Heart rate over the last 10 minutes"><path id="trace"/></svg>
+  <div class="range"><span>10 min ago</span><span id="minmax"></span><span>now</span></div>
+</main>
+
+<main id="setup" hidden>
+  <h1>Set up the link</h1>
+  <p class="hint">Connect your Pulsoid account, add your name, and this page makes a private link to send to your fiancé. The token stays in the link and never gets saved in your code.</p>
+  <form id="connect">
+    <label>Pulsoid client ID<input id="cid" autocomplete="off" spellcheck="false" placeholder="From pulsoid.net/ui/api-clients"></label>
+    <button type="submit">Connect with Pulsoid</button>
+    <p class="out" id="cerr"></p>
+  </form>
+  <form id="form" hidden>
+    <label>Pulsoid access token<input id="tok" required autocomplete="off" spellcheck="false"></label>
+    <label>Your name<input id="nm" placeholder="e.g. Sam"></label>
+    <button type="submit">Make the link</button>
+    <p class="out" id="out"></p>
+  </form>
+</main>
+
+<script>
+  const params = new URLSearchParams(location.hash.slice(1));
+  const token = params.get("token");
+  const name = params.get("name");
+  const $ = id => document.getElementById(id);
+
+  if (!token) {
+    $("setup").hidden = false;
+    const here = location.origin + location.pathname;
+    const CLIENT_KEY = "pulsoid_client_id";
+    try { $("cid").value = localStorage.getItem(CLIENT_KEY) || ""; } catch {}
+
+    // Coming back from Pulsoid login: #access_token=...&state=...
+    const returned = params.get("access_token");
+    if (returned) {
+      let expected = null;
+      try { expected = sessionStorage.getItem("pulsoid_state"); } catch {}
+      if (expected && params.get("state") !== expected) {
+        $("cerr").textContent = "The login response didn’t match. Tap Connect with Pulsoid again.";
+      } else {
+        $("tok").value = returned;
+        $("connect").hidden = true;
+        $("form").hidden = false;
+        history.replaceState(null, "", here);
+      }
+    } else if (params.get("error")) {
+      $("cerr").textContent = "Pulsoid login was cancelled or refused (" + params.get("error") + "). Try again.";
+    }
+
+    $("connect").addEventListener("submit", e => {
+      e.preventDefault();
+      const cid = $("cid").value.trim();
+      if (!cid) { $("cerr").textContent = "Paste your client ID first."; return; }
+      const state = crypto.randomUUID();
+      try { localStorage.setItem(CLIENT_KEY, cid); sessionStorage.setItem("pulsoid_state", state); } catch {}
+      const q = new URLSearchParams({
+        response_type: "token", client_id: cid, redirect_uri: here,
+        scope: "data:heart_rate:read", state
+      });
+      location.href = "https://pulsoid.net/oauth2/authorize?" + q.toString();
+    });
+    $("form").addEventListener("submit", e => {
+      e.preventDefault();
+      const p = new URLSearchParams({ token: $("tok").value.trim() });
+      if ($("nm").value.trim()) p.set("name", $("nm").value.trim());
+      const link = location.origin + location.pathname + "#" + p.toString();
+      $("out").innerHTML = "Your link (copied, ready to send):<br>" + link.replace(/</g, "&lt;");
+      navigator.clipboard?.writeText(link).catch(() => {});
+    });
+  } else {
+    $("live").hidden = false;
+    if (name) $("title").textContent = name + "’s heart, right now";
+    document.title = (name ? name + "’s" : "My") + " heartbeat";
+
+    const STALE_MS = 15000, WINDOW_MS = 10 * 60 * 1000;
+    let samples = [], lastAt = 0, ws, retry = 1000;
+
+    function connect() {
+      ws = new WebSocket("wss://dev.pulsoid.net/api/v1/data/real_time?access_token=" + encodeURIComponent(token));
+      ws.onopen = () => { retry = 1000; setStatus(); };
+      ws.onmessage = ev => {
+        try {
+          const msg = JSON.parse(ev.data);
+          const hr = msg?.data?.heart_rate;
+          if (!hr) return;
+          lastAt = Date.now();
+          samples.push({ t: lastAt, hr });
+          show(hr);
+        } catch {}
+      };
+      ws.onclose = ev => {
+        if (ev.code === 4001 || ev.code === 1008) {
+          $("status").innerHTML = "<i></i>This link’s token isn’t working. Ask for a new link.";
+          return;
+        }
+        setTimeout(connect, retry);
+        retry = Math.min(retry * 2, 30000);
+      };
+    }
+
+    function show(hr) {
+      $("bpm").textContent = hr;
+      document.body.style.setProperty("--period", (60 / hr).toFixed(3) + "s");
+      document.body.classList.add("beating");
+      document.body.classList.remove("stale");
+      draw();
+      setStatus();
+    }
+
+    function setStatus() {
+      const age = Date.now() - lastAt;
+      const s = $("status");
+      if (!lastAt) { s.innerHTML = "<i></i>Waiting for the watch…"; document.body.classList.add("stale"); return; }
+      if (age < STALE_MS) { s.innerHTML = "<i></i>Live"; return; }
+      document.body.classList.add("stale");
+      document.body.classList.remove("beating");
+      const t = new Date(lastAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      s.innerHTML = "<i></i>Watch is quiet. Last reading at " + t;
+    }
+
+    function draw() {
+      const now = Date.now();
+      samples = samples.filter(p => now - p.t < WINDOW_MS);
+      if (samples.length < 2) { $("trace").setAttribute("d", ""); $("minmax").textContent = ""; return; }
+      const hrs = samples.map(p => p.hr);
+      const lo = Math.min(...hrs), hi = Math.max(...hrs), span = Math.max(hi - lo, 10);
+      const d = samples.map((p, i) => {
+        const x = 300 - ((now - p.t) / WINDOW_MS) * 300;
+        const y = 58 - ((p.hr - lo) / span) * 52;
+        return (i ? "L" : "M") + x.toFixed(1) + " " + y.toFixed(1);
+      }).join(" ");
+      $("trace").setAttribute("d", d);
+      $("minmax").textContent = lo + "–" + hi + " bpm";
+    }
+
+    setInterval(() => { setStatus(); draw(); }, 5000);
+    connect();
+  }
+</script>
+</body>
+</html>
