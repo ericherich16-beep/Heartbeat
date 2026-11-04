@@ -23,3 +23,4 @@ Thumbs.db
 # Generated app build output (rebuilt by app/build_app.py)
 /app/build/
 __pycache__/
+/app/build_demo/

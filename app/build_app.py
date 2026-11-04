@@ -889,8 +889,9 @@ def round_trip_check(screens):
     for k in ("Formulas", "OnStart"):
         if re.sub(r"\s+", "", app_rules.get(k, "")) == "":
             print("  App." + k, "missing"); problems += 1
-    ds_a = sorted(os.listdir(os.path.join(SRC, "DataSources")))
-    ds_b = sorted(os.listdir(os.path.join(rt, "DataSources")))
+    lsdir = lambda d: sorted(os.listdir(d)) if os.path.isdir(d) else []
+    ds_a = lsdir(os.path.join(SRC, "DataSources"))
+    ds_b = lsdir(os.path.join(rt, "DataSources"))
     if ds_a != ds_b:
         print("  data sources differ:", ds_a, ds_b); problems += 1
     print(f"Round-trip check: {checked} properties on {len(screens)} screens + App, "

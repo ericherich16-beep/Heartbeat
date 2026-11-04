@@ -206,6 +206,8 @@ def build(B):
 
     def upload(att, target, existing, meta):
         """Call the upload flow (CLAUDE.md Section 11). Result in gblUpload {success, itemid, fileurl, message}."""
+        if getattr(B, "DEMO", False):   # demo build: no flow, no SharePoint
+            return 'Set(gblUpload, {success: "false", itemid: 0, fileurl: "", message: "Uploads are turned off in demo mode."})'
         return (f"IfError(\n"
                 f"    Set(gblUpload, {FLOW}.Run(\n"
                 f"        {{name: First({att}.Attachments).Name, contentBytes: First({att}.Attachments).Value}},\n"

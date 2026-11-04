@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CanvasApp xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>jp_jqcpwidemo_4c2d1</Name>
+  <AppVersion>2026-11-04T22:52:33Z</AppVersion>
+  <Status>Ready</Status>
+  <CreatedByClientVersion>3.26094.9.0</CreatedByClientVersion>
+  <MinClientVersion>3.26094.9.0</MinClientVersion>
+  <Tags>{"primaryDeviceWidth":"1366","primaryDeviceHeight":"768","supportsPortrait":"true","supportsLandscape":"true","primaryFormFactor":"Tablet","showStatusBar":"false","publisherVersion":"3.26094.9","minimumRequiredApiVersion":"2.2.0","hasComponent":"false","hasUnlockedComponent":"false","isUnifiedRootApp":"false"}</Tags>
+  <IsCdsUpgraded>0</IsCdsUpgraded>
+  <GalleryItemId xsi:nil="true"></GalleryItemId>
+  <BackgroundColor>RGBA(19,50,91,1)</BackgroundColor>
+  <DisplayName>JQC/PWI Management (Demo)</DisplayName>
+  <Description>Demo of JQC/PWI Management with built-in fictional data. No SharePoint, no uploads.</Description>
+  <CommitMessage xsi:nil="true"></CommitMessage>
+  <Publisher xsi:nil="true"></Publisher>
+  <AuthorizationReferences>[]</AuthorizationReferences>
+  <ConnectionReferences>{}</ConnectionReferences>
+  <DatabaseReferences>{}</DatabaseReferences>
+  <AppComponents>[]</AppComponents>
+  <AppComponentDependencies>[]</AppComponentDependencies>
+  <CanConsumeAppPass>1</CanConsumeAppPass>
+  <CanvasAppType>0</CanvasAppType>
+  <BypassConsent>0</BypassConsent>
+  <AdminControlBypassConsent>0</AdminControlBypassConsent>
+  <EmbeddedApp xsi:nil="true"></EmbeddedApp>
+  <IntroducedVersion>1.0</IntroducedVersion>
+  <CdsDependencies>{"cdsdependencies":[]}</CdsDependencies>
+  <IsCustomizable>1</IsCustomizable>
+  <BackgroundImageUri>/CanvasApps/jp_jqcpwidemo_4c2d1_BackgroundImageUri</BackgroundImageUri>
+  <DocumentUri>/CanvasApps/jp_jqcpwidemo_4c2d1_DocumentUri.msapp</DocumentUri>
+</CanvasApp>
