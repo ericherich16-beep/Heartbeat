@@ -2,6 +2,7 @@
 
 > Functional specification for a Power Apps canvas app delivered as an importable solution.
 > **Sources:** `CLAUDE.md` (build brief) and `intake.md` (background). Where they conflict, `CLAUDE.md` wins. Section references such as "CLAUDE §7.8" point to `CLAUDE.md`.
+> **Product owner decisions** recorded in §8 override both source files.
 > **No confidential data.** Every name, email, number and file in this spec is fictional (for example `Tech A`, `manager1@contoso.com`, `PWI-DEMO-001`).
 > **This document contains no app code.**
 
@@ -18,7 +19,8 @@
 | **Assignment** | One row in `JP_Assignments`: one employee, one document, one revision. |
 | **Current row** | The assignment row with `IsCurrent = Yes`. Each employee has at most one current row per document. |
 | **Pending** | An assignment whose `Status` is `Assigned` or `In Training`. |
-| **Re-sign row** | A row created automatically by a PWI revision (`AssignmentReason = Revision Change`). |
+| **Revision Change row** | A row created automatically when a PWI or JQC is revised (`AssignmentReason = Revision Change`). For a PWI it is a **re-sign** item. For a JQC it puts the employee back to **Needs Training**. |
+| **Needs Training** | Display status of a JQC row with `Status = Assigned`. The employee isn't qualified, and a Manager must put them into training. |
 | **Qualified** | See BR-40. |
 | **Sign-off file** | Evidence uploaded to `JP_SignoffRecords`: a PWI training log or a signed JQC. |
 | **Trainer** | An employee a manager designates on a document. Trainer is not an app role. |
@@ -55,6 +57,7 @@
 | P05 | Upload a PWI training log | ✅ (own, or on behalf of an employee) | Own | ❌ |
 | P06 | Sign off a PWI | ✅ (own, or on behalf of an employee) | Own | ❌ |
 | P07 | Sign off a JQC (upload signed JQC and confirm qualification) | ✅ **except own** | ❌ | ❌ |
+| P07a | Put an employee into training on a JQC (Needs Training → In Training) | ✅ **except own** | ❌ | ❌ |
 | P08 | Add or edit employees and set their role, supervisor and active status | ✅ | ❌ | ❌ |
 | P09 | Add documents, edit document metadata and upload new revisions | ✅ | ❌ | ❌ |
 | P10 | Designate trainers on a document | ✅ | ❌ | ❌ |
@@ -110,10 +113,10 @@ Layout rules for every screen:
 
 | # | Screen | Roles | Purpose |
 |---|---|---|---|
-| 1 | `scrHome` | All | Landing page with tiles. My Pending shows the Re-Sign Required count. My Signed Off. Team Pending (managers only). Coverage Gaps. Each tile opens the matching screen with a filter applied. |
+| 1 | `scrHome` | All | Landing page with tiles. My Pending shows the Re-Sign Required count. My Signed Off. Team Pending (managers only), which includes a **JQCs Needing Training** count. Coverage Gaps. Each tile opens the matching screen with a filter applied. |
 | 2 | `scrMyTraining` | Manager, Technician | The user's own current assignments in three tabs: **Pending**, **Signed Off** and **All**. Re-sign rows show a "New Revision – Please Re-Sign" badge and the revision notes. Opens `scrAssignmentDetail`. |
-| 3 | `scrAssignmentDetail` | Manager, Technician (own) | Shows the document link (view and download), the revision assigned, the revision notes (for re-signs) and the trainer. **PWI:** upload the training log, then Sign Off. **JQC:** technicians see "Waiting on Supervisor"; managers upload the signed JQC and confirm qualification. |
-| 4 | `scrJQCLibrary` | All (edit: Manager) | List of JQCs with search and filters (Area, Status). Each shows trainers, current revision, template link and the number qualified. Managers can add or revise from here. |
+| 3 | `scrAssignmentDetail` | Manager, Technician (own) | Shows the document link (view and download), the revision assigned, the revision notes (for re-signs) and the trainer. **PWI:** upload the training log, then Sign Off. **JQC:** technicians see "Needs Training", or "In Training – Waiting on Supervisor". Managers tap **Put Into Training**, then upload the signed JQC and confirm qualification. |
+| 4 | `scrJQCLibrary` | All (edit: Manager) | List of JQCs with search and filters (Area, Status). Each shows trainers, current revision, template link, "X of Y qualified on current rev" and the Needs Training count. Managers can add or revise from here. |
 | 5 | `scrPWILibrary` | All (edit: Manager) | The same as the JQC library, plus "X of Y signed off on current rev" for each PWI. |
 | 6 | `scrDocumentEdit` | Manager | Add a document, edit its metadata, designate trainers, **Upload New Revision** (BR-30 to BR-36) and mark it Obsolete. |
 | 7 | `scrPWIStatus` | Manager, Viewer | One PWI: every assigned employee with the revision they're on and their display status. Managers get an Assign More Employees button and a Remove action. |
@@ -122,7 +125,7 @@ Layout rules for every screen:
 | 10 | `scrAssign` | Manager | Multi-select employees and Active documents, pick a trainer and due date, then preview and create the assignments. |
 | 11 | `scrMatrix` | All | Training matrix of employees × documents, with cell status from `fxAssignmentDisplayStatus`. |
 | 12 | `scrCrossTraining` | All | Coverage by task, single points of failure, coverage by shift, employee breadth, and tap-through to `scrAssign`. |
-| 13 | `scrSignoffReview` | Manager, Viewer | Recently signed-off items, JQCs waiting on a supervisor, re-signs required and overdue items. Filters by employee, document and date. |
+| 13 | `scrSignoffReview` | Manager, Viewer | Recently signed-off items, JQCs needing training (with a "New Revision" badge where it applies), JQCs in training, PWI re-signs required, and overdue items. Filters by employee, document and date. |
 
 ---
 
@@ -208,7 +211,7 @@ Library settings:
 | `IsCurrent` | Yes/No | ✅ | Yes = the employee's live row for this document. Indexed. |
 | `AssignedBy` | Person | ✅ | |
 | `AssignedDate` | Date only | ✅ | |
-| `DueDate` | Date only | | Optional. Re-sign rows default to Today() + `ResignDueDays`. |
+| `DueDate` | Date only | | Optional. Revision Change rows (PWI and JQC) default to Today() + `ResignDueDays`. |
 | `Trainer` | Person | | Chosen from the document's `Trainers`. |
 | `Status` | Choice | ✅ | Assigned, In Training, Signed Off, Superseded, Removed. Indexed. |
 | `SignedOffBy` | Person | | PWI: the employee or a manager. JQC: the manager or supervisor. |
@@ -235,7 +238,7 @@ File name format: `{DocNumber}_Rev{Rev}_{EmployeeID}_{yyyyMMdd}.{ext}`. `Employe
 |---|---|---|---|
 | `Title` | Single line of text | `Settings` | Required by SharePoint. |
 | `MinQualifiedPerTask` | Number (integer ≥ 1) | 2 | Cross-training target. `TODO:` confirm. |
-| `ResignDueDays` | Number (integer ≥ 1) | 14 | Days allowed to re-sign after a PWI revision. `TODO:` confirm. |
+| `ResignDueDays` | Number (integer ≥ 1) | 14 | Days allowed to re-sign after a PWI revision, or to requalify after a JQC revision (OQ-17). `TODO:` confirm. |
 
 ### 3.7 Delivery components (from CLAUDE §4, §10, §11 and §16)
 
@@ -333,17 +336,20 @@ No URLs, tenant IDs, site names or GUIDs are hard-coded anywhere.
   - On sign-off the app sets `Status = Signed Off`, `SignedOffBy` = current user, `SignedOffDate = Now()` and `SignoffFileID`.
 - **BR-29** **JQC:**
   - Only a Manager can sign off, and never on a row where they are the assigned employee.
+  - The row must be `In Training` (BR-39). A `Needs Training` row has to be put into training first (OQ-18).
   - The Manager uploads the signed JQC and ticks *"I verified this employee is qualified to perform this task."*
   - The confirm button stays disabled until both the upload and the tick are done.
   - On confirm the app sets `Status = Signed Off`, `SignedOffBy` = the Manager, `SignedOffDate = Now()` and `SignoffFileID`.
   - Technicians never see JQC sign-off controls.
 - **BR-30** Each uploaded sign-off file creates a `JP_SignoffRecords` item with `AssignmentID`, `DocType`, `Revision` (= `RevisionAssigned`), `EmployeeEmail` and `UploadedBy`. It is named using the §3.5 format.
 
-### PWI revision change
+### Revision change (PWI and JQC)
 - **BR-31** Only a Manager can upload a new revision (`scrDocumentEdit` → **Upload New Revision**). A new file, a new `Revision` value (different from the current one, A-06) and `RevisionNotes` are all required.
-- **BR-32** Before saving, the app shows *"This will require X employees to sign off on Rev {new}."* X = the number of rows for this `DocumentID` with `IsCurrent = Yes`, `Status` not `Removed`, and an active employee.
+- **BR-32** Before saving, the app shows a confirmation. X = the number of rows for this `DocumentID` with `IsCurrent = Yes`, `Status` not `Removed`, and an active employee.
+  - **PWI:** *"This will require X employees to sign off on Rev {new}."*
+  - **JQC:** *"This will put X employees back to Needs Training on Rev {new}. Their current qualification will no longer count."*
 - **BR-33** On confirm, the app first replaces the file in place (upload flow with `ExistingItemID`) and updates `Revision`, `RevisionDate = Today()` and `RevisionNotes` on the document item. The item ID doesn't change.
-- **BR-34** Next, for **every** row with this `DocumentID`, `IsCurrent = Yes`, `Status` in Assigned, In Training or Signed Off, and an active employee:
+- **BR-34** Next, for both PWIs and JQCs (D-01), for **every** row with this `DocumentID`, `IsCurrent = Yes`, `Status` in Assigned, In Training or Signed Off, and an active employee:
   - **Old row:** set `Status = Superseded` if it was `Signed Off`, otherwise keep its status. Set `IsCurrent = No`.
   - **New row:** same `Employee` and `Trainer`, with:
     - `RevisionAssigned` = the new revision
@@ -355,17 +361,17 @@ No URLs, tenant IDs, site names or GUIDs are hard-coded anywhere.
     - copies of the other columns, as in BR-22
 - **BR-35** After processing, a summary shows the number re-assigned and the number of failures, with a **Retry** button. Retry processes only rows that still have `IsCurrent = Yes` on an old revision, so it never creates duplicates.
 - **BR-36** Earlier sign-off records and files stay in `JP_SignoffRecords` and appear on `scrEmployeeDetail` under "Previous revisions".
-- **BR-37** Re-sign rows show in **My Pending** with the badge "New Revision – Please Re-Sign" and the `RevisionNotes`.
+- **BR-37** **PWI** Revision Change rows show in **My Pending** with the badge "New Revision – Please Re-Sign" and the `RevisionNotes`. **JQC** Revision Change rows show as **Needs Training** with a "New Revision" badge and the `RevisionNotes`: in the employee's My Pending, in the Manager's Team Pending, and under JQCs Needing Training on `scrSignoffReview`.
 - **BR-38** The revision process is built with `ForAll` + `Patch` in the app. It is designed for up to 500 affected rows per document; the limit is documented in Admin-Guide.md.
 
-### JQC revision change
-- **BR-39** Uploading a new JQC revision replaces the file and updates `Revision`, `RevisionDate` and `RevisionNotes`, as in BR-33. It **doesn't** create re-sign rows, and existing `Signed Off` JQC rows stay valid. A Manager can still re-assign an employee manually by removing their row (BR-26) and assigning again. How pending JQC rows are handled is covered by A-09 and OQ-01.
+### JQC training workflow
+- **BR-39** Every JQC row with `Status = Assigned` displays as **Needs Training**, whether it came from a new assignment or a revision. The Manager is responsible for moving it forward:
+  - **Put Into Training** (Manager only, never on their own row) sets `Status = In Training` and lets the Manager set or confirm the `Trainer`.
+  - The Manager then signs off per BR-29.
+  - Technicians can't change JQC row status.
 
 ### Qualification and status
-- **BR-40** **Qualified:**
-  - **PWI:** the employee is active and their current row has `Status = Signed Off` **and** `RevisionAssigned` = the document's current `Revision`.
-  - **JQC:** the employee is active and their current row has `Status = Signed Off`, on any revision (BR-39).
-  - Only qualified rows count as Signed Off in the matrix, the cross-training counts and the library counts.
+- **BR-40** **Qualified** (the same rule for PWIs and JQCs): the employee is active and their current row has `Status = Signed Off` **and** `RevisionAssigned` = the document's current `Revision`. Only qualified rows count as Signed Off in the matrix, the cross-training counts and the library counts. After a JQC revision, previously qualified employees stop counting until a Manager signs them off on the new revision (D-01).
 - **BR-41** The display status (`fxAssignmentDisplayStatus`) is the first match in this list:
 
   | # | Condition | Display status | Color |
@@ -373,12 +379,13 @@ No URLs, tenant IDs, site names or GUIDs are hard-coded anywhere.
   | 1 | No current row | Not Assigned | Grey |
   | 2 | Qualified per BR-40 | Signed Off | Green |
   | 3 | Pending and `DueDate` set and `DueDate < Today()` | Overdue | Red |
-  | 4 | Pending and `AssignmentReason = Revision Change` | Re-Sign Required | Amber |
-  | 5 | JQC, `Status = In Training` | Waiting on Supervisor | Amber |
-  | 6 | Pending | Pending | Amber |
-  | 7 | PWI, current row `Signed Off` but on an older revision (integrity exception) | Re-Sign Required | Amber |
+  | 4 | PWI, pending, `AssignmentReason = Revision Change` | Re-Sign Required | Amber |
+  | 5 | JQC, `Status = Assigned` | Needs Training | Amber |
+  | 6 | JQC, `Status = In Training` | In Training | Amber |
+  | 7 | PWI, pending | Pending | Amber |
+  | 8 | Current row `Signed Off` but on an older revision (integrity exception) | PWI: Re-Sign Required. JQC: Needs Training | Amber |
 
-  The order of rows 3–6 is set out in A-10. Where an Overdue row is also a re-sign, it shows a secondary "Re-sign" badge.
+  The order of rows 3–7 is set out in A-10. An Overdue row that is also a Revision Change row shows a secondary "New Revision" badge. Technicians see a JQC In Training row as "In Training – Waiting on Supervisor".
 - **BR-42** Colors come from theme named formulas and are never hard-coded on controls. Every status appears as a text label alongside its color.
 
 ### Cross-training
@@ -387,7 +394,7 @@ No URLs, tenant IDs, site names or GUIDs are hard-coded anywhere.
 - **BR-45** A task is a **single point of failure** when coverage is exactly 1. The view names that person.
 - **BR-46** **Coverage by shift** shows coverage per task for each `Shift` value that has at least one active employee. A cell with 0 marks a shift with no coverage.
 - **BR-47** **Employee breadth** = the number of tasks each active employee is qualified on.
-- **BR-48** The "pending re-sign" count for a task = current rows with display status Re-Sign Required, or Overdue on a re-sign row.
+- **BR-48** The "pending after revision" count for a task = current rows with `AssignmentReason = Revision Change` that aren't `Signed Off`. For a PWI these are re-signs. For a JQC they are employees who need training again.
 
 ### Records
 - **BR-49** Nothing is deleted:
@@ -402,6 +409,7 @@ No URLs, tenant IDs, site names or GUIDs are hard-coded anywhere.
 
 Checks use the fictional seed data, which must include at least these scenarios:
 - one PWI with a revision change, such as `PWI-DEMO-001` Rev A → Rev B
+- one JQC with a revision change and previously qualified employees, such as `JQC-DEMO-100` Rev A → Rev B
 - one JQC with no trainer
 - one task with exactly one qualified person
 - one shift with no coverage
@@ -410,7 +418,7 @@ Checks use the fictional seed data, which must include at least these scenarios:
 
 ### 5.1 `scrHome`
 - **AC-HOME-1** A Technician sees My Pending, with a separate Re-Sign Required count, and My Signed Off tiles. The counts match their current rows.
-- **AC-HOME-2** A Manager also sees Team Pending, counted over employees whose `Supervisor` is the Manager.
+- **AC-HOME-2** A Manager also sees Team Pending, counted over employees whose `Supervisor` is the Manager. It includes a JQCs Needing Training count, which opens `scrSignoffReview` filtered to that list.
 - **AC-HOME-3** Every role sees a Coverage Gaps tile showing the number of tasks below target, which opens `scrCrossTraining`.
 - **AC-HOME-4** A Viewer sees no My Pending, My Signed Off or Team Pending tiles.
 - **AC-HOME-5** A user with no `JP_Employees` match lands here with Viewer navigation only.
@@ -427,19 +435,21 @@ Checks use the fictional seed data, which must include at least these scenarios:
 - **AC-ASD-1** Shows document number and title, a view/download link, `RevisionAssigned`, the trainer, the due date, the display status, and the revision notes when the row is a re-sign.
 - **AC-ASD-2** **PWI, own pending row:** **Upload Training Log** is enabled. **Sign Off** stays disabled until the upload succeeds. After Sign Off, the status shows Signed Off with "Signed off by {name} on {date/time}", and a `JP_SignoffRecords` item exists with the right `AssignmentID`, `Revision` and file name.
 - **AC-ASD-3** **PWI, outdated revision** (`RevisionAssigned` ≠ current): Upload and Sign Off are disabled and the screen shows "This revision is no longer current."
-- **AC-ASD-4** **JQC, viewed by a Technician:** no upload or sign-off controls appear. The status shows "Waiting on Supervisor" or Pending.
-- **AC-ASD-5** **JQC, a Manager viewing another employee's row:** upload control, confirmation checkbox and confirm button are shown. Confirm stays disabled until both are done. After confirming, `SignedOffBy` is the Manager.
-- **AC-ASD-6** **JQC, a Manager viewing their own row:** the sign-off controls are hidden.
+- **AC-ASD-4** **JQC, viewed by a Technician:** no status, upload or sign-off controls appear. The status shows "Needs Training" or "In Training – Waiting on Supervisor".
+- **AC-ASD-5** **JQC, a Manager viewing another employee's row:**
+  - On a Needs Training row, **Put Into Training** is shown with a trainer picker. Confirming it sets `Status = In Training`.
+  - On an In Training row, the upload control, confirmation checkbox and confirm button are shown. Confirm stays disabled until both are done. After confirming, `SignedOffBy` is the Manager.
+- **AC-ASD-6** **JQC, a Manager viewing their own row:** Put Into Training and the sign-off controls are hidden.
 - **AC-ASD-7** Choosing a `.exe` file, or a file over 25 MB, is rejected with a message and the flow isn't called.
 - **AC-ASD-8** If the upload or the Patch fails, a Notify error appears and the row is unchanged. The button is disabled while saving.
 - **AC-ASD-9** A Technician who opens another employee's row sees "You can only view your own items."
 
 ### 5.4 `scrJQCLibrary` and `scrPWILibrary`
-- **AC-LIB-1** Each row shows document number, title, current revision, trainers, template or PWI link, and the number qualified (BR-40). The PWI library also shows "X of Y signed off on current rev".
+- **AC-LIB-1** Each row shows document number, title, current revision, trainers, template or PWI link, and the number qualified (BR-40). The PWI library also shows "X of Y signed off on current rev". The JQC library shows "X of Y qualified on current rev" and the Needs Training count.
 - **AC-LIB-2** Search matches document number and title. Filters for Area and Status default to Active.
 - **AC-LIB-3** Managers see **Add** and **Revise/Edit**, which open `scrDocumentEdit`. Technicians and Viewers don't.
 - **AC-LIB-4** Documents with no trainer show a "No trainer — can't assign" label.
-- **AC-LIB-5** For `PWI-DEMO-001` after its revision, "X of Y" counts only rows signed off on Rev B.
+- **AC-LIB-5** For `PWI-DEMO-001` and `JQC-DEMO-100` after their revisions, "X of Y" counts only rows signed off on Rev B.
 
 ### 5.5 `scrDocumentEdit`
 - **AC-DOC-1** **Add mode** requires a file, `DocType`, `DocNumber`, `DocTitle` and `Revision`. A duplicate `DocNumber` is rejected. On save the document appears in its library with `Status = Active`.
@@ -453,7 +463,7 @@ Checks use the fictional seed data, which must include at least these scenarios:
   - their old rows have `IsCurrent = No`, and `Status = Superseded` where they had been signed off
   - inactive employees get no new rows
   - a summary shows "{n} re-assigned, {f} failed", with Retry when f > 0
-- **AC-DOC-6** **JQC revision:** no new assignment rows are created, and previously signed-off employees still count as qualified.
+- **AC-DOC-6** **JQC revision, after confirm:** the confirmation used the JQC wording from BR-32. Every affected active employee has a new current row on Rev B with `Status = Assigned`, so it displays as Needs Training. Previously signed-off rows are `Superseded` and stay in history. Those employees no longer count as qualified in the library, matrix and cross-training views. The summary and Retry work as in AC-DOC-5.
 - **AC-DOC-7** **Mark Obsolete** asks for confirmation and sets `Status = Obsolete`. The document disappears from the default library view, the matrix and the cross-training view.
 
 ### 5.6 `scrPWIStatus`
@@ -484,12 +494,12 @@ Checks use the fictional seed data, which must include at least these scenarios:
 - **AC-MTX-1** **Desktop/tablet:** employees are rows and Active documents are columns, with a frozen employee name column. Each cell shows the BR-41 status as text and color.
 - **AC-MTX-2** Filters: Area, DocType, Department, Shift, Supervisor, and "Re-Sign Required only".
 - **AC-MTX-3** **Phone:** choose an employee to see their documents as status chips, or choose a document to see its employees.
-- **AC-MTX-4** For `PWI-DEMO-001` after Rev B, an employee who signed only Rev A shows **Re-Sign Required** (or Overdue), never Signed Off.
+- **AC-MTX-4** After Rev B, an employee who signed only Rev A shows **Re-Sign Required** for `PWI-DEMO-001` and **Needs Training** for `JQC-DEMO-100` (or Overdue in either case), never Signed Off.
 - **AC-MTX-5** Inactive employees and Obsolete documents don't appear.
 - **AC-MTX-6** Cell values match the seed data's expected results table (in `/seed/`).
 
 ### 5.11 `scrCrossTraining`
-- **AC-XT-1** **Coverage by task:** one bar per Active task showing qualified count against target. Below-target tasks are red and listed first. Each task shows its pending re-sign count.
+- **AC-XT-1** **Coverage by task:** one bar per Active task showing qualified count against target. Below-target tasks are red and listed first. Each task shows its pending-after-revision count (BR-48).
 - **AC-XT-2** **Single points of failure:** lists tasks with exactly one qualified person and names that person.
 - **AC-XT-3** **Coverage by shift:** a table of tasks × shifts with qualified counts. Cells with 0 are highlighted.
 - **AC-XT-4** **Employee breadth:** the number of qualifications per active employee, sorted ascending.
@@ -498,7 +508,8 @@ Checks use the fictional seed data, which must include at least these scenarios:
 - **AC-XT-7** Built only from standard controls (galleries, shapes, labels and the built-in column chart), and readable on a phone.
 
 ### 5.12 `scrSignoffReview`
-- **AC-SOR-1** Four sections or tabs: Recently Signed Off, JQCs Waiting on Supervisor, Re-Sign Required, and Overdue.
+- **AC-SOR-1** Five sections or tabs: Recently Signed Off, JQCs Needing Training (with a "New Revision" badge on Revision Change rows), JQCs In Training, PWI Re-Sign Required, and Overdue.
+- **AC-SOR-1a** A Manager can tap **Put Into Training** directly from the JQCs Needing Training list. Viewers can't.
 - **AC-SOR-2** Filters for employee, document and date range.
 - **AC-SOR-3** Each item links to its sign-off file where one exists. Managers can open `scrAssignmentDetail` from an item.
 - **AC-SOR-4** Viewers can see everything but can't change anything.
@@ -525,25 +536,25 @@ Checks use the fictional seed data, which must include at least these scenarios:
 | A-06 | A new revision's label only has to differ from the current `Revision`. There is no format check. |
 | A-07 | Trainers are picked from active `JP_Employees` (Technician or Manager) and stored as people in the `Trainers` Person column. |
 | A-08 | Viewers can't be assigned documents. Matrix rows are active employees with `AppRole` Technician or Manager/Supervisor. |
-| A-09 | On a **JQC** revision, pending JQC rows on the old revision stay as they are. Because BR-27 blocks sign-off on an outdated revision, a Manager must remove the row and re-assign it before a sign-off. `scrSignoffReview` flags these rows as "Revision changed – re-assign". See OQ-01. |
-| A-10 | Status precedence when several apply: Signed Off, then Overdue, then Re-Sign Required, then Waiting on Supervisor, then Pending. |
-| A-11 | `In Training` is set from `scrAssignmentDetail`. For a PWI, the employee or a Manager taps "Start Training". For a JQC, the employee or a Manager taps "Training Complete – Ready for Supervisor". A JQC row in `In Training` displays as **Waiting on Supervisor**. See OQ-02. |
+| A-09 | A JQC revision follows the same row mechanics as a PWI revision (BR-34): every current row on the old revision is replaced. JQC Revision Change rows are **not** worded as "re-sign", because the employee doesn't sign a JQC. They display as Needs Training. |
+| A-10 | Status precedence when several apply: Signed Off, then Overdue, then Re-Sign Required, then Needs Training, then In Training, then Pending. |
+| A-11 | `In Training` is set from `scrAssignmentDetail` (or, for JQCs, from `scrSignoffReview`). For a PWI, the employee or a Manager taps "Start Training"; this is optional, and a PWI can be signed off from `Assigned`. For a JQC, only a Manager can tap "Put Into Training" (BR-39). A JQC can't be signed off until it is `In Training`. See OQ-02 and OQ-18. |
 | A-12 | Removing an assignment happens on `scrPWIStatus` or `scrEmployeeDetail` (Managers only). The reason is stored in `Comments`. |
 | A-13 | When an employee is deactivated, their rows stay unchanged and are simply left out of views and counts (BR-13). When a document is made Obsolete, its rows stay unchanged and it is left out of views. |
 | A-14 | Employees with a blank `Shift` are grouped under "Unassigned" in coverage by shift. |
-| A-15 | Following CLAUDE §7.8, a row that was still pending (never signed) on the old revision also gets a **Revision Change** row, so it shows Re-Sign Required, and its due date resets to Today() + `ResignDueDays`. |
+| A-15 | Following CLAUDE §7.8, a row that was still pending (never signed) on the old revision also gets a **Revision Change** row, and its due date resets to Today() + `ResignDueDays`. For a PWI it shows Re-Sign Required. For a JQC it goes back to Needs Training, even if the employee was already In Training. |
 | A-16 | A Manager who signs off a PWI on an employee's behalf must still upload the training log. `SignedOffBy` is the Manager. |
 | A-17 | Users without SharePoint access see a friendly "You don't have access" message, triggered when the employee lookup returns a data-source error. |
 | A-18 | If two files for the same assignment are uploaded on the same day and get the same name, the flow adds `_HHmmss` to the name so the earlier file isn't overwritten. |
-| A-19 | Data volumes: no more than 2,000 active employees or documents, so filtered lookups stay delegable. No more than 500 affected rows per PWI revision (BR-38). Limits are documented in Admin-Guide.md. |
+| A-19 | Data volumes: no more than 2,000 active employees or documents, so filtered lookups stay delegable. No more than 500 affected rows per revision, PWI or JQC (BR-38). Limits are documented in Admin-Guide.md. |
 | A-20 | Seed data uses only CLAUDE §2 style placeholders (`Tech A`, `manager1@contoso.com`, `JQC-DEMO-100`, `PWI-DEMO-001`) and includes an expected-results table for matrix and cross-training checks. |
 
 ## 7. Open questions
 
 | # | Question | Default until answered |
 |---|---|---|
-| OQ-01 | When a **JQC** is revised, what happens to JQC rows that are still pending on the old revision? Options: leave them for manual re-assignment, or move them automatically to the new revision. Moving them isn't a re-sign, but CLAUDE §7.9 and the rule that nobody signs off an outdated revision together leave this undefined. | A-09: manual re-assign, flagged in Sign-off Review |
-| OQ-02 | Who sets `In Training`, and how is "training complete" recorded for a JQC so it can show **Waiting on Supervisor**? Could the designated trainer do it, even though trainers aren't an app role? | A-11 |
+| OQ-01 | ~~What happens to JQC rows when a JQC is revised?~~ **Resolved by D-01.** | — |
+| OQ-02 | For **JQCs**, the Manager sets `In Training` (D-01). Is a separate "training complete – waiting on supervisor" step needed between In Training and sign-off, or is In Training enough? For **PWIs**, should "Start Training" exist at all? | No separate step. PWI Start Training is optional. |
 | OQ-03 | Technicians have Contribute on `JP_Assignments` and `JP_SignoffRecords`, so they could edit their own (or anyone's) rows in SharePoint directly. Is in-app enforcement enough for quality records, or should sign-off writes move to a flow running under a service account? This ties to the in-app sign-off open item. | In-app enforcement plus the §1.4 permissions |
 | OQ-04 | `TODO:` Confirm the default re-sign due period of **14 days**. | 14 |
 | OQ-05 | `TODO:` Confirm the cross-training target of **2 qualified per task**. Should it also apply per shift? | 2, overall only |
@@ -558,3 +569,16 @@ Checks use the fictional seed data, which must include at least these scenarios:
 | OQ-14 | Should a Manager be prevented from changing their own role or deactivating themselves, to avoid locking everyone out? | Not enforced; noted in Admin-Guide.md |
 | OQ-15 | What are the expected data volumes? This confirms the A-19 limits for the matrix and for re-assigning rows after a revision. | A-19 |
 | OQ-16 | Should Technicians and Viewers be able to open superseded revision files (version history) from the app, or only the current revision? | Current revision only. Managers can use SharePoint version history. |
+| OQ-17 | Should JQC Needs Training rows created by a revision get a due date? If so, should they use `ResignDueDays` or a separate setting? | `ResignDueDays` |
+| OQ-18 | Must a JQC be put **In Training** before a Manager can sign it off? Or can a Manager sign off directly from Needs Training, for example when the employee is already competent on the change? | Must be In Training first |
+| OQ-19 | When a JQC is revised, should the trainer on the employee's old row carry over to the new row, or be cleared so the Manager picks one when putting them into training? | Carry over; the Manager can change it |
+
+## 8. Product owner decisions
+
+These override `CLAUDE.md` and `intake.md` where they conflict.
+
+| # | Date | Decision | Overrides | Spec impact |
+|---|---|---|---|---|
+| D-01 | 2026-11-04 | When a new JQC revision is uploaded, the system automatically puts every currently assigned active employee back to **Needs Training** on the new revision. The Manager is responsible for putting them into training and signing them off. Qualification on the old revision no longer counts. | CLAUDE §7.9 ("existing JQC sign-offs stay valid, no automatic re-sign"), CLAUDE §18 and intake out-of-scope ("automatic re-sign on JQC revisions"), CLAUDE §7.10 (current revision rule was PWI-only) | BR-32, BR-34, BR-37, BR-39, BR-40, BR-41, BR-48. AC-DOC-6, AC-ASD-4/5, AC-MTX-4, AC-SOR-1. A-09, A-11, A-15. Resolves OQ-01. |
+
+`CLAUDE.md` should be updated to match D-01 (§7.9, §7.10, §8, §18 and §20) so the build brief and this spec agree.
