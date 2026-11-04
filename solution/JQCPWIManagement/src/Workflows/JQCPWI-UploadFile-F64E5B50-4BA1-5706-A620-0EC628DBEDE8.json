@@ -1,0 +1,611 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "invoker",
+        "connection": {
+          "connectionReferenceLogicalName": "jp_sharepoint"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "JQC/PWI - SharePoint site (jp_SiteUrl)": {
+          "defaultValue": "",
+          "type": "String",
+          "metadata": {
+            "schemaName": "jp_SiteUrl"
+          }
+        },
+        "JQC/PWI - JP_Documents library (jp_LibDocuments)": {
+          "defaultValue": "",
+          "type": "String",
+          "metadata": {
+            "schemaName": "jp_LibDocuments"
+          }
+        },
+        "JQC/PWI - JP_SignoffRecords library (jp_LibSignoffs)": {
+          "defaultValue": "",
+          "type": "String",
+          "metadata": {
+            "schemaName": "jp_LibSignoffs"
+          }
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "PowerAppV2",
+          "metadata": {
+            "operationMetadataId": "50c7a820-f83a-5a3e-8757-fbd566d75838"
+          },
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "title": "File",
+                  "type": "object",
+                  "x-ms-dynamically-added": true,
+                  "x-ms-content-hint": "FILE",
+                  "description": "The file to upload (Attachments control: First(att.Attachments)).",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "contentBytes": {
+                      "type": "string",
+                      "format": "byte"
+                    }
+                  }
+                },
+                "text": {
+                  "title": "TargetLibrary",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "x-ms-content-hint": "TEXT",
+                  "description": "Documents or Signoffs"
+                },
+                "number": {
+                  "title": "ExistingItemID",
+                  "type": "number",
+                  "x-ms-dynamically-added": true,
+                  "x-ms-content-hint": "NUMBER",
+                  "description": "0 = create a new file. Otherwise the item ID whose content is replaced (new revision)."
+                },
+                "text_1": {
+                  "title": "MetadataJson",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "x-ms-content-hint": "TEXT",
+                  "description": "JSON with the file name and column values."
+                }
+              },
+              "required": [
+                "file",
+                "text",
+                "number",
+                "text_1"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Metadata": {
+          "type": "Compose",
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "959c0b80-5126-56f8-a2a4-68f42e0ae963"
+          },
+          "inputs": "@json(if(empty(triggerBody()?['text_1']), '{}', triggerBody()?['text_1']))"
+        },
+        "Extension": {
+          "type": "Compose",
+          "runAfter": {
+            "Metadata": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "d8cf0f3f-8c01-5718-8c05-5421a11a57f9"
+          },
+          "inputs": "@toLower(last(split(triggerBody()?['file']?['name'], '.')))"
+        },
+        "Initialize_ItemId": {
+          "type": "InitializeVariable",
+          "runAfter": {
+            "Extension": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "6341c805-98e3-5ebd-bb2f-ad66189e154c"
+          },
+          "inputs": {
+            "variables": [
+              {
+                "name": "ItemId",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "Is_valid": {
+          "type": "If",
+          "runAfter": {
+            "Initialize_ItemId": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "212daa5f-ec69-5c89-9f15-1dd0b0da0dca"
+          },
+          "expression": {
+            "and": [
+              {
+                "or": [
+                  {
+                    "equals": [
+                      "@triggerBody()?['text']",
+                      "Documents"
+                    ]
+                  },
+                  {
+                    "equals": [
+                      "@triggerBody()?['text']",
+                      "Signoffs"
+                    ]
+                  }
+                ]
+              },
+              {
+                "contains": [
+                  "@createArray('pdf', 'docx', 'xlsx', 'jpg', 'jpeg', 'png')",
+                  "@outputs('Extension')"
+                ]
+              },
+              {
+                "lessOrEquals": [
+                  "@div(mul(length(string(triggerBody()?['file']?['contentBytes'])), 3), 4)",
+                  26214400
+                ]
+              }
+            ]
+          },
+          "actions": {},
+          "else": {
+            "actions": {
+              "Respond_invalid": {
+                "type": "Response",
+                "kind": "PowerApp",
+                "runAfter": {},
+                "metadata": {
+                  "operationMetadataId": "2ebfb05f-cc99-55c9-be12-73d16008eb8d"
+                },
+                "inputs": {
+                  "statusCode": 200,
+                  "body": {
+                    "success": "false",
+                    "itemid": 0,
+                    "fileurl": "",
+                    "message": "File rejected: use PDF, DOCX, XLSX, JPG or PNG, up to 25 MB."
+                  },
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "success": {
+                        "title": "success",
+                        "x-ms-dynamically-added": true,
+                        "type": "string"
+                      },
+                      "itemid": {
+                        "title": "itemid",
+                        "x-ms-dynamically-added": true,
+                        "type": "number"
+                      },
+                      "fileurl": {
+                        "title": "fileurl",
+                        "x-ms-dynamically-added": true,
+                        "type": "string"
+                      },
+                      "message": {
+                        "title": "message",
+                        "x-ms-dynamically-added": true,
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "Stop_invalid": {
+                "type": "Terminate",
+                "runAfter": {
+                  "Respond_invalid": [
+                    "Succeeded"
+                  ]
+                },
+                "metadata": {
+                  "operationMetadataId": "5f19e05b-eac5-5908-9cee-57535577973f"
+                },
+                "inputs": {
+                  "runStatus": "Cancelled"
+                }
+              }
+            }
+          }
+        },
+        "Try": {
+          "type": "Scope",
+          "runAfter": {
+            "Is_valid": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "a2b62187-68f0-50a8-b15a-37dd30372720"
+          },
+          "actions": {
+            "Library_ID": {
+              "type": "Compose",
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "61067918-1e12-5ea5-81bd-f4573a1138b7"
+              },
+              "inputs": "@if(equals(triggerBody()?['text'], 'Documents'), parameters('JQC/PWI - JP_Documents library (jp_LibDocuments)'), parameters('JQC/PWI - JP_SignoffRecords library (jp_LibSignoffs)'))"
+            },
+            "New_or_replace": {
+              "type": "If",
+              "runAfter": {
+                "Library_ID": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "e7151196-9273-5ee1-9536-925150a8341d"
+              },
+              "expression": {
+                "and": [
+                  {
+                    "greater": [
+                      "@triggerBody()?['number']",
+                      0
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Get_existing_file": {
+                  "type": "OpenApiConnection",
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "afd1f8a2-1f70-5728-a83e-405cd5451b89"
+                  },
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "GetFileItem",
+                      "connectionName": "shared_sharepointonline"
+                    },
+                    "parameters": {
+                      "dataset": "@parameters('JQC/PWI - SharePoint site (jp_SiteUrl)')",
+                      "table": "@outputs('Library_ID')",
+                      "id": "@triggerBody()?['number']"
+                    }
+                  }
+                },
+                "Update_file": {
+                  "type": "OpenApiConnection",
+                  "runAfter": {
+                    "Get_existing_file": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "e6fc1f11-eb07-5bea-b1dc-db3d8e2f74bf"
+                  },
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "UpdateFile",
+                      "connectionName": "shared_sharepointonline"
+                    },
+                    "parameters": {
+                      "dataset": "@parameters('JQC/PWI - SharePoint site (jp_SiteUrl)')",
+                      "id": "@body('Get_existing_file')?['{Identifier}']",
+                      "body": "@base64ToBinary(triggerBody()?['file']?['contentBytes'])"
+                    }
+                  }
+                },
+                "Set_ItemId_existing": {
+                  "type": "SetVariable",
+                  "runAfter": {
+                    "Update_file": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "36554672-8323-5266-8d47-cfca4c3b8538"
+                  },
+                  "inputs": {
+                    "name": "ItemId",
+                    "value": "@int(triggerBody()?['number'])"
+                  }
+                }
+              },
+              "else": {
+                "actions": {
+                  "Create_file": {
+                    "type": "OpenApiConnection",
+                    "runAfter": {},
+                    "metadata": {
+                      "operationMetadataId": "bd523dde-dd92-53f0-975e-8bfcd1529ce5"
+                    },
+                    "inputs": {
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "CreateFile",
+                        "connectionName": "shared_sharepointonline"
+                      },
+                      "parameters": {
+                        "dataset": "@parameters('JQC/PWI - SharePoint site (jp_SiteUrl)')",
+                        "folderPath": "@if(equals(triggerBody()?['text'], 'Documents'), '/JP_Documents', '/JP_SignoffRecords')",
+                        "name": "@{coalesce(outputs('Metadata')?['FileName'], triggerBody()?['file']?['name'])}",
+                        "body": "@base64ToBinary(triggerBody()?['file']?['contentBytes'])"
+                      }
+                    }
+                  },
+                  "Set_ItemId_new": {
+                    "type": "SetVariable",
+                    "runAfter": {
+                      "Create_file": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "76c51417-22e8-54d7-a9d8-ac9ae9ba503e"
+                    },
+                    "inputs": {
+                      "name": "ItemId",
+                      "value": "@int(body('Create_file')?['ItemId'])"
+                    }
+                  }
+                }
+              }
+            },
+            "Which_library": {
+              "type": "If",
+              "runAfter": {
+                "New_or_replace": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "6183a364-9074-5df6-9402-4c9c7c713ae8"
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@equals(triggerBody()?['text'], 'Documents')",
+                      true
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Update_document_properties": {
+                  "type": "OpenApiConnection",
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "6d9acb75-bf27-5e0b-bbc4-c99a60e59607"
+                  },
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "PatchFileItem",
+                      "connectionName": "shared_sharepointonline"
+                    },
+                    "parameters": {
+                      "dataset": "@parameters('JQC/PWI - SharePoint site (jp_SiteUrl)')",
+                      "table": "@parameters('JQC/PWI - JP_Documents library (jp_LibDocuments)')",
+                      "id": "@variables('ItemId')",
+                      "item/Title": "@outputs('Metadata')?['DocNumber']",
+                      "item/DocType/Value": "@outputs('Metadata')?['DocType']",
+                      "item/DocNumber": "@outputs('Metadata')?['DocNumber']",
+                      "item/DocTitle": "@outputs('Metadata')?['DocTitle']",
+                      "item/Revision": "@outputs('Metadata')?['Revision']",
+                      "item/RevisionDate": "@outputs('Metadata')?['RevisionDate']",
+                      "item/RevisionNotes": "@outputs('Metadata')?['RevisionNotes']",
+                      "item/Area/Value": "@outputs('Metadata')?['Area']",
+                      "item/Status/Value": "@coalesce(outputs('Metadata')?['Status'], 'Active')",
+                      "item/Trainers": "@outputs('Metadata')?['Trainers']",
+                      "item/Description": "@outputs('Metadata')?['Description']"
+                    }
+                  }
+                }
+              },
+              "else": {
+                "actions": {
+                  "Update_signoff_properties": {
+                    "type": "OpenApiConnection",
+                    "runAfter": {},
+                    "metadata": {
+                      "operationMetadataId": "10ba0642-266f-57b6-98f1-b76e8cdd44a9"
+                    },
+                    "inputs": {
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "PatchFileItem",
+                        "connectionName": "shared_sharepointonline"
+                      },
+                      "parameters": {
+                        "dataset": "@parameters('JQC/PWI - SharePoint site (jp_SiteUrl)')",
+                        "table": "@parameters('JQC/PWI - JP_SignoffRecords library (jp_LibSignoffs)')",
+                        "id": "@variables('ItemId')",
+                        "item/Title": "@outputs('Metadata')?['FileName']",
+                        "item/AssignmentID": "@outputs('Metadata')?['AssignmentID']",
+                        "item/DocType/Value": "@outputs('Metadata')?['DocType']",
+                        "item/Revision": "@outputs('Metadata')?['Revision']",
+                        "item/EmployeeEmail": "@outputs('Metadata')?['EmployeeEmail']",
+                        "item/UploadedBy/Claims": "@outputs('Metadata')?['UploadedBy']"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "Get_file_link": {
+              "type": "OpenApiConnection",
+              "runAfter": {
+                "Which_library": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "f5576979-75bb-54ed-be71-510b00123dad"
+              },
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetFileItem",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "@parameters('JQC/PWI - SharePoint site (jp_SiteUrl)')",
+                  "table": "@outputs('Library_ID')",
+                  "id": "@variables('ItemId')"
+                }
+              }
+            },
+            "Respond_success": {
+              "type": "Response",
+              "kind": "PowerApp",
+              "runAfter": {
+                "Get_file_link": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "f57a9f9e-b161-5dad-96c2-289a40ebb295"
+              },
+              "inputs": {
+                "statusCode": 200,
+                "body": {
+                  "success": "true",
+                  "itemid": "@variables('ItemId')",
+                  "fileurl": "@{body('Get_file_link')?['{Link}']}",
+                  "message": "Uploaded."
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "title": "success",
+                      "x-ms-dynamically-added": true,
+                      "type": "string"
+                    },
+                    "itemid": {
+                      "title": "itemid",
+                      "x-ms-dynamically-added": true,
+                      "type": "number"
+                    },
+                    "fileurl": {
+                      "title": "fileurl",
+                      "x-ms-dynamically-added": true,
+                      "type": "string"
+                    },
+                    "message": {
+                      "title": "message",
+                      "x-ms-dynamically-added": true,
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Failed_steps": {
+          "type": "Query",
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "ffb0419f-7286-5d2d-972a-85a34ebecae3"
+          },
+          "inputs": {
+            "from": "@result('Try')",
+            "where": "@equals(item()?['status'], 'Failed')"
+          }
+        },
+        "Respond_failure": {
+          "type": "Response",
+          "kind": "PowerApp",
+          "runAfter": {
+            "Failed_steps": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "75d0fb0d-dfcd-5d8e-901e-22fdb4cc58e9"
+          },
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "success": "false",
+              "itemid": "@variables('ItemId')",
+              "fileurl": "",
+              "message": "@{concat('Upload failed: ', coalesce(first(body('Failed_steps'))?['error']?['message'], 'see the flow run history.'))}"
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": {
+                  "title": "success",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "itemid": {
+                  "title": "itemid",
+                  "x-ms-dynamically-added": true,
+                  "type": "number"
+                },
+                "fileurl": {
+                  "title": "fileurl",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "message": {
+                  "title": "message",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

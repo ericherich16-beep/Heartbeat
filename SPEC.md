@@ -545,7 +545,7 @@ Checks use the fictional seed data, which must include at least these scenarios:
 | A-15 | Following CLAUDE §7.8, a row that was still pending (never signed) on the old revision also gets a **Revision Change** row, and its due date resets to Today() + `ResignDueDays`. For a PWI it shows Re-Sign Required. For a JQC it goes back to Needs Training, even if the employee was already In Training. |
 | A-16 | A Manager who signs off a PWI on an employee's behalf must still upload the training log. `SignedOffBy` is the Manager. |
 | A-17 | Users without SharePoint access see a friendly "You don't have access" message, triggered when the employee lookup returns a data-source error. |
-| A-18 | If two files for the same assignment are uploaded on the same day and get the same name, the flow adds `_HHmmss` to the name so the earlier file isn't overwritten. |
+| A-18 | Sign-off file names include the time (`…_{yyyyMMdd}_{HHmmss}.{ext}`), so replacing evidence on the same day never clashes with an earlier file. |
 | A-19 | Data volumes: no more than 2,000 active employees or documents, so filtered lookups stay delegable. No more than 500 affected rows per revision, PWI or JQC (BR-38). Limits are documented in Admin-Guide.md. |
 | A-20 | Seed data uses only CLAUDE §2 style placeholders (`Tech A`, `manager1@contoso.com`, `JQC-DEMO-100`, `PWI-DEMO-001`) and includes an expected-results table for matrix and cross-training checks (`/seed/expected-results.md`). Seed dates are offsets from the import day. |
 | A-21 | In the two document libraries (`JP_Documents`, `JP_SignoffRecords`), columns marked required are **not** set as required in SharePoint. The app and the upload flow enforce them instead, so a file the flow creates before it sets properties is never left incomplete. List columns are required in SharePoint as marked. |
@@ -558,6 +558,8 @@ Checks use the fictional seed data, which must include at least these scenarios:
 | A-28 | The user's tenant has a data policy ("Advanced Connector Policy") that **blocks the SharePoint action `HttpRequest`** ("Send an HTTP request to SharePoint"). No app or flow in this project may use it. Lists are created manually (`provisioning/Manual-Setup.md`) or with `Create-Lists.ps1`. The setup solution is kept only for tenants without that policy. |
 | A-29 | The app's SharePoint list definitions are generated from the schema in the `.msapp`, so the app opens already connected. The multi-person column (`JP_Documents.Trainers`) is generated without a public sample to copy. If Studio flags a data source after import, **Data → (list) → ⋯ → Refresh** reloads the real definition from SharePoint. |
 | A-30 | App logic lives in **named formulas** (`App.Formulas`). `app/tests/test_formulas.py` runs them offline with `pac power-fx run` against the seed data, and checks the home tiles, every matrix cell and coverage against `seed/expected-results.md`. Screen formulas that use canvas-only functions (`Navigate`, `Patch`) are checked in Studio. |
+| A-31 | The upload flow's **Create file** action needs a folder path, not a list ID. It uses the fixed library folders `/JP_Documents` and `/JP_SignoffRecords`, which are the same on every site because the schema fixes the names. Every other action uses the library IDs from the environment variables. |
+| A-32 | The upload flow uses the SharePoint connection of the **app user** ("invoker"). Users therefore need permission on the library they upload to: managers on `JP_Documents`, technicians on `JP_SignoffRecords` (CLAUDE.md Section 9). |
 
 ## 7. Open questions
 
