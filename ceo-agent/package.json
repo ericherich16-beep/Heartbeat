@@ -1,0 +1,16 @@
+{
+  "name": "ceo-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A live CEO persona that listens to a presentation and interrupts out loud.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.5.0"
+  }
+}
