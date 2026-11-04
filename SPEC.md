@@ -553,6 +553,7 @@ Checks use the fictional seed data, which must include at least these scenarios:
 | A-23 | Seed people columns need real tenant accounts. `Import-SeedData.ps1` takes a git-ignored `seed/user-map.csv` that maps seed emails to test accounts, and falls back to the signed-in account for required people columns. |
 | A-24 | The target Power Platform environment has Dataverse enabled. Solutions, environment variables and connection references need it. App data stays in SharePoint only, so the "no Dataverse" constraint still holds. |
 | A-25 | `pac canvas pack` is deprecated by Microsoft, but still works in `pac` 2.14 and produced an app that opened in Studio in an earlier project. Each generated `.msapp` is round-trip checked. If Studio rejects it, the fallback is to paste `.pa.yaml` per screen (D-02). |
+| A-26 | The lists can be created without PowerShell by the setup solution's flow ("Send an HTTP request to SharePoint", standard connector), run by a Site Owner. It's a separate solution because the main solution's environment variables need the lists to exist first. |
 
 ## 7. Open questions
 

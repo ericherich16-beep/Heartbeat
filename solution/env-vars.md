@@ -23,10 +23,30 @@ Notes:
   - A list variable stores the list's **ID (a GUID)**. `provisioning/Create-Lists.ps1` prints all five IDs when it finishes.
   - Never commit real values.
 
+## Before you import: create the lists
+
+The variables point at the JP_ lists, so the lists must exist first. Use either option.
+
+**Option A — setup flow (no PowerShell, no admin rights beyond Site Owner)**
+1. **make.powerapps.com** → **Solutions** → **Import solution** → pick `solution/dist/JQCPWISetup_1_0_0_0_unmanaged.zip` → **Next**.
+2. When asked, pick or create a **SharePoint** connection → **Import**.
+3. Open the **JQC/PWI Management - Setup** solution → **Cloud flows** → **JQCPWI - Setup SharePoint Lists**.
+   - If the flow is off, select **Turn on**.
+4. **Run** → enter the full site address, for example `https://contoso.sharepoint.com/sites/JQCPWI` (fictional) → **Run flow**.
+   - You need **Site Owner** (Full Control) on that site.
+5. Open the run. It takes about 1–2 minutes.
+   - **Succeeded:** all 5 lists and libraries, 37 columns, indexes, unique rules, versioning and the settings row are in place.
+   - The **Summary** action lists every step and the five list IDs.
+   - **Failed:** the error message says how many steps failed. **Summary** → `errors` shows which ones and why.
+   - It's safe to run again: lists and columns that already exist are skipped, and nothing is deleted.
+6. Optional: set up the SharePoint group permissions (CLAUDE.md Section 9) by hand, or with `Create-Lists.ps1 -ConfigurePermissions`.
+
+**Option B — PowerShell:** run `provisioning/Create-Lists.ps1`. This needs PowerShell 7, PnP.PowerShell and a PnP app registration.
+
 ## How the values get set
 
 ### When you import the solution (normal path)
-1. Run `provisioning/Create-Lists.ps1` against the target site first, so the lists exist.
+1. Make sure the lists exist (above).
 2. **make.powerapps.com** → choose the target environment (top right) → **Solutions** → **Import solution** → **Browse** → pick `JQCPWIManagement_<version>_unmanaged.zip` from `solution/dist/` → **Next**.
 3. **Connections:** if the wizard asks for SharePoint or Office 365 Users connections, pick an existing one or create one.
 4. **Environment variables:** the wizard lists the six JQC/PWI variables.

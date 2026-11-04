@@ -1,0 +1,1316 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "invoker",
+        "connection": {
+          "connectionReferenceLogicalName": "jp_sharepointsetup"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Button",
+          "metadata": {
+            "operationMetadataId": "ce92bc10-1a4f-5263-bad7-a5846f400db4"
+          },
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "text"
+              ],
+              "properties": {
+                "text": {
+                  "title": "SharePoint site address",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "x-ms-content-hint": "TEXT",
+                  "description": "Full site address, e.g. https://contoso.sharepoint.com/sites/JQCPWI"
+                }
+              }
+            }
+          }
+        }
+      },
+      "actions": {
+        "Check_site_address": {
+          "type": "If",
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "66840ba3-f8b4-52f1-80aa-881365eb36e0"
+          },
+          "expression": {
+            "and": [
+              {
+                "not": {
+                  "startsWith": [
+                    "@toLower(trim(triggerBody()['text']))",
+                    "https://"
+                  ]
+                }
+              }
+            ]
+          },
+          "actions": {
+            "Stop_bad_address": {
+              "type": "Terminate",
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "6ef3e70a-9aa5-52db-8a56-85de3b5f3bb0"
+              },
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "BadSiteAddress",
+                  "message": "Enter the full site address, starting with https:// (for example https://contoso.sharepoint.com/sites/JQCPWI)."
+                }
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        },
+        "Initialize_Log": {
+          "type": "InitializeVariable",
+          "runAfter": {
+            "Check_site_address": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "b5308dfe-e9de-5bbd-a36a-590a8277a975"
+          },
+          "inputs": {
+            "variables": [
+              {
+                "name": "Log",
+                "type": "array",
+                "value": []
+              }
+            ]
+          }
+        },
+        "Phase_A_steps": {
+          "type": "Compose",
+          "runAfter": {
+            "Initialize_Log": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "63af1392-cb91-53e7-b072-e6bfc6b0069f"
+          },
+          "inputs": [
+            {
+              "label": "Create JP_Employees",
+              "method": "POST",
+              "uri": "_api/web/lists",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.List\"}, \"Title\": \"JP_Employees\", \"BaseTemplate\": 100, \"Description\": \"JQC/PWI Management - employees. Never delete; set Active = No.\", \"AllowContentTypes\": true, \"ContentTypesEnabled\": false}"
+            },
+            {
+              "label": "Rename Title on JP_Employees",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/getbyinternalnameortitle('Title')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Title\": \"Employee Name\"}"
+            },
+            {
+              "label": "Create JP_Documents",
+              "method": "POST",
+              "uri": "_api/web/lists",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.List\"}, \"Title\": \"JP_Documents\", \"BaseTemplate\": 101, \"Description\": \"JQC/PWI Management - JQC templates and PWIs. One item per document; new revisions replace the file in place.\", \"AllowContentTypes\": true, \"ContentTypesEnabled\": false}"
+            },
+            {
+              "label": "Versioning on JP_Documents",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.List\"}, \"EnableVersioning\": true, \"MajorVersionLimit\": 50}"
+            },
+            {
+              "label": "Create JP_Assignments",
+              "method": "POST",
+              "uri": "_api/web/lists",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.List\"}, \"Title\": \"JP_Assignments\", \"BaseTemplate\": 100, \"Description\": \"JQC/PWI Management - one row per employee per document revision. Never delete; use Removed or Superseded.\", \"AllowContentTypes\": true, \"ContentTypesEnabled\": false}"
+            },
+            {
+              "label": "Create JP_SignoffRecords",
+              "method": "POST",
+              "uri": "_api/web/lists",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.List\"}, \"Title\": \"JP_SignoffRecords\", \"BaseTemplate\": 101, \"Description\": \"JQC/PWI Management - signed JQCs and PWI training logs. Never delete.\", \"AllowContentTypes\": true, \"ContentTypesEnabled\": false}"
+            },
+            {
+              "label": "Versioning on JP_SignoffRecords",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_SignoffRecords')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.List\"}, \"EnableVersioning\": true, \"MajorVersionLimit\": 50}"
+            },
+            {
+              "label": "Create JP_Settings",
+              "method": "POST",
+              "uri": "_api/web/lists",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.List\"}, \"Title\": \"JP_Settings\", \"BaseTemplate\": 100, \"Description\": \"JQC/PWI Management - global settings. Keep exactly one row.\", \"AllowContentTypes\": true, \"ContentTypesEnabled\": false}"
+            }
+          ]
+        },
+        "Phase_A_create_lists": {
+          "type": "Foreach",
+          "foreach": "@outputs('Phase_A_steps')",
+          "runAfter": {
+            "Phase_A_steps": [
+              "Succeeded"
+            ]
+          },
+          "runtimeConfiguration": {
+            "concurrency": {
+              "repetitions": 1
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "fc510346-d3f5-53bd-a9e2-c663bb6e33a6"
+          },
+          "actions": {
+            "Send_A": {
+              "type": "OpenApiConnection",
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "d5993080-8805-519f-854c-444e3f58c010"
+              },
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "@{trim(triggerBody()['text'])}",
+                  "parameters/method": "@item()?['method']",
+                  "parameters/uri": "@item()?['uri']",
+                  "parameters/headers": "@item()?['headers']",
+                  "parameters/body": "@item()?['body']"
+                }
+              }
+            },
+            "Log_Send_A": {
+              "type": "AppendToArrayVariable",
+              "runAfter": {
+                "Send_A": [
+                  "Succeeded",
+                  "Failed"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "8fa1390c-f9fa-580f-af9b-797debf267a8"
+              },
+              "inputs": {
+                "name": "Log",
+                "value": {
+                  "step": "@item()?['label']",
+                  "status": "@outputs('Send_A')?['statusCode']",
+                  "error": "@coalesce(body('Send_A')?['error']?['message']?['value'], body('Send_A')?['odata.error']?['message']?['value'], '')"
+                }
+              }
+            }
+          }
+        },
+        "Get_Employees_list_ID": {
+          "type": "OpenApiConnection",
+          "runAfter": {
+            "Phase_A_create_lists": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "7c93586d-2d35-505d-be27-fb7711810fbc"
+          },
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "@{trim(triggerBody()['text'])}",
+              "parameters/method": "GET",
+              "parameters/uri": "_api/web/lists/getbytitle('JP_Employees')?$select=Id",
+              "parameters/headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              }
+            }
+          }
+        },
+        "Employees_list_ID": {
+          "type": "Compose",
+          "runAfter": {
+            "Get_Employees_list_ID": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "276432e8-e114-571a-89b2-bf427ca2e03a"
+          },
+          "inputs": "@body('Get_Employees_list_ID')?['d']?['Id']"
+        },
+        "Phase_B_steps": {
+          "type": "Compose",
+          "runAfter": {
+            "Employees_list_ID": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "fbb84740-fb58-5746-9467-97c9588ee5bb"
+          },
+          "inputs": [
+            {
+              "label": "Column JP_Employees.Email",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"Email\\\" StaticName=\\\"Email\\\" DisplayName=\\\"Email\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Employees.EmployeeUser",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"EmployeeUser\\\" StaticName=\\\"EmployeeUser\\\" DisplayName=\\\"Employee User\\\" Required=\\\"FALSE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Employees.JobTitle",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"JobTitle\\\" StaticName=\\\"JobTitle\\\" DisplayName=\\\"Job Title\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>Production Technician</CHOICE><CHOICE>Quality Technician</CHOICE><CHOICE>Supervisor</CHOICE><CHOICE>Manager</CHOICE><CHOICE>Other</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Employees.Department",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"Department\\\" StaticName=\\\"Department\\\" DisplayName=\\\"Department\\\" Required=\\\"FALSE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>Production</CHOICE><CHOICE>Quality</CHOICE><CHOICE>Other</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Employees.Shift",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"Shift\\\" StaticName=\\\"Shift\\\" DisplayName=\\\"Shift\\\" Required=\\\"FALSE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>1st</CHOICE><CHOICE>2nd</CHOICE><CHOICE>3rd</CHOICE><CHOICE>Days</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Employees.Supervisor",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Lookup\\\" Name=\\\"Supervisor\\\" StaticName=\\\"Supervisor\\\" DisplayName=\\\"Supervisor\\\" Required=\\\"FALSE\\\" List=\\\"{__JP_EMPLOYEES_LIST_ID__}\\\" ShowField=\\\"Title\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Employees.AppRole",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"AppRole\\\" StaticName=\\\"AppRole\\\" DisplayName=\\\"App Role\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>Manager/Supervisor</CHOICE><CHOICE>Technician</CHOICE><CHOICE>Viewer</CHOICE></CHOICES><Default>Technician</Default></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Employees.Active",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Boolean\\\" Name=\\\"Active\\\" StaticName=\\\"Active\\\" DisplayName=\\\"Active\\\" Required=\\\"FALSE\\\"><Default>1</Default></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Documents.DocType",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"DocType\\\" StaticName=\\\"DocType\\\" DisplayName=\\\"Doc Type\\\" Required=\\\"FALSE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>JQC</CHOICE><CHOICE>PWI</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Documents.DocNumber",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocNumber\\\" StaticName=\\\"DocNumber\\\" DisplayName=\\\"Doc Number\\\" Required=\\\"FALSE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Documents.DocTitle",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocTitle\\\" StaticName=\\\"DocTitle\\\" DisplayName=\\\"Doc Title\\\" Required=\\\"FALSE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Documents.Revision",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"Revision\\\" StaticName=\\\"Revision\\\" DisplayName=\\\"Revision\\\" Required=\\\"FALSE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Documents.RevisionDate",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"RevisionDate\\\" StaticName=\\\"RevisionDate\\\" DisplayName=\\\"Revision Date\\\" Required=\\\"FALSE\\\" Format=\\\"DateOnly\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Documents.RevisionNotes",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Note\\\" Name=\\\"RevisionNotes\\\" StaticName=\\\"RevisionNotes\\\" DisplayName=\\\"Revision Notes\\\" Required=\\\"FALSE\\\" NumLines=\\\"6\\\" RichText=\\\"FALSE\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Documents.Area",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"Area\\\" StaticName=\\\"Area\\\" DisplayName=\\\"Area\\\" Required=\\\"FALSE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>Production</CHOICE><CHOICE>Quality</CHOICE><CHOICE>Metrology</CHOICE><CHOICE>Other</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Documents.Status",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"Status\\\" StaticName=\\\"Status\\\" DisplayName=\\\"Status\\\" Required=\\\"FALSE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>Active</CHOICE><CHOICE>Obsolete</CHOICE></CHOICES><Default>Active</Default></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Documents.Trainers",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"UserMulti\\\" Name=\\\"Trainers\\\" StaticName=\\\"Trainers\\\" DisplayName=\\\"Trainers\\\" Required=\\\"FALSE\\\" Mult=\\\"TRUE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Documents.Description",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Note\\\" Name=\\\"Description\\\" StaticName=\\\"Description\\\" DisplayName=\\\"Description\\\" Required=\\\"FALSE\\\" NumLines=\\\"6\\\" RichText=\\\"FALSE\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.Employee",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Lookup\\\" Name=\\\"Employee\\\" StaticName=\\\"Employee\\\" DisplayName=\\\"Employee\\\" Required=\\\"TRUE\\\" List=\\\"{__JP_EMPLOYEES_LIST_ID__}\\\" ShowField=\\\"Title\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.EmployeeEmail",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"EmployeeEmail\\\" StaticName=\\\"EmployeeEmail\\\" DisplayName=\\\"Employee Email\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.DocumentID",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"DocumentID\\\" StaticName=\\\"DocumentID\\\" DisplayName=\\\"Document ID\\\" Required=\\\"TRUE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.DocType",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"DocType\\\" StaticName=\\\"DocType\\\" DisplayName=\\\"Doc Type\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>JQC</CHOICE><CHOICE>PWI</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.DocNumber",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocNumber\\\" StaticName=\\\"DocNumber\\\" DisplayName=\\\"Doc Number\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.DocTitle",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocTitle\\\" StaticName=\\\"DocTitle\\\" DisplayName=\\\"Doc Title\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.RevisionAssigned",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"RevisionAssigned\\\" StaticName=\\\"RevisionAssigned\\\" DisplayName=\\\"Revision Assigned\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.AssignmentReason",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"AssignmentReason\\\" StaticName=\\\"AssignmentReason\\\" DisplayName=\\\"Assignment Reason\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>New Assignment</CHOICE><CHOICE>Revision Change</CHOICE></CHOICES><Default>New Assignment</Default></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.PreviousAssignmentID",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"PreviousAssignmentID\\\" StaticName=\\\"PreviousAssignmentID\\\" DisplayName=\\\"Previous Assignment ID\\\" Required=\\\"FALSE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.IsCurrent",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Boolean\\\" Name=\\\"IsCurrent\\\" StaticName=\\\"IsCurrent\\\" DisplayName=\\\"Is Current\\\" Required=\\\"FALSE\\\"><Default>1</Default></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.AssignedBy",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"AssignedBy\\\" StaticName=\\\"AssignedBy\\\" DisplayName=\\\"Assigned By\\\" Required=\\\"TRUE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.AssignedDate",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"AssignedDate\\\" StaticName=\\\"AssignedDate\\\" DisplayName=\\\"Assigned Date\\\" Required=\\\"TRUE\\\" Format=\\\"DateOnly\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.DueDate",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"DueDate\\\" StaticName=\\\"DueDate\\\" DisplayName=\\\"Due Date\\\" Required=\\\"FALSE\\\" Format=\\\"DateOnly\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.Trainer",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"Trainer\\\" StaticName=\\\"Trainer\\\" DisplayName=\\\"Trainer\\\" Required=\\\"FALSE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.Status",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"Status\\\" StaticName=\\\"Status\\\" DisplayName=\\\"Status\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>Assigned</CHOICE><CHOICE>In Training</CHOICE><CHOICE>Signed Off</CHOICE><CHOICE>Superseded</CHOICE><CHOICE>Removed</CHOICE></CHOICES><Default>Assigned</Default></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.SignedOffBy",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"SignedOffBy\\\" StaticName=\\\"SignedOffBy\\\" DisplayName=\\\"Signed Off By\\\" Required=\\\"FALSE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.SignedOffDate",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"SignedOffDate\\\" StaticName=\\\"SignedOffDate\\\" DisplayName=\\\"Signed Off Date\\\" Required=\\\"FALSE\\\" Format=\\\"DateTime\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.SignoffFileID",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"SignoffFileID\\\" StaticName=\\\"SignoffFileID\\\" DisplayName=\\\"Sign-off File ID\\\" Required=\\\"FALSE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Assignments.Comments",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Note\\\" Name=\\\"Comments\\\" StaticName=\\\"Comments\\\" DisplayName=\\\"Comments\\\" Required=\\\"FALSE\\\" NumLines=\\\"6\\\" RichText=\\\"FALSE\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_SignoffRecords.AssignmentID",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_SignoffRecords')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"AssignmentID\\\" StaticName=\\\"AssignmentID\\\" DisplayName=\\\"Assignment ID\\\" Required=\\\"FALSE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_SignoffRecords.DocType",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_SignoffRecords')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"DocType\\\" StaticName=\\\"DocType\\\" DisplayName=\\\"Doc Type\\\" Required=\\\"FALSE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>JQC</CHOICE><CHOICE>PWI</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_SignoffRecords.Revision",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_SignoffRecords')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"Revision\\\" StaticName=\\\"Revision\\\" DisplayName=\\\"Revision\\\" Required=\\\"FALSE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_SignoffRecords.EmployeeEmail",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_SignoffRecords')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"EmployeeEmail\\\" StaticName=\\\"EmployeeEmail\\\" DisplayName=\\\"Employee Email\\\" Required=\\\"FALSE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_SignoffRecords.UploadedBy",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_SignoffRecords')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"UploadedBy\\\" StaticName=\\\"UploadedBy\\\" DisplayName=\\\"Uploaded By\\\" Required=\\\"FALSE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Settings.MinQualifiedPerTask",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Settings')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"MinQualifiedPerTask\\\" StaticName=\\\"MinQualifiedPerTask\\\" DisplayName=\\\"Min Qualified Per Task\\\" Required=\\\"TRUE\\\" Decimals=\\\"0\\\" Min=\\\"1\\\"><Default>2</Default></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Column JP_Settings.ResignDueDays",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Settings')/fields/createfieldasxml",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              },
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"ResignDueDays\\\" StaticName=\\\"ResignDueDays\\\" DisplayName=\\\"Re-sign Due Days\\\" Required=\\\"TRUE\\\" Decimals=\\\"0\\\" Min=\\\"1\\\"><Default>14</Default></Field>\", \"Options\": 24}}"
+            },
+            {
+              "label": "Index JP_Employees.Email",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/getbyinternalnameortitle('Email')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Employees.Department",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/getbyinternalnameortitle('Department')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Employees.Shift",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/getbyinternalnameortitle('Shift')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Employees.Supervisor",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/getbyinternalnameortitle('Supervisor')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Employees.Active",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/getbyinternalnameortitle('Active')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Documents.DocType",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/getbyinternalnameortitle('DocType')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Documents.DocNumber",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/getbyinternalnameortitle('DocNumber')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Documents.Area",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/getbyinternalnameortitle('Area')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Documents.Status",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/getbyinternalnameortitle('Status')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Assignments.EmployeeEmail",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/getbyinternalnameortitle('EmployeeEmail')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Assignments.DocumentID",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/getbyinternalnameortitle('DocumentID')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Assignments.DocType",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/getbyinternalnameortitle('DocType')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Assignments.IsCurrent",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/getbyinternalnameortitle('IsCurrent')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_Assignments.Status",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Assignments')/fields/getbyinternalnameortitle('Status')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_SignoffRecords.AssignmentID",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_SignoffRecords')/fields/getbyinternalnameortitle('AssignmentID')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Index JP_SignoffRecords.EmployeeEmail",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_SignoffRecords')/fields/getbyinternalnameortitle('EmployeeEmail')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Indexed\": true}"
+            },
+            {
+              "label": "Unique JP_Employees.Email",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/getbyinternalnameortitle('Email')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"EnforceUniqueValues\": true}"
+            },
+            {
+              "label": "Unique JP_Documents.DocNumber",
+              "method": "POST",
+              "uri": "_api/web/lists/getbytitle('JP_Documents')/fields/getbyinternalnameortitle('DocNumber')",
+              "headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose",
+                "X-HTTP-Method": "MERGE",
+                "IF-MATCH": "*"
+              },
+              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"EnforceUniqueValues\": true}"
+            }
+          ]
+        },
+        "Phase_B_create_columns": {
+          "type": "Foreach",
+          "foreach": "@outputs('Phase_B_steps')",
+          "runAfter": {
+            "Phase_B_steps": [
+              "Succeeded"
+            ]
+          },
+          "runtimeConfiguration": {
+            "concurrency": {
+              "repetitions": 1
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "f45a04d9-10fc-5add-aa69-3dfe8adcd277"
+          },
+          "actions": {
+            "Send_B": {
+              "type": "OpenApiConnection",
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "2aefdd9f-4b92-56a1-bb9f-30caf2519513"
+              },
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "@{trim(triggerBody()['text'])}",
+                  "parameters/method": "@item()?['method']",
+                  "parameters/uri": "@item()?['uri']",
+                  "parameters/headers": "@item()?['headers']",
+                  "parameters/body": "@replace(item()?['body'], '__JP_EMPLOYEES_LIST_ID__', string(outputs('Employees_list_ID')))"
+                }
+              }
+            },
+            "Log_Send_B": {
+              "type": "AppendToArrayVariable",
+              "runAfter": {
+                "Send_B": [
+                  "Succeeded",
+                  "Failed"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "7b3536c3-b115-5fa1-8c57-2afac2d7aea7"
+              },
+              "inputs": {
+                "name": "Log",
+                "value": {
+                  "step": "@item()?['label']",
+                  "status": "@outputs('Send_B')?['statusCode']",
+                  "error": "@coalesce(body('Send_B')?['error']?['message']?['value'], body('Send_B')?['odata.error']?['message']?['value'], '')"
+                }
+              }
+            }
+          }
+        },
+        "Get_settings_rows": {
+          "type": "OpenApiConnection",
+          "runAfter": {
+            "Phase_B_create_columns": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "16354a52-bf23-5c31-b0fa-62178ea9dbd9"
+          },
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "@{trim(triggerBody()['text'])}",
+              "parameters/method": "GET",
+              "parameters/uri": "_api/web/lists/getbytitle('JP_Settings')/items?$select=Id&$top=5",
+              "parameters/headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              }
+            }
+          }
+        },
+        "Settings_list_empty": {
+          "type": "If",
+          "runAfter": {
+            "Get_settings_rows": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "c2f014a2-a295-5750-b91a-5633e0388508"
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@length(body('Get_settings_rows')?['d']?['results'])",
+                  0
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Get_settings_item_type": {
+              "type": "OpenApiConnection",
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "28947d0d-a659-5448-951e-7e77a8984e05"
+              },
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "@{trim(triggerBody()['text'])}",
+                  "parameters/method": "GET",
+                  "parameters/uri": "_api/web/lists/getbytitle('JP_Settings')?$select=ListItemEntityTypeFullName",
+                  "parameters/headers": {
+                    "Accept": "application/json;odata=verbose",
+                    "Content-Type": "application/json;odata=verbose"
+                  }
+                }
+              }
+            },
+            "Create_settings_row": {
+              "type": "OpenApiConnection",
+              "runAfter": {
+                "Get_settings_item_type": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "7df64150-9d75-52dd-85cb-d32b73e945ae"
+              },
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "@{trim(triggerBody()['text'])}",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/getbytitle('JP_Settings')/items",
+                  "parameters/headers": {
+                    "Accept": "application/json;odata=verbose",
+                    "Content-Type": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "@{concat('{\"__metadata\":{\"type\":\"', body('Get_settings_item_type')?['d']?['ListItemEntityTypeFullName'], '\"},\"Title\": \"Settings\", \"MinQualifiedPerTask\": 2, \"ResignDueDays\": 14}')}"
+                }
+              }
+            },
+            "Log_settings_row": {
+              "type": "AppendToArrayVariable",
+              "runAfter": {
+                "Create_settings_row": [
+                  "Succeeded",
+                  "Failed",
+                  "Skipped"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "bf48db66-75fe-568c-9144-7305c72c11ad"
+              },
+              "inputs": {
+                "name": "Log",
+                "value": {
+                  "step": "Create settings row",
+                  "status": "@outputs('Create_settings_row')?['statusCode']",
+                  "error": "@coalesce(body('Create_settings_row')?['error']?['message']?['value'], body('Create_settings_row')?['odata.error']?['message']?['value'], '')"
+                }
+              }
+            }
+          },
+          "else": {
+            "actions": {
+              "Log_settings_exists": {
+                "type": "AppendToArrayVariable",
+                "runAfter": {},
+                "metadata": {
+                  "operationMetadataId": "7b52c1b1-9dab-55d4-bfd4-9fc06d04d1d0"
+                },
+                "inputs": {
+                  "name": "Log",
+                  "value": {
+                    "step": "Settings row already exists (left unchanged)",
+                    "status": 200,
+                    "error": ""
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Get_list_IDs": {
+          "type": "OpenApiConnection",
+          "runAfter": {
+            "Settings_list_empty": [
+              "Succeeded",
+              "Failed",
+              "Skipped",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "a20bac95-3557-54e8-bd09-c07e2bf25025"
+          },
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "@{trim(triggerBody()['text'])}",
+              "parameters/method": "GET",
+              "parameters/uri": "_api/web/lists?$select=Title,Id&$filter=startswith(Title,'JP_')",
+              "parameters/headers": {
+                "Accept": "application/json;odata=verbose",
+                "Content-Type": "application/json;odata=verbose"
+              }
+            }
+          }
+        },
+        "List_IDs": {
+          "type": "Select",
+          "runAfter": {
+            "Get_list_IDs": [
+              "Succeeded",
+              "Failed"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "492e407d-a45c-5dec-b1f2-2f02e68d83af"
+          },
+          "inputs": {
+            "from": "@coalesce(body('Get_list_IDs')?['d']?['results'], json('[]'))",
+            "select": {
+              "List": "@item()?['Title']",
+              "Id": "@item()?['Id']"
+            }
+          }
+        },
+        "Real_errors": {
+          "type": "Query",
+          "runAfter": {
+            "List_IDs": [
+              "Succeeded",
+              "Failed",
+              "Skipped"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "dca0cac0-94e0-5578-b15f-2eb684f50202"
+          },
+          "inputs": {
+            "from": "@variables('Log')",
+            "where": "@and(greaterOrEquals(int(coalesce(item()?['status'], 0)), 300), not(contains(toLower(string(item()?['error'])), 'already exists')), not(contains(toLower(string(item()?['error'])), 'duplicate')))"
+          }
+        },
+        "Summary": {
+          "type": "Compose",
+          "runAfter": {
+            "Real_errors": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "5b21ec57-ff41-5a3b-89ff-958fbf5933b3"
+          },
+          "inputs": {
+            "site": "@triggerBody()['text']",
+            "realErrors": "@length(body('Real_errors'))",
+            "errors": "@body('Real_errors')",
+            "listIds": "@body('List_IDs')",
+            "allSteps": "@variables('Log')"
+          }
+        },
+        "Any_errors": {
+          "type": "If",
+          "runAfter": {
+            "Summary": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "0042070e-da3e-5105-b5be-eea7ec803435"
+          },
+          "expression": {
+            "and": [
+              {
+                "greater": [
+                  "@length(body('Real_errors'))",
+                  0
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Fail_with_errors": {
+              "type": "Terminate",
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "7bb751ad-fed5-5e11-8a42-4b9e7f21fadc"
+              },
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "SetupErrors",
+                  "message": "@{length(body('Real_errors'))} setup step(s) failed. Open the 'Summary' action in this run to see which ones and why."
+                }
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}
