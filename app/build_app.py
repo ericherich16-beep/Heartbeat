@@ -50,6 +50,10 @@ SP_API = "/providers/microsoft.powerapps/apis/shared_sharepointonline"
 # Fictional placeholders. At runtime the environment variables replace them (see .meta.xml).
 PLACEHOLDER_SITE = "https://contoso.sharepoint.com/sites/JQCPWI"
 SP_CONNECTION_ID = str(uuid.uuid5(NS, "connection:sharepoint"))
+FLOW_CONNECTION_ID = str(uuid.uuid5(NS, "connection:logicflows"))
+FLOW_DS_NAME = "JQCPWI-UploadFile"          # name Studio gives "JQCPWI - Upload File" when the flow is added
+FLOW_WORKFLOW_ID = str(uuid.UUID("f64e5b50-4ba1-5706-a620-0ec628dbede8"))   # flows/build_flow.py FLOW_ID
+LOGICFLOWS_API = "/providers/microsoft.powerapps/apis/shared_logicflows"
 
 ENV_SITE = "jp_SiteUrl"
 DATA_SOURCES = [   # (data source name in the app = list title, environment variable)
@@ -88,6 +92,15 @@ fxIsManager = fxRole = "Manager/Supervisor";
 fxIsTechnician = fxRole = "Technician";
 fxIsViewer = Not(fxIsManager || fxIsTechnician);
 fxIsRegistered = fxMeActive;
+// Person value for AssignedBy / SignedOffBy (SharePoint Person column format).
+fxMePerson = {
+    Claims: "i:0#.f|membership|" & fxMeEmail,
+    DisplayName: Coalesce(fxMe.Title, User().FullName),
+    Email: fxMeEmail,
+    Department: "",
+    JobTitle: "",
+    Picture: ""
+};
 """),
     ("Settings (JP_Settings, single row)", """
 fxSettings = First(JP_Settings);
@@ -124,6 +137,11 @@ clrGreyBg = ColorValue("#F1F2F4");
 // Delegable filters on indexed Choice / Yes-No columns.
 fxDocsActive = Filter(JP_Documents, Status.Value = "Active");
 fxEmployeesActive = Filter(JP_Employees, Active = true);
+// People who can be assigned documents or be trainers (Viewers can't, SPEC.md A-08).
+fxEligibleEmployees = Filter(fxEmployeesActive, AppRole.Value <> "Viewer");
+fxManagers = Filter(fxEmployeesActive, AppRole.Value = "Manager/Supervisor");
+// Shifts that have at least one eligible employee (cross-training "coverage by shift").
+fxShifts = Filter(Distinct(fxEligibleEmployees, Shift.Value), !IsBlank(Value));
 // Current assignment rows only (IsCurrent is indexed). Everything built on top of this
 // (AddColumns, LookUp into collections) is NOT delegable, so it works on the first
 // 2,000 current rows (app setting "Data row limit" = 2000). Documented in Admin-Guide.md.
@@ -624,9 +642,105 @@ def write_data_sources(schema):
         "datasets": {PLACEHOLDER_SITE: {"datasetOverride": {"environmentVariableName": ENV_SITE},
                                         "dataSources": datasets}},
         "dataSources": [n for n, _ in DATA_SOURCES], "dependencies": {}, "dependents": [], "id": SP_CONNECTION_ID}
+    # ---- the upload flow as a data source (pattern from Microsoft/PnP sample apps)
+    json.dump([{"ApiId": LOGICFLOWS_API, "FlowNameId": FLOW_WORKFLOW_ID, "Name": FLOW_DS_NAME,
+                "ServiceKind": "ConnectedWadl", "Type": "ServiceInfo", "WorkflowEntityId": FLOW_WORKFLOW_ID}],
+              open(os.path.join(SRC, "DataSources", FLOW_DS_NAME + ".json"), "w"), indent=2)
+    os.makedirs(os.path.join(SRC, "pkgs", "Wadl"))
+    open(os.path.join(SRC, "pkgs", "Wadl", FLOW_DS_NAME + ".xml"), "w", encoding="utf-8").write(flow_wadl())
+    flow_conn = {
+        "appActions": ["Run"],
+        "connectionRef": {"apiTier": "Standard", "displayName": "Logic flows", "id": LOGICFLOWS_API,
+                          "parameterHints": {SP_CONNECTION_ID: {"value": "shared_sharepointonline"},
+                                             "workflowEntityId": {"value": FLOW_WORKFLOW_ID},
+                                             "workflowName": {"value": FLOW_WORKFLOW_ID}},
+                          "parameterHintsV2": {"shared_sharepointonline": {"value": SP_CONNECTION_ID},
+                                               "workflowEntityId": {"value": FLOW_WORKFLOW_ID},
+                                               "workflowName": {"value": FLOW_WORKFLOW_ID}}},
+        "datasets": {}, "dataSources": [FLOW_DS_NAME],
+        "dependencies": {"shared_sharepointonline": SP_CONNECTION_ID}, "dependents": [], "id": FLOW_CONNECTION_ID}
+    connection["dependents"] = [FLOW_CONNECTION_ID]
     os.makedirs(os.path.join(SRC, "Connections"))
-    json.dump({SP_CONNECTION_ID: connection}, open(os.path.join(SRC, "Connections", "Connections.json"), "w"), indent=2)
+    json.dump({SP_CONNECTION_ID: connection, FLOW_CONNECTION_ID: flow_conn},
+              open(os.path.join(SRC, "Connections", "Connections.json"), "w"), indent=2)
     return connection
+
+
+def flow_wadl():
+    """API description of the upload flow's Power Apps (V2) trigger: Run(file, text, number, text_1)."""
+    base = "https://europe-002.azure-apim.net/apim/logicflows"
+    return f"""<application xmlns:xml="http://www.w3.org/XML/1998/namespace" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:service="{base}" xmlns:siena="http://schemas.microsoft.com/MicrosoftProjectSiena/WADL/2014/11" siena:serviceId="{FLOW_DS_NAME}" xmlns="http://wadl.dev.java.net/2009/02">
+  <doc title="JQCPWI - Upload File" />
+  <grammars>
+    <jsonTypes targetNamespace="{base}" xmlns="http://schemas.microsoft.com/MicrosoftProjectSiena/WADL/2014/11">
+      <string name="ManualTriggerInput_file_def_name_def" />
+      <base64Binary name="ManualTriggerInput_file_def_contentBytes_def" />
+      <object name="ManualTriggerInput_file_def">
+        <property name="name" type="string" />
+        <property name="contentBytes" typeRef="ManualTriggerInput_file_def_contentBytes_def" />
+      </object>
+      <string name="ManualTriggerInput_text_def" />
+      <number name="ManualTriggerInput_number_def" />
+      <string name="ManualTriggerInput_text_1_def" />
+      <object name="ManualTriggerInput">
+        <property name="file" typeRef="ManualTriggerInput_file_def" />
+        <property name="text" type="string" />
+        <property name="number" type="number" />
+        <property name="text_1" type="string" />
+      </object>
+      <string name="ResponseActionOutput_success_def" />
+      <number name="ResponseActionOutput_itemid_def" />
+      <string name="ResponseActionOutput_fileurl_def" />
+      <string name="ResponseActionOutput_message_def" />
+      <object name="ResponseActionOutput">
+        <property name="success" type="string" />
+        <property name="itemid" type="number" />
+        <property name="fileurl" type="string" />
+        <property name="message" type="string" />
+      </object>
+      <object name="Run_responses_default_def" />
+    </jsonTypes>
+  </grammars>
+  <resources siena:authenticationProviderHref="#PowerAppAuth" base="{base}">
+    <resource path="/{{connectionId}}/triggers/manual/run">
+      <param style="template" name="connectionId" type="xs:string" required="true" />
+      <method siena:requiresAuthentication="true" name="POST" id="Run">
+        <doc title="Runs a logic flow trigger." />
+        <request>
+          <param style="query" name="api-version" type="xs:string" required="true" fixed="2015-02-01-preview">
+            <doc title="The api version" />
+          </param>
+          <representation mediaType="application/json">
+            <param style="plain" name="file" path="/file" type="service:ManualTriggerInput_file_def" required="true">
+              <doc title="File" />
+            </param>
+            <param style="plain" name="text" path="/text" type="xs:string" required="true">
+              <doc title="TargetLibrary" />
+            </param>
+            <param style="plain" name="number" path="/number" type="xs:double" required="true">
+              <doc title="ExistingItemID" />
+            </param>
+            <param style="plain" name="text_1" path="/text_1" type="xs:string" required="true">
+              <doc title="MetadataJson" />
+            </param>
+          </representation>
+        </request>
+        <response>
+          <representation mediaType="application/json" element="service:ResponseActionOutput" />
+        </response>
+      </method>
+    </resource>
+  </resources>
+  <authenticationProviders xmlns="http://schemas.microsoft.com/MicrosoftProjectSiena/WADL/2014/11">
+    <connectionProvider id="PowerAppAuth" siena:connectionProviderId="logicflows" />
+  </authenticationProviders>
+  <template xmlns="http://schemas.microsoft.com/MicrosoftProjectSiena/WADL/2014/11">
+    <variable name="connectionId">
+      <modifyParams style="template" name="connectionId" attribute="fixed" />
+    </variable>
+  </template>
+</application>
+"""
 
 
 # =============================================================================
@@ -645,7 +759,9 @@ def write_sources(schema):
 
     app = C("App", "appinfo", {"BackEnabled": "false", "Formulas": formulas_text().rstrip("\n"),
                                "OnStart": APP_ONSTART, "Theme": "PowerAppsTheme"})
-    screens = [home_screen()] + [placeholder_screen(*s[:3], s[3]) for s in ALL_SCREENS if s[0] != "scrHome"]
+    sys.path.insert(0, HERE)
+    import screens as screen_defs
+    screens = screen_defs.build(sys.modules[__name__])
     os.makedirs(os.path.join(SRC, "Src", "EditorState"))
     for ctrl in [app] + screens:
         with open(os.path.join(SRC, "Src", ctrl.name + ".fx.yaml"), "w", encoding="utf-8") as f:
@@ -803,15 +919,24 @@ def write_solution_app(connection):
     open(os.path.join(SOLUTION_CANVAS, f"{APP_SCHEMA_NAME}_BackgroundImageUri"), "wb").write(png(64, 64, (19, 50, 91)))
     conn_refs = {SP_CONNECTION_ID: {
         "id": SP_API, "displayName": "SharePoint", "dataSources": connection["dataSources"],
-        "dependencies": [], "dependents": [], "parameterHints": {}, "parameterHintsV2": {},
+        "dependencies": [], "dependents": [FLOW_CONNECTION_ID], "parameterHints": {}, "parameterHintsV2": {},
         "isOnPremiseConnection": False, "bypassConsent": False,
         "dataSets": {PLACEHOLDER_SITE: {
             "datasetOverride": {"environmentVariableName": ENV_SITE},
             "dataSources": connection["datasets"][PLACEHOLDER_SITE]["dataSources"]}},
-        "apiTier": "Standard", "actions": ["providers/PowerPlatform.Governance/Operations/Read"]}}
+        "apiTier": "Standard", "actions": ["providers/PowerPlatform.Governance/Operations/Read"]},
+        FLOW_CONNECTION_ID: {
+            "id": LOGICFLOWS_API, "displayName": "Logic flows", "dataSources": [FLOW_DS_NAME],
+            "dependencies": [SP_CONNECTION_ID], "dependents": [],
+            "parameterHints": {"workflowName": {"value": FLOW_WORKFLOW_ID}, "workflowEntityId": {"value": FLOW_WORKFLOW_ID},
+                               SP_CONNECTION_ID: {"value": "shared_sharepointonline"}},
+            "parameterHintsV2": {"workflowName": {"value": FLOW_WORKFLOW_ID}, "workflowEntityId": {"value": FLOW_WORKFLOW_ID},
+                                 "shared_sharepointonline": {"value": SP_CONNECTION_ID}},
+            "isOnPremiseConnection": False, "dataSets": {}, "apiTier": "Standard", "actions": ["Run"]}}
     cds = {"cdsdependencies": [{"logicalname": v, "componenttype": 380,
                                 "componenttypeplatformname": "EnvironmentVariableDefinition"}
-                               for v in [ENV_SITE] + [e for _, e in DATA_SOURCES]]}
+                               for v in [ENV_SITE] + [e for _, e in DATA_SOURCES]]
+           + [{"dependencyid": FLOW_WORKFLOW_ID, "componenttype": 29, "componenttypeplatformname": "Workflow"}]}
     esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     tags = {"primaryDeviceWidth": "1366", "primaryDeviceHeight": "768", "supportsPortrait": "true",
@@ -884,7 +1009,8 @@ def write_doc(screens):
            "- The rail and the bottom bar both run:", "", "```powerfx", nav_onselect(), "```", "",
            "## Screens in this build", "", "| Screen | Purpose |", "|---|---|"]
     md += [f"| `{s}` | {p} |" for s, _, _, p in ALL_SCREENS]
-    md += ["", "Screens other than `scrHome` are placeholders until build step 5.", ""]
+    md += ["", "Screen layouts and actions are defined in `app/screens.py`.",
+           "`app/tests/lint_formulas.py` syntax-checks every formula, and `app/tests/test_formulas.py` runs the named formulas against the seed data.", ""]
     open(os.path.join(HERE, "App.fx.md"), "w", encoding="utf-8").write("\n".join(md))
 
 

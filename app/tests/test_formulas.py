@@ -108,6 +108,7 @@ def named_formulas():
 
 def to_test_expr(expr, me_email):
     expr = expr.replace("User().Email", fx_str(me_email))
+    expr = expr.replace("User().FullName", fx_str("Test User"))
     expr = expr.replace("App.Width", "1366")
     expr = re.sub(r"Icon\.([A-Za-z]+)", r'"\1"', expr)          # canvas-only enum
     return re.sub(r"\s*\n\s*", " ", expr)                         # the runner reads one statement per line

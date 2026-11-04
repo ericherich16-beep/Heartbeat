@@ -50,6 +50,15 @@ fxIsManager = fxRole = "Manager/Supervisor";
 fxIsTechnician = fxRole = "Technician";
 fxIsViewer = Not(fxIsManager || fxIsTechnician);
 fxIsRegistered = fxMeActive;
+// Person value for AssignedBy / SignedOffBy (SharePoint Person column format).
+fxMePerson = {
+    Claims: "i:0#.f|membership|" & fxMeEmail,
+    DisplayName: Coalesce(fxMe.Title, User().FullName),
+    Email: fxMeEmail,
+    Department: "",
+    JobTitle: "",
+    Picture: ""
+};
 ```
 
 ### Settings (JP_Settings, single row)
@@ -98,6 +107,11 @@ clrGreyBg = ColorValue("#F1F2F4");
 // Delegable filters on indexed Choice / Yes-No columns.
 fxDocsActive = Filter(JP_Documents, Status.Value = "Active");
 fxEmployeesActive = Filter(JP_Employees, Active = true);
+// People who can be assigned documents or be trainers (Viewers can't, SPEC.md A-08).
+fxEligibleEmployees = Filter(fxEmployeesActive, AppRole.Value <> "Viewer");
+fxManagers = Filter(fxEmployeesActive, AppRole.Value = "Manager/Supervisor");
+// Shifts that have at least one eligible employee (cross-training "coverage by shift").
+fxShifts = Filter(Distinct(fxEligibleEmployees, Shift.Value), !IsBlank(Value));
 // Current assignment rows only (IsCurrent is indexed). Everything built on top of this
 // (AddColumns, LookUp into collections) is NOT delegable, so it works on the first
 // 2,000 current rows (app setting "Data row limit" = 2000). Documented in Admin-Guide.md.
@@ -233,4 +247,5 @@ Switch(ThisItem.Key, "home", Navigate(scrHome, ScreenTransition.None), "mytraini
 | `scrCrossTraining` | Coverage by task and shift, single points of failure. |
 | `scrSignoffReview` | Recent sign-offs, JQCs needing training, re-signs, overdue. |
 
-Screens other than `scrHome` are placeholders until build step 5.
+Screen layouts and actions are defined in `app/screens.py`.
+`app/tests/lint_formulas.py` syntax-checks every formula, and `app/tests/test_formulas.py` runs the named formulas against the seed data.
