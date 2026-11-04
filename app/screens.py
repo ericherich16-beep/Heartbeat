@@ -403,33 +403,41 @@ def build(B):
         items = f"""SortByColumns(
     Filter(
         JP_Documents,
-        DocType.Value = "{doc_type}",
-        drpLib{sfx}Status.Selected.Value = "All" || Status.Value = drpLib{sfx}Status.Selected.Value,
-        drpLib{sfx}Area.Selected.Value = "All" || Area.Value = drpLib{sfx}Area.Selected.Value,
-        IsBlank(txtLib{sfx}Search.Text) || StartsWith(DocNumber, txtLib{sfx}Search.Text) || StartsWith(DocTitle, txtLib{sfx}Search.Text)
+        DocType.Value = "{doc_type}" || IsBlank(DocType.Value),
+        IsBlank(drpLib{sfx}Status.Selected.Value) || drpLib{sfx}Status.Selected.Value = "All" || Coalesce(Status.Value, "Active") = drpLib{sfx}Status.Selected.Value,
+        IsBlank(drpLib{sfx}Area.Selected.Value) || drpLib{sfx}Area.Selected.Value = "All" || Area.Value = drpLib{sfx}Area.Selected.Value,
+        IsBlank(txtLib{sfx}Search.Text) || StartsWith(DocNumber, txtLib{sfx}Search.Text) || StartsWith(DocTitle, txtLib{sfx}Search.Text) || StartsWith('{{Name}}', txtLib{sfx}Search.Text)
     ),
     "DocNumber"
 )"""
+        # Files added straight in SharePoint often have DocType/Status/DocNumber empty.
+        # They still show (blank type in both libraries, blank status counts as Active)
+        # with a "details missing" flag so a manager can tap Edit and fill them in.
+        # IsBlank/Coalesce are not delegable: fine while JP_Documents stays under the
+        # app's data row limit (500 by default, up to 2000 in Settings).
+        missing = "(IsBlank(ThisItem.DocType.Value) || IsBlank(ThisItem.Status.Value) || IsBlank(ThisItem.DocNumber) || IsBlank(ThisItem.Revision))"
         counts = (f'With({{q: CountRows(Filter(fxAssignmentDisplayStatus, DocumentID = ThisItem.ID && IsQualified)), '
                   f'y: CountRows(Filter(fxAssignmentDisplayStatus, DocumentID = ThisItem.ID && EmpIsActive && StatusText <> "Removed")), '
                   f'n: CountRows(Filter(fxAssignmentDisplayStatus, DocumentID = ThisItem.ID && EmpIsActive && StatusText = "Assigned"))}}, '
                   + ('q & " of " & y & " qualified on current rev · " & n & " Needs Training"' if doc_type == "JQC"
                      else 'q & " of " & y & " signed off on current rev"') + ")")
         r = [
-            glabel(f"lblLib{sfx}Num", 'ThisItem.DocNumber & " – " & ThisItem.DocTitle & If(ThisItem.Status.Value = "Obsolete", "  (Obsolete)", "")',
+            glabel(f"lblLib{sfx}Num", 'If(IsBlank(ThisItem.DocNumber), ThisItem.\'{Name}\', ThisItem.DocNumber & " – " & ThisItem.DocTitle) & If(ThisItem.Status.Value = "Obsolete", "  (Obsolete)", "")',
                    16, 8, "Parent.TemplateWidth - 32", bold=True),
             glabel(f"lblLib{sfx}Rev", '"Rev " & ThisItem.Revision & " · " & Text(ThisItem.RevisionDate, DateTimeFormat.ShortDate) & " · " & ThisItem.Area.Value & " · Trainers: " & If(CountRows(ThisItem.Trainers) = 0, "none", Concat(ThisItem.Trainers, DisplayName, ", "))',
                    16, 34, "Parent.TemplateWidth - 32", size=13, color="clrMuted"),
             glabel(f"lblLib{sfx}Counts", counts, 16, 58, "Parent.TemplateWidth - 32", size=13),
-            glabel(f"lblLib{sfx}NoTrainer", q("No trainer — can't assign"), 16, 82, 240, size=13, color="clrRed",
-                   Visible="CountRows(ThisItem.Trainers) = 0 && fxIsManager"),
+            glabel(f"lblLib{sfx}NoTrainer",
+                   f'If({missing}, "Details missing (type, number, revision or status) - tap Edit to fill them in", "No trainer - can\'t assign")',
+                   16, 82, "Parent.TemplateWidth - 32", size=13, color="clrRed",
+                   Visible=f"({missing} || CountRows(ThisItem.Trainers) = 0) && fxIsManager"),
         ]
         buttons = [("Open", "Launch(ThisItem.'{Link}')", "true", "secondary")]
         if doc_type == "PWI":
             buttons.append(("Status", "Set(gblSelDoc, ThisItem); Navigate(scrPWIStatus, ScreenTransition.None)",
                             "fxIsManager || fxIsViewer", "secondary"))
         buttons.append(("Edit", f'Set(gblDocForm, ThisItem); Set(gblDocFormType, "{doc_type}"); Set(gblDocMode, "edit"); Navigate(scrDocumentEdit, ScreenTransition.None)',
-                        'fxIsManager && ThisItem.Status.Value = "Active"', "secondary"))
+                        'fxIsManager && ThisItem.Status.Value <> "Obsolete"', "secondary"))
         buttons.append(("New revision", f'Set(gblDocForm, ThisItem); Set(gblDocFormType, "{doc_type}"); Set(gblDocMode, "revise"); Navigate(scrDocumentEdit, ScreenTransition.None)',
                         'fxIsManager && ThisItem.Status.Value = "Active"', "secondary"))
         for i, (t, on, vis, style) in enumerate(buttons):
@@ -521,12 +529,24 @@ def build(B):
             DocTitle: Trim(txtDocTitle.Text),
             Area: If(IsBlank(drpDocArea.Selected.Value), Blank(), {{Value: drpDocArea.Selected.Value}}),
             Description: Trim(txtDocDesc.Text),
-            Trainers: {trainers_people}
+            Trainers: {trainers_people},
+            // A file added straight in SharePoint may have these empty: fill them in, never overwrite.
+            Title: Coalesce(gblDocForm.Title, gblDocForm.DocNumber, Upper(Trim(txtDocNumber.Text))),
+            DocType: {{Value: Coalesce(gblDocForm.DocType.Value, gblDocFormType)}},
+            DocNumber: Coalesce(gblDocForm.DocNumber, Upper(Trim(txtDocNumber.Text))),
+            Revision: Coalesce(gblDocForm.Revision, Trim(txtDocRev.Text)),
+            RevisionDate: Coalesce(gblDocForm.RevisionDate, Today()),
+            Status: {{Value: Coalesce(gblDocForm.Status.Value, "Active")}}
         }}
     )"""
+    edit_missing = """Concat(Filter(Table(
+        {F: "Document number", Ok: !IsBlank(gblDocForm.DocNumber) || !IsBlank(Trim(txtDocNumber.Text))},
+        {F: "Title", Ok: !IsBlank(Trim(txtDocTitle.Text))},
+        {F: "Revision", Ok: !IsBlank(gblDocForm.Revision) || !IsBlank(Trim(txtDocRev.Text))}
+    ), !Ok), F, ", ")"""
     edit_save = f"""If(
-    IsBlank(Trim(txtDocTitle.Text)),
-    Notify("Please fill in: Title", NotificationType.Warning),
+    !IsBlank({edit_missing}),
+    Notify("Please fill in: " & {edit_missing}, NotificationType.Warning),
     {save(edit_patch, "Document saved.", "Refresh(JP_Documents); Back()")}
 )"""
     obsolete_patch = """Patch(JP_Documents, LookUp(JP_Documents, ID = gblDocForm.ID), {Status: {Value: "Obsolete"}})"""
@@ -623,18 +643,19 @@ Notify(CountRows(Filter(colRevResults, Ok)) & " re-assigned, " & CountRows(Filte
 Set(gblSaving, false)"""
     doc_people = "fxEligibleEmployees"
     screens.append(screen("scrDocumentEdit", "Document", "jqc", [
-        heading("lblDocHead", 'Switch(gblDocMode, "new", "Add " & gblDocFormType, "edit", "Edit " & gblDocForm.DocNumber, "revise", "Upload new revision – " & gblDocForm.DocNumber)'),
+        heading("lblDocHead", 'Switch(gblDocMode, "new", "Add " & gblDocFormType, "edit", "Edit " & Coalesce(gblDocForm.DocNumber, gblDocForm.\'{Name}\'), "revise", "Upload new revision – " & gblDocForm.DocNumber)'),
         note("lblDocNoAccess", "Only managers and supervisors can change documents.", visible="!fxIsManager", color="clrRed"),
         card("conDocMain", [
             field("conDocNumber", "Document number", txt("txtDocNumber", '""', "For example PWI-DEMO-100"),
-                  required=True, visible=is_new),
+                  required=True, visible=f'{is_new} || ({is_edit} && IsBlank(gblDocForm.DocNumber))'),
             field("conDocTitle", "Title", txt("txtDocTitle", "gblDocForm.DocTitle", "Document title"), required=True),
             field("conDocArea", "Area", drp("drpDocArea", "Choices([@JP_Documents].Area)", "gblDocForm.Area.Value", label_text="Area")),
             field("conDocTrainers", "Trainers (needed before the document can be assigned)",
                   cmb("cmbDocTrainers", doc_people, default=f"Filter({doc_people}, Lower(Email) in ShowColumns(ForAll(gblDocForm.Trainers As t, {{E: Lower(t.Email)}}), E))",
                       placeholder="Search employees", label_text="Trainers")),
             field("conDocDesc", "Description", txt("txtDocDesc", "gblDocForm.Description", "Description", multiline=True)),
-            field("conDocRev", "Revision", txt("txtDocRev", '"A"', "For example A"), required=True, visible=is_new),
+            field("conDocRev", "Revision", txt("txtDocRev", '"A"', "For example A"), required=True,
+                  visible=f'{is_new} || ({is_edit} && IsBlank(gblDocForm.Revision))'),
             field("conDocNotes", "Revision notes", txt("txtDocNotes", '"Initial release."', "Revision notes", multiline=True),
                   visible=is_new),
             field("conDocFile", "File", attach("attDoc"), required=True, visible=is_new),
