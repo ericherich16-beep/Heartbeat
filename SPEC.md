@@ -1,8 +1,8 @@
 # SPEC.md — JQC/PWI Management
 
-> Functional specification for a Power Apps canvas app, delivered as an importable solution.
-> Source: `intake.md`. `CLAUDE.md` (the build brief) was not provided with this request; where the two disagree, `CLAUDE.md` wins and this spec must be updated.
-> **No confidential data.** Every name, number, URL and ID in this spec is a fictional placeholder.
+> Functional specification for a Power Apps canvas app delivered as an importable solution.
+> **Sources:** `CLAUDE.md` (build brief) and `intake.md` (background). Where they conflict, `CLAUDE.md` wins. Section references such as "CLAUDE §7.8" point to `CLAUDE.md`.
+> **No confidential data.** Every name, email, number and file in this spec is fictional (for example `Tech A`, `manager1@contoso.com`, `PWI-DEMO-001`).
 > **This document contains no app code.**
 
 ---
@@ -11,445 +11,505 @@
 
 | Term | Meaning |
 |---|---|
-| **JQC** | Job Qualification Checklist. A template that a manager fills out and signs to confirm an employee is qualified for a job or task. |
-| **PWI** | Process Work Instruction. A work instruction that an employee reads, trains on, and signs off themselves. |
-| **Document** | A JQC or PWI, identified by its **Document Number** (for example `PWI-0001`). A document has one or more revisions. |
-| **Revision** | One version of a document. Exactly one revision of each non-obsolete document is **current**. |
-| **Assignment** | One employee's training requirement on one specific revision of one document. |
-| **Active assignment** | An assignment with status `Pending` or `Completed`. |
-| **Re-sign item** | A `Pending` assignment created automatically because a new PWI revision superseded an earlier one. |
-| **Qualified** | See BR-40. In short: a `Completed` assignment that is still valid for the document's current revision. |
-| **Evidence** | An uploaded file that supports a sign-off: a PWI training log or a signed JQC. |
-| **Trainer** | An employee a manager has designated on a document. This is not an app role. |
-| **Task** | One current, non-obsolete document, used as the unit of coverage in the cross-training view. |
+| **JQC** | Job Qualification Checklist. A blank template the manager fills in and signs to confirm an employee is qualified. |
+| **PWI** | Process Work Instruction. The employee trains on it and signs off themselves. |
+| **Document** | One JQC or PWI. It is **one item** in `JP_Documents` that keeps the same ID across revisions. |
+| **Current revision** | The `Revision` value on the `JP_Documents` item. Earlier files are kept in library version history. |
+| **Assignment** | One row in `JP_Assignments`: one employee, one document, one revision. |
+| **Current row** | The assignment row with `IsCurrent = Yes`. Each employee has at most one current row per document. |
+| **Pending** | An assignment whose `Status` is `Assigned` or `In Training`. |
+| **Re-sign row** | A row created automatically by a PWI revision (`AssignmentReason = Revision Change`). |
+| **Qualified** | See BR-40. |
+| **Sign-off file** | Evidence uploaded to `JP_SignoffRecords`: a PWI training log or a signed JQC. |
+| **Trainer** | An employee a manager designates on a document. Trainer is not an app role. |
+| **Task** | One `Active` document, used as the unit in the cross-training view. |
 
 ---
 
 ## 1. User roles and permissions
 
-### 1.1 Roles
+### 1.1 Roles and role resolution
 
-| Role | Who | How the app decides the role |
-|---|---|---|
-| **Manager/Supervisor** ("Manager") | Production and quality managers and supervisors | Signed-in user's email matches an **active** `JP_Employees` row with `AppRole = Manager/Supervisor`. |
-| **Technician** | Production and quality technicians | Signed-in user's email matches an **active** `JP_Employees` row with `AppRole = Technician`. |
-| **Viewer** | Anyone who needs read-only access | Signed-in user's email matches an active `JP_Employees` row with `AppRole = Viewer`, **or** the user has no active `JP_Employees` row but can read the site (member of the placeholder `JP Viewers` SharePoint group). |
-| *(no access)* | Everyone else | The user can't read the SharePoint site. The app shows the No Access screen (S15). |
+| Role | Who |
+|---|---|
+| **Manager/Supervisor** ("Manager") | Production and quality managers and supervisors |
+| **Technician** | Production and quality technicians |
+| **Viewer** | Anyone who needs read-only access |
 
-Trainers are not a role. A trainer keeps whatever role they already have.
+- The role is stored in `JP_Employees.AppRole` (CLAUDE §5).
+- The app finds the user's role by matching `User().Email` to `JP_Employees.Email`. The match ignores case.
+- If there is **no match**, or the matching employee has `Active = No`, the user gets **Viewer** access.
+- A user who can't read the SharePoint site gets data-source errors. The app shows a "no access" message instead of empty screens (A-17).
+- Trainers keep their own role. Their names show on the document and on the assignment.
 
-### 1.2 Permissions matrix
+### 1.2 Capability matrix
 
-✅ = allowed · ❌ = not allowed · "Own" = only on records where the user is the assigned employee
+✅ = allowed · ❌ = not allowed · **Own** = only rows where the user is the assigned employee
 
 | # | Capability | Manager | Technician | Viewer |
 |---|---|:-:|:-:|:-:|
-| P01 | Open the app and see Home | ✅ | ✅ | ✅ (no personal items) |
-| P02 | See own pending, re-sign and completed items | ✅ | ✅ | ❌ (Viewers aren't assignable) |
-| P03 | View and download **current** revisions of documents | ✅ | ✅ | ✅ |
-| P04 | View document revision history (metadata) | ✅ | ✅ | ✅ |
-| P05 | Open or download **superseded/obsolete** revision files | ✅ | ✅ (with "Not for use" banner) | ✅ (with "Not for use" banner) |
-| P06 | Add a document (JQC or PWI) | ✅ | ❌ | ❌ |
-| P07 | Edit document metadata and designate trainers | ✅ | ❌ | ❌ |
-| P08 | Upload a new revision with change notes | ✅ | ❌ | ❌ |
-| P09 | Mark a document Obsolete | ✅ | ❌ | ❌ |
-| P10 | Assign documents to employees | ✅ | ❌ | ❌ |
-| P11 | Mark an assignment Removed | ✅ | ❌ | ❌ |
-| P12 | Upload a PWI training log | ✅ (any employee) | Own | ❌ |
-| P13 | Sign off a PWI | ✅ (any employee, including self) | Own | ❌ |
-| P14 | Upload a signed JQC and confirm qualification | ✅ (anyone **except self**) | ❌ | ❌ |
-| P15 | Open evidence files (training logs, signed JQCs) | ✅ (all) | Own | ❌ (status only) |
-| P16 | View the training matrix | ✅ | ✅ | ✅ |
-| P17 | View the cross-training view | ✅ | ✅ | ✅ |
-| P18 | View the Team Status screen | ✅ | ❌ | ❌ |
-| P19 | View the employee list and employee training records (read-only) | ✅ | ✅ | ✅ |
-| P20 | Add or edit employees, including marking them Inactive | ✅ | ❌ | ❌ |
-| P21 | Change **own** `AppRole` or mark **self** Inactive | ❌ | ❌ | ❌ |
-| P22 | Edit settings (cross-training target, re-sign due days) | ✅ | ❌ | ❌ |
-| P23 | Delete any record or file | ❌ | ❌ | ❌ |
+| P01 | View the matrix, cross-training view and JQC/PWI libraries | ✅ | ✅ | ✅ |
+| P02 | View and download JQC templates and PWIs (current revision) | ✅ | ✅ | ✅ |
+| P03 | View and download sign-off files (training logs, signed JQCs) | ✅ all | Own | ✅ all |
+| P04 | See own pending assignments, including re-signs | ✅ | ✅ | ❌ |
+| P05 | Upload a PWI training log | ✅ (own, or on behalf of an employee) | Own | ❌ |
+| P06 | Sign off a PWI | ✅ (own, or on behalf of an employee) | Own | ❌ |
+| P07 | Sign off a JQC (upload signed JQC and confirm qualification) | ✅ **except own** | ❌ | ❌ |
+| P08 | Add or edit employees and set their role, supervisor and active status | ✅ | ❌ | ❌ |
+| P09 | Add documents, edit document metadata and upload new revisions | ✅ | ❌ | ❌ |
+| P10 | Designate trainers on a document | ✅ | ❌ | ❌ |
+| P11 | Mark a document Obsolete | ✅ | ❌ | ❌ |
+| P12 | Create assignments (bulk) | ✅ | ❌ | ❌ |
+| P13 | Mark an assignment Removed | ✅ | ❌ | ❌ |
+| P14 | Delete any record or file | ❌ | ❌ | ❌ |
 
-### 1.3 Security model (recommended)
+### 1.3 Screen access matrix
 
-- Every app user gets **Read** permission on all five lists and libraries through the placeholder SharePoint groups `JP Managers`, `JP Technicians` and `JP Viewers`. The `JP_SignoffRecords` permission is still an open question (OQ-07).
-- **All writes go through Power Automate flows** that use the Power Apps (V2) trigger and run under a non-personal service-account SharePoint connection (a connection reference in the solution). The flows check the caller's role and every business rule again on the server side. Users never need Contribute rights, so nobody can change quality records outside the app.
-- The app only hides or disables controls as a convenience. The flows are what actually enforce the rules.
+👁 = read-only
+
+| Screen | Manager | Technician | Viewer |
+|---|:-:|:-:|:-:|
+| `scrHome` | ✅ | ✅ | ✅ |
+| `scrMyTraining` | ✅ | ✅ | ❌ |
+| `scrAssignmentDetail` | ✅ (any assignment) | ✅ own | ❌ |
+| `scrJQCLibrary` | ✅ (edit) | 👁 | 👁 |
+| `scrPWILibrary` | ✅ (edit) | 👁 | 👁 |
+| `scrDocumentEdit` | ✅ | ❌ | ❌ |
+| `scrPWIStatus` | ✅ | ❌ | 👁 |
+| `scrEmployees` | ✅ (edit) | 👁 list | 👁 list |
+| `scrEmployeeDetail` | ✅ (any employee) | 👁 own only | 👁 (any employee) |
+| `scrAssign` | ✅ | ❌ | ❌ |
+| `scrMatrix` | ✅ | 👁 | 👁 |
+| `scrCrossTraining` | ✅ | 👁 | 👁 |
+| `scrSignoffReview` | ✅ | ❌ | 👁 |
+
+Navigation shows only the screens the role can reach. If a user reaches a screen they can't access, they are sent to `scrHome` and see a "You don't have access to that page" message.
+
+### 1.4 SharePoint permissions (back-up to app logic)
+
+Source: CLAUDE §9. Group names are placeholders, to be mapped at deployment.
+
+| Group | Permissions |
+|---|---|
+| JQCPWI Managers | Contribute on all `JP_` lists and libraries |
+| JQCPWI Technicians | Read on `JP_Employees`, `JP_Documents` and `JP_Settings`. Contribute on `JP_Assignments` and `JP_SignoffRecords` |
+| JQCPWI Viewers | Read on all |
+
+> ⚠️ Technicians have Contribute on `JP_Assignments` and `JP_SignoffRecords`. Most row-level rules, such as "own rows only" and "can't sign off JQCs", are therefore enforced **in the app only**. A technician who opens the list in SharePoint could edit rows directly. See OQ-03.
 
 ---
 
 ## 2. Screen list
 
-Every screen has a responsive layout for phone (< 640 px wide), tablet (640–1023 px) and desktop (≥ 1024 px), plus a shared header with role-filtered navigation.
+Layout rules for every screen:
+- Responsive containers only. No fixed X/Y layout.
+- **Phone:** bottom nav bar. **Tablet and desktop:** left nav rail.
+- Touch targets at least 44 px tall. Body text at least 14 pt.
+- Status is shown as text **and** color.
+- Every gallery has an empty-state message.
 
-| ID | Screen | Roles | Purpose |
+| # | Screen | Roles | Purpose |
 |---|---|---|---|
-| S01 | **Home / My Items** | All | Landing page. Technicians and Managers see their own Pending, Re-sign and Overdue items and their Completed history. Managers also see team counts. Viewers see quick links to the matrix, cross-training view and documents. |
-| S02 | **Assignment Detail / Sign-Off** | Manager, Technician (own) | Open the assigned revision, upload evidence, and sign off (PWI) or confirm qualification (JQC). Shows the full history of the assignment when it's read-only. |
-| S03 | **Documents** | All | Search and filter JQCs and PWIs (type, status, department, trainer). Opens S04. Managers can add a document from here. |
-| S04 | **Document Detail** | All | Current revision metadata, file preview and download, trainers, revision history with change notes, and assignment and sign-off status per employee. Managers get Edit, Revise, Assign and Mark Obsolete actions here. |
-| S05 | **Document Form (Add / Edit)** | Manager | Create a new document (first revision plus file) or edit the metadata and trainers of the current revision. |
-| S06 | **Revise Document** | Manager | Upload a new revision with a revision label and change notes, and preview who will get re-sign items before confirming. |
-| S07 | **Assign** | Manager | Assign one or more documents to one or more employees with a due date. Shows duplicates and ineligible employees before saving. |
-| S08 | **Training Matrix** | All | Grid of employees by documents showing each cell's qualification state for the current revision, with filters. On phone it becomes a pivoted list. |
-| S09 | **Cross-Training** | All | Coverage per task: qualified count against target, tasks below target, single points of failure, and gaps by shift. |
-| S10 | **Team Status** | Manager | The manager's direct reports, or any filtered team: pending, re-sign, overdue and completed items, with Remove and Assign actions. |
-| S11 | **Employees** | All (read-only) / Manager (edit) | Searchable employee directory with filters (department, shift, supervisor, role, active). Managers can add employees from here. |
-| S12 | **Employee Detail** | All | One employee's profile and training record: active assignments and sign-off history. |
-| S13 | **Employee Form (Add / Edit)** | Manager | Create or edit an employee, including role, job title, department, shift, supervisor and the active flag. |
-| S14 | **Settings** | Manager | Edit the cross-training target and the re-sign due days. |
-| S15 | **No Access / Not Registered** | Anyone the app can't resolve | Explains why the user has no access or only Viewer access, and whom to contact. No data is shown. |
+| 1 | `scrHome` | All | Landing page with tiles. My Pending shows the Re-Sign Required count. My Signed Off. Team Pending (managers only). Coverage Gaps. Each tile opens the matching screen with a filter applied. |
+| 2 | `scrMyTraining` | Manager, Technician | The user's own current assignments in three tabs: **Pending**, **Signed Off** and **All**. Re-sign rows show a "New Revision – Please Re-Sign" badge and the revision notes. Opens `scrAssignmentDetail`. |
+| 3 | `scrAssignmentDetail` | Manager, Technician (own) | Shows the document link (view and download), the revision assigned, the revision notes (for re-signs) and the trainer. **PWI:** upload the training log, then Sign Off. **JQC:** technicians see "Waiting on Supervisor"; managers upload the signed JQC and confirm qualification. |
+| 4 | `scrJQCLibrary` | All (edit: Manager) | List of JQCs with search and filters (Area, Status). Each shows trainers, current revision, template link and the number qualified. Managers can add or revise from here. |
+| 5 | `scrPWILibrary` | All (edit: Manager) | The same as the JQC library, plus "X of Y signed off on current rev" for each PWI. |
+| 6 | `scrDocumentEdit` | Manager | Add a document, edit its metadata, designate trainers, **Upload New Revision** (BR-30 to BR-36) and mark it Obsolete. |
+| 7 | `scrPWIStatus` | Manager, Viewer | One PWI: every assigned employee with the revision they're on and their display status. Managers get an Assign More Employees button and a Remove action. |
+| 8 | `scrEmployees` | Manager (edit); others read-only | Employee list with search and filters. Managers can add and edit employees and set role, supervisor and active status. |
+| 9 | `scrEmployeeDetail` | All (Technicians: own only) | One employee's current assignments grouped by status, plus "Previous revisions" history with links to sign-off files. |
+| 10 | `scrAssign` | Manager | Multi-select employees and Active documents, pick a trainer and due date, then preview and create the assignments. |
+| 11 | `scrMatrix` | All | Training matrix of employees × documents, with cell status from `fxAssignmentDisplayStatus`. |
+| 12 | `scrCrossTraining` | All | Coverage by task, single points of failure, coverage by shift, employee breadth, and tap-through to `scrAssign`. |
+| 13 | `scrSignoffReview` | Manager, Viewer | Recently signed-off items, JQCs waiting on a supervisor, re-signs required and overdue items. Filters by employee, document and date. |
 
 ---
 
 ## 3. Data model
 
-### 3.1 Overview and relationships
+### 3.1 Relationships
 
 ```
-JP_Employees (1) ──< (many) JP_Assignments >── (1) JP_Documents [one row per revision]
-     │  ▲                         │
-     │  └── Supervisor (self-lookup)        └──< (many) JP_SignoffRecords
-     └──< Trainers (multi-lookup from JP_Documents)
+JP_Employees (1) ──< JP_Assignments >── (1) JP_Documents
+   ▲    │                │                  (one item per document; file replaced
+   │    │ Supervisor     │                   in place on revision; old files in
+   └────┘ (self lookup)  │                   version history)
+                         │
+                         └──< JP_SignoffRecords   (AssignmentID → JP_Assignments.ID)
 
-JP_Settings: standalone key/value list
+JP_Documents.Trainers  : Person (multi) — designated trainers
+JP_Assignments.Trainer : Person — chosen from that document's Trainers
+JP_Settings            : single row, global settings
 ```
 
-- `JP_Documents` stores **one row per revision**. Every revision of a document shares the same `DocumentNumber`. Exactly one row per `DocumentNumber` has `IsCurrentRevision = Yes`. Older revision files stay in the library for audit.
-- `JP_Assignments.Document` points to a **specific revision** row. `DocumentNumber` is copied onto the assignment so lookups by document are delegable.
-- `JP_SignoffRecords.Assignment` links each piece of evidence to the assignment it supports.
-- SharePoint system columns (`ID`, `Created`, `Created By`, `Modified`, `Modified By`) exist on every list. Because flows write as a service account, the **acting user** is always stored in explicit Person columns as well.
-
-### 3.2 `JP_Employees` (SharePoint list)
-
-| Column (internal) | Display name | Type | Required | Rules / notes |
-|---|---|---|:-:|---|
-| `Title` | Full Name | Single line of text (255) | ✅ | Display name, for example "Alex Rivera". |
-| `EmployeeNumber` | Employee Number | Single line of text (20) | ✅ | Unique (enforce unique values = Yes). Fictional, for example `E-1001`. |
-| `UserAccount` | User Account | Person (single, people only) | ✅ | The Microsoft 365 account, picked with Office 365 Users search. |
-| `UserEmail` | User Email | Single line of text (255) | ✅ | Unique, stored in lowercase. Copied from `UserAccount` and used for delegable lookup of the signed-in user. |
-| `AppRole` | App Role | Choice: `Manager/Supervisor`, `Technician`, `Viewer` | ✅ | Default `Technician`. |
-| `JobTitle` | Job Title | Single line of text (255) | ✅ | |
-| `Department` | Department | Choice: `Production`, `Quality`, `Other` | ✅ | Choice values can be extended at deployment. |
-| `Shift` | Shift | Choice: `1st`, `2nd`, `3rd`, `Weekend` | ✅ | Used for gaps by shift. |
-| `Supervisor` | Supervisor | Lookup → `JP_Employees.Title` (single) | ❌ | Must be an active employee with `AppRole = Manager/Supervisor`. Can't be the employee themselves. |
-| `IsActive` | Active | Yes/No | ✅ | Default Yes. Inactive employees are never deleted. |
-| `InactiveDate` | Inactive Date | Date only | ❌ | Set when `IsActive` changes to No. Cleared when it changes back. |
-| `LastChangedBy` | Last Changed By | Person | ✅ (system) | Set by the flow to the acting user. |
-
-### 3.3 `JP_Documents` (document library, one item per revision)
-
-| Column (internal) | Display name | Type | Required | Rules / notes |
-|---|---|---|:-:|---|
-| *(file)* `Name` | File Name | File | ✅ | PDF, DOCX, XLSX, JPG or PNG, ≤ 25 MB. Renamed by the flow to `{DocumentNumber}_Rev{Revision}.{ext}`. |
-| `Title` | Document Title | Single line of text (255) | ✅ | |
-| `DocumentNumber` | Document Number | Single line of text (30) | ✅ | Unique **across documents**, not across revisions. Stored in uppercase. Example: `PWI-0001`, `JQC-0001`. Can't be changed after creation. |
-| `DocumentType` | Type | Choice: `JQC`, `PWI` | ✅ | Can't be changed after creation. |
-| `Revision` | Revision | Single line of text (10) | ✅ | Label such as `A`, `B` or `01`. Unique within a `DocumentNumber`. |
-| `RevisionSequence` | Revision Sequence | Number (integer, ≥ 1) | ✅ (system) | 1 for the first revision, then +1 for each new revision. Used for ordering. |
-| `ChangeNotes` | Change Notes | Multiple lines of text (plain) | ✅ when `RevisionSequence > 1` | Optional on the first revision ("Initial release" by default). |
-| `Trainers` | Trainers | Lookup → `JP_Employees.Title` (**multiple**) | ❌ to save, ✅ to assign | Active employees only. Copied forward to each new revision. |
-| `Department` | Department | Choice (same values as employees) | ❌ | Used as a filter on S03, S08 and S09. |
-| `CrossTrainingTarget` | Cross-Training Target | Number (integer, 1–50) | ❌ | Overrides the global target for this task. Blank means use `JP_Settings.CrossTrainingTarget`. |
-| `DocStatus` | Status | Choice: `Active`, `Superseded`, `Obsolete` | ✅ (system) | |
-| `IsCurrentRevision` | Current Revision | Yes/No | ✅ (system) | Exactly one row per `DocumentNumber` is Yes. That row's `DocStatus` is `Active` or `Obsolete`. |
-| `EffectiveDate` | Effective Date | Date only | ✅ (system) | Date the revision was uploaded. |
-| `UploadedBy` | Uploaded By | Person | ✅ (system) | Acting manager. |
-| `SupersededDate` | Superseded Date | Date only | ❌ (system) | |
-| `ObsoleteDate` / `ObsoleteBy` / `ObsoleteReason` | — | Date only / Person / Multiple lines | ❌ (system) | Set when the document is marked Obsolete. `ObsoleteReason` is required at that point. |
-
-Library settings: versioning on (major versions), content approval off, no folders, check-out not required.
-
-### 3.4 `JP_Assignments` (SharePoint list)
-
-| Column (internal) | Display name | Type | Required | Rules / notes |
-|---|---|---|:-:|---|
-| `Title` | Title | Single line of text | ✅ (system) | `{DocumentNumber} Rev {Revision} – {EmployeeNumber}`. |
-| `Employee` | Employee | Lookup → `JP_Employees.Title` | ✅ | |
-| `EmployeeEmail` | Employee Email | Single line of text | ✅ (system) | Copied for delegable "my items" queries. |
-| `Document` | Document Revision | Lookup → `JP_Documents.Title` (revision row) | ✅ | Always the revision that was current when the row was created. |
-| `DocumentNumber` | Document Number | Single line of text | ✅ (system) | Copied from the document. |
-| `DocumentType` | Type | Choice: `JQC`, `PWI` | ✅ (system) | Copied from the document. |
-| `Revision` | Revision | Single line of text | ✅ (system) | Copied from the document. |
-| `AssignmentStatus` | Status | Choice: `Pending`, `Completed`, `Superseded`, `Removed` | ✅ | Default `Pending`. |
-| `AssignmentReason` | Reason | Choice: `Initial`, `Re-sign` | ✅ | |
-| `DueDate` | Due Date | Date only | ✅ | Must be today or later when created. |
-| `AssignedBy` | Assigned By | Person | ✅ (system) | |
-| `AssignedOn` | Assigned On | Date and time | ✅ (system) | |
-| `SignedOffBy` | Signed Off By | Person | On Completed | The signed-in user who completed the sign-off. |
-| `SignedOffOn` | Signed Off On | Date and time | On Completed | Server time (UTC) from the flow. |
-| `Attestation` | Attestation Accepted | Yes/No | On Completed | PWI: "I have been trained on and understand this revision." JQC: "I confirm this employee is qualified." |
-| `EvidenceRecord` | Evidence | Lookup → `JP_SignoffRecords.Title` | On Completed | The evidence file used for the sign-off. |
-| `PreviousAssignment` | Previous Assignment | Lookup → `JP_Assignments.ID` | ❌ | Set on rows created by a revision. Points to the row that was superseded. |
-| `SupersededOn` | Superseded On | Date and time | On Superseded | |
-| `RemovedBy` / `RemovedOn` / `RemovedReason` | — | Person / Date and time / Multiple lines | On Removed | `RemovedReason` is required. |
-| `Comments` | Comments | Multiple lines of text (plain, 2,000) | ❌ | Optional note at sign-off. |
-
-Calculated in the app, not stored: **Overdue** = `AssignmentStatus = Pending` and `DueDate < Today`.
-
-### 3.5 `JP_SignoffRecords` (document library)
-
-| Column (internal) | Display name | Type | Required | Rules / notes |
-|---|---|---|:-:|---|
-| *(file)* `Name` | File Name | File | ✅ | PDF, DOCX, XLSX, JPG or PNG, ≤ 25 MB. Renamed to `{DocumentNumber}_Rev{Revision}_{EmployeeNumber}_{yyyyMMddHHmmss}.{ext}`. |
-| `Title` | Title | Single line of text | ✅ (system) | Same as the file name without its extension. |
-| `RecordType` | Record Type | Choice: `PWI Training Log`, `Signed JQC` | ✅ | Must match the document type of the assignment. |
-| `Assignment` | Assignment | Lookup → `JP_Assignments.Title` | ✅ | |
-| `Employee` | Employee | Lookup → `JP_Employees.Title` | ✅ (system) | Copied from the assignment. |
-| `DocumentNumber` / `Revision` | — | Single line of text | ✅ (system) | Copied from the assignment. |
-| `UploadedBy` | Uploaded By | Person | ✅ (system) | |
-| `UploadedOn` | Uploaded On | Date and time | ✅ (system) | |
-| `RecordStatus` | Record Status | Choice: `Uploaded`, `Final`, `Replaced` | ✅ (system) | `Uploaded` until sign-off, then `Final`. If a newer file is uploaded for the same assignment before sign-off, the older one becomes `Replaced`. |
-
-### 3.6 `JP_Settings` (SharePoint list, key/value)
-
-| Column | Type | Required | Notes |
-|---|---|:-:|---|
-| `Title` (Setting Key) | Single line of text, unique | ✅ | |
-| `NumberValue` | Number (integer) | ✅ | |
-| `Description` | Multiple lines of text | ❌ | |
-
-Seed rows:
-
-| Title | NumberValue | Allowed range | Description |
+| From | To | Cardinality | Implemented as |
 |---|---|---|---|
-| `CrossTrainingTarget` | 2 | 1–50 | Qualified employees required per task (global default). |
-| `ResignDueDays` | 14 | 1–365 | Days from revision date until a re-sign item is due. Also used as the default due date offset on the Assign screen. |
+| `JP_Assignments.Employee` | `JP_Employees` | many : 1 | Lookup, with `EmployeeEmail` text copy for delegation |
+| `JP_Assignments.DocumentID` | `JP_Documents.ID` | many : 1 | Number |
+| `JP_Assignments.PreviousAssignmentID` | `JP_Assignments.ID` | 1 : 1 (chain) | Number |
+| `JP_Assignments.SignoffFileID` | `JP_SignoffRecords.ID` | 1 : 0..1 | Number |
+| `JP_SignoffRecords.AssignmentID` | `JP_Assignments.ID` | many : 1 | Number |
+| `JP_Employees.Supervisor` | `JP_Employees` | many : 1 | Lookup |
 
-### 3.7 Solution components (for reference, not code)
+Rules that apply to all lists:
+- Use internal column names without spaces.
+- Index every column used in a filter (CLAUDE §6).
+- SharePoint system columns (`ID`, `Created`, `Created By`, `Modified`, `Modified By`) exist on every list.
 
-- **Environment variables:** `jp_SiteUrl` (Data source / Site), and one Data source / List variable for each of `JP_Employees`, `JP_Documents`, `JP_Assignments`, `JP_SignoffRecords` and `JP_Settings`. Nothing is hard-coded.
-- **Connection references:** SharePoint (user) for app reads, SharePoint (service account) for flows, Office 365 Users.
-- **Flows (Power Apps V2 trigger):** Save Employee, Save Document, Revise Document, Mark Document Obsolete, Create Assignments, Remove Assignment, Upload Evidence, Complete Sign-Off, Save Settings. Each one returns `{ success, message, ids }`.
+### 3.2 `JP_Employees` (list)
+
+| Column | Type | Req | Notes |
+|---|---|:-:|---|
+| `Title` | Single line of text | ✅ | Display name, for example `Tech A`. |
+| `Email` | Single line of text | ✅ | Unique (enforce unique values) and indexed. Used for role lookup. Stored lowercase. |
+| `EmployeeUser` | Person | | Optional link to the M365 user. |
+| `JobTitle` | Choice | ✅ | Production Technician, Quality Technician, Supervisor, Manager, Other |
+| `Department` | Choice | | Production, Quality, Other. Indexed. |
+| `Shift` | Choice | | 1st, 2nd, 3rd, Days. Indexed. |
+| `Supervisor` | Lookup → `JP_Employees.Title` | | Used for "My Team" filtering. Indexed. |
+| `AppRole` | Choice | ✅ | Manager/Supervisor, Technician, Viewer |
+| `Active` | Yes/No | ✅ | Default Yes. Never delete an employee; set `Active = No` instead. Indexed. |
+
+### 3.3 `JP_Documents` (document library: JQC templates and PWIs)
+
+| Column | Type | Req | Notes |
+|---|---|:-:|---|
+| `Name` (file) | File | ✅ | JQC: the blank template. PWI: the work instruction. |
+| `DocType` | Choice | ✅ | JQC, PWI. Indexed. |
+| `DocNumber` | Single line of text | ✅ | For example `JQC-DEMO-100` or `PWI-DEMO-001`. Unique (A-05). Indexed. |
+| `DocTitle` | Single line of text | ✅ | |
+| `Revision` | Single line of text | ✅ | Always the **current** revision. |
+| `RevisionDate` | Date only | ✅ | Date the current revision was released in the app. |
+| `RevisionNotes` | Multiple lines of text | | What changed. Shown to employees when they re-sign. Required when uploading a new revision (BR-30). |
+| `Area` | Choice | | Production, Quality, Metrology, Other. The choice list can be edited. Indexed. |
+| `Status` | Choice | ✅ | Active, Obsolete. Indexed. |
+| `Trainers` | Person or Group (multiple, people only) | | Designated trainers. At least one is required before the document can be assigned. |
+| `Description` | Multiple lines of text | | |
+
+Library settings:
+- Versioning on (major versions).
+- A new revision **replaces the file in place**, so the item ID (`DocumentID`) never changes and earlier revision files stay in version history.
+
+### 3.4 `JP_Assignments` (list: one row per employee per document revision)
+
+| Column | Type | Req | Notes |
+|---|---|:-:|---|
+| `Title` | Single line of text | ✅ | Generated automatically as `{DocNumber} Rev {RevisionAssigned} – {Employee Title}`. |
+| `Employee` | Lookup → `JP_Employees.Title` | ✅ | |
+| `EmployeeEmail` | Single line of text | ✅ | Copy of the employee's email, for delegable filtering. Indexed. |
+| `DocumentID` | Number | ✅ | `JP_Documents` item ID. Indexed. |
+| `DocType` | Choice | ✅ | JQC, PWI. Copied from the document. Indexed. |
+| `DocNumber` | Single line of text | ✅ | Copied from the document. |
+| `DocTitle` | Single line of text | ✅ | Copied from the document. |
+| `RevisionAssigned` | Single line of text | ✅ | The revision this row must be signed against. |
+| `AssignmentReason` | Choice | ✅ | New Assignment, Revision Change |
+| `PreviousAssignmentID` | Number | | Links a re-sign row to the row it replaced. |
+| `IsCurrent` | Yes/No | ✅ | Yes = the employee's live row for this document. Indexed. |
+| `AssignedBy` | Person | ✅ | |
+| `AssignedDate` | Date only | ✅ | |
+| `DueDate` | Date only | | Optional. Re-sign rows default to Today() + `ResignDueDays`. |
+| `Trainer` | Person | | Chosen from the document's `Trainers`. |
+| `Status` | Choice | ✅ | Assigned, In Training, Signed Off, Superseded, Removed. Indexed. |
+| `SignedOffBy` | Person | | PWI: the employee or a manager. JQC: the manager or supervisor. |
+| `SignedOffDate` | Date and time | | Set to `Now()` at sign-off. |
+| `SignoffFileID` | Number | | `JP_SignoffRecords` item ID. |
+| `Comments` | Multiple lines of text | | Holds the removal reason (A-12) and optional sign-off notes. |
+
+### 3.5 `JP_SignoffRecords` (document library: completed evidence)
+
+| Column | Type | Req | Notes |
+|---|---|:-:|---|
+| `Name` (file) | File | ✅ | JQC: the filled-out, signed template. PWI: the training log. |
+| `AssignmentID` | Number | ✅ | Links back to `JP_Assignments`. Indexed. |
+| `DocType` | Choice | ✅ | JQC, PWI |
+| `Revision` | Single line of text | ✅ | The revision signed against. |
+| `EmployeeEmail` | Single line of text | ✅ | Indexed. |
+| `UploadedBy` | Person | ✅ | |
+
+File name format: `{DocNumber}_Rev{Rev}_{EmployeeID}_{yyyyMMdd}.{ext}`. `EmployeeID` is the `JP_Employees` list ID, never the employee's name.
+
+### 3.6 `JP_Settings` (list: single row)
+
+| Column | Type | Default | Notes |
+|---|---|---|---|
+| `Title` | Single line of text | `Settings` | Required by SharePoint. |
+| `MinQualifiedPerTask` | Number (integer ≥ 1) | 2 | Cross-training target. `TODO:` confirm. |
+| `ResignDueDays` | Number (integer ≥ 1) | 14 | Days allowed to re-sign after a PWI revision. `TODO:` confirm. |
+
+### 3.7 Delivery components (from CLAUDE §4, §10, §11 and §16)
+
+**Environment variables**
+
+| Variable | Points to |
+|---|---|
+| `jp_SiteUrl` | SharePoint site |
+| `jp_ListEmployees` | `JP_Employees` |
+| `jp_LibDocuments` | `JP_Documents` |
+| `jp_ListAssignments` | `JP_Assignments` |
+| `jp_LibSignoffs` | `JP_SignoffRecords` |
+| `jp_ListSettings` | `JP_Settings` |
+
+No URLs, tenant IDs, site names or GUIDs are hard-coded anywhere.
+
+**Flow: `JQCPWI - Upload File`**
+
+- **Trigger:** Power Apps (V2) with these inputs:
+  - `File` (file)
+  - `TargetLibrary` (text: `Documents` or `Signoffs`)
+  - `ExistingItemID` (number, optional)
+  - `MetadataJson` (text)
+- **Steps:**
+  1. If `ExistingItemID` is empty, create the file. Otherwise, update the file content of that item.
+  2. Update the file properties from `MetadataJson`.
+  3. Return the item ID and file URL to the app.
+- All other writes are `Patch` calls from the app.
+
+**Repository layout**
+
+| Path | Contents |
+|---|---|
+| `/provisioning/Create-Lists.ps1` | PnP PowerShell script that creates the lists |
+| `/app/App.fx.md` | App-level formulas |
+| `/app/screens/*.pa.yaml` | One file per screen |
+| `/flows/JQCPWI-UploadFile.md` | Upload flow spec |
+| `/solution/env-vars.md` | Environment variable setup |
+| `/seed/*.csv` | Fictional seed data only |
+| `/docs/*` | Documentation |
+| `.gitignore` | Must exclude `*.env`, `*.secrets*`, `/exports/` and any `*.zip` not built by this project |
 
 ---
 
 ## 4. Business rules (numbered, testable)
 
-### Access and roles
-- **BR-01** The app resolves the signed-in user's role by matching their lowercase email to an **active** `JP_Employees.UserEmail` and reading `AppRole`.
-- **BR-02** A user with no active `JP_Employees` row who can read the site is treated as a Viewer. A user who can't read the site sees S15 and no data.
-- **BR-03** Every write flow checks the caller's role again on the server. A call from a role that isn't allowed by §1.2 is rejected with the message "You don't have permission to perform this action." and nothing is written.
-- **BR-04** No role can delete list items or files through the app. No flow contains a delete action.
+### Access
+- **BR-01** The user's role is the `AppRole` on the active `JP_Employees` row whose `Email` matches `User().Email`, ignoring case. If there is no match, or the employee is inactive, the role is Viewer.
+- **BR-02** Controls a role isn't allowed to use (per §1.2) are hidden or disabled, and screens it can't reach (per §1.3) don't appear in navigation.
+- **BR-03** A Technician can open `scrAssignmentDetail` and `scrEmployeeDetail` only for their own records (`EmployeeEmail` = their email). Any other record shows "You can only view your own items."
+- **BR-04** A Technician can open sign-off files only for their own assignments. Managers and Viewers can open all sign-off files.
+- **BR-05** No screen offers a delete action for any list item or file.
 
-### Required fields and validation
-- **BR-05** A form can't be saved while any required field (marked ✅ in §3) is blank. The Save button is disabled and each missing field shows an inline message.
-- **BR-06** `EmployeeNumber` and `UserEmail` are each unique across all employees, active or inactive. A duplicate is rejected with a message that names the existing employee.
-- **BR-07** `DocumentNumber` is unique across documents. Creating a document whose number already exists, in any status, is rejected.
-- **BR-08** A new revision label must differ from every earlier revision label of the same `DocumentNumber`, compared without regard to case.
-- **BR-09** `ChangeNotes` is required for every revision after the first.
-- **BR-10** `DueDate` can't be earlier than today when an assignment is created.
+### Validation and writes
+- **BR-06** A form can't be submitted while any field marked required in §3 is empty. Missing fields are listed in plain language, for example "Please enter the Document Number."
+- **BR-07** Every write uses `Patch` wrapped in `IfError`, shows a `Notify` message on success and on failure, and disables its button until the write finishes.
+- **BR-08** Uploads accept only `.pdf`, `.docx`, `.xlsx`, `.jpg`/`.jpeg` and `.png` files (extension check ignores case), up to 25 MB each. Anything else is rejected before the flow is called, with a message that names the problem.
+- **BR-09** Each upload sends exactly one file, from an Attachments control, to `JQCPWI - Upload File`.
 
 ### Employees
-- **BR-11** Only Managers can create or edit employees.
-- **BR-12** A Manager can't change their own `AppRole` or set their own `IsActive` to No.
-- **BR-13** `Supervisor` must be an active employee with `AppRole = Manager/Supervisor` and can't be the employee themselves.
-- **BR-14** Setting an employee to Inactive marks all of their `Pending` assignments `Removed`, with reason "Employee inactive". Their `Completed` assignments are kept unchanged for history.
-- **BR-15** Inactive employees don't appear in the matrix, the cross-training counts, trainer pickers or assignee pickers. They do appear in S11 when the "Show inactive" filter is on.
-- **BR-16** Reactivating an employee doesn't restore any assignments that were Removed.
-- **BR-17** Only employees with `AppRole` Technician or Manager/Supervisor can be assigned documents or designated as trainers.
+- **BR-10** Only Managers can add or edit employees and set their role, supervisor or active status.
+- **BR-11** `Email` must be unique across all employees, active or inactive. A duplicate is rejected with a message.
+- **BR-12** Employees are never deleted. Deactivating sets `Active = No`.
+- **BR-13** Inactive employees are left out of the matrix, cross-training counts, the "X employees" re-sign count, re-sign row creation, and the employee and trainer pickers on `scrAssign`.
+- **BR-14** Only employees with `AppRole` Technician or Manager/Supervisor can be chosen as assignees (A-08).
 
 ### Documents and trainers
-- **BR-18** Only Managers can add documents, edit document metadata, designate trainers, upload revisions or mark documents Obsolete.
-- **BR-19** A new document is created as revision sequence 1 with `DocStatus = Active` and `IsCurrentRevision = Yes`.
-- **BR-20** A document can be saved with no trainers, but it can't be assigned until its current revision has at least one active trainer. The Assign action is disabled and the flow rejects the call.
-- **BR-21** Editing metadata (title, trainers, department, cross-training target) changes the current revision row only. It doesn't create a revision and doesn't affect assignments.
-- **BR-22** `DocumentNumber` and `DocumentType` can't be changed after creation. The file can be replaced only by uploading a revision.
-- **BR-23** Marking a document Obsolete requires a reason, sets `DocStatus = Obsolete` on the current revision, and marks all `Pending` assignments for that `DocumentNumber` `Removed` with reason "Document obsolete". `Completed` assignments are kept.
-- **BR-24** Obsolete documents can't be assigned, revised or edited, and they're left out of the matrix and cross-training view. They stay visible on S03 when the "Show obsolete" filter is on.
+- **BR-15** Only Managers can add documents, edit document metadata, designate trainers, upload revisions or mark documents Obsolete.
+- **BR-16** A new document is created through the upload flow (no `ExistingItemID`) with `Status = Active`, the entered `Revision`, and `RevisionDate = Today()`.
+- **BR-17** `DocNumber` must be unique across all documents (A-05).
+- **BR-18** Editing metadata (title, area, description, trainers) doesn't change `Revision` and doesn't touch assignments.
+- **BR-19** A document with no designated trainer can't be assigned. It can't be selected on `scrAssign`, and Assign actions are disabled with the reason shown.
+- **BR-20** Documents are never deleted. Retiring one sets `Status = Obsolete`. Obsolete documents can't be assigned or revised, and they're left out of the matrix and cross-training views. Library screens show them only when the Status filter includes Obsolete.
 
 ### Assignments
-- **BR-25** Only Managers can create or remove assignments.
-- **BR-26** A new assignment always points to the document's **current** revision.
-- **BR-27** **No duplicate active assignments:** an employee can have at most one assignment with status `Pending` or `Completed` per `DocumentNumber`. Assigning a document to an employee who already has one is skipped and reported as "already assigned". It isn't an error for the rest of the batch.
-- **BR-28** A batch assignment from S07 creates one row per eligible (employee, document) pair with `AssignmentReason = Initial`, `AssignedBy` = the current user and `AssignedOn` = server time.
-- **BR-29** Removing an assignment requires a reason and sets `AssignmentStatus = Removed`, `RemovedBy` and `RemovedOn`. Both `Pending` and `Completed` assignments can be removed.
-- **BR-30** After an assignment is Removed, the same document can be assigned to that employee again. The new row points to the current revision.
+- **BR-21** Only Managers can create assignments. They pick one or more employees and one or more `Active` documents, and the app creates one row per eligible pair.
+- **BR-22** Each new row gets:
+  - `RevisionAssigned` = the document's **current** `Revision`
+  - `AssignmentReason = New Assignment`
+  - `IsCurrent = Yes`
+  - `Status = Assigned`
+  - `AssignedBy` = current user
+  - `AssignedDate = Today()`
+  - copies of `EmployeeEmail`, `DocType`, `DocNumber` and `DocTitle`
+- **BR-23** **No duplicates:** an employee can never have two rows with `IsCurrent = Yes` for the same `DocumentID`. Pairs that already have a current row are skipped and listed in the preview as "Already assigned".
+- **BR-24** `DueDate` is optional on new assignments. `Trainer`, if set, must be one of the document's `Trainers`.
+- **BR-25** Employees assigned after a revision always get the revision that is current at that time (follows from BR-22).
+- **BR-26** A Manager can remove an assignment. The app sets `Status = Removed` and `IsCurrent = No`, and records the reason in `Comments`. A removed pair can then be assigned again.
 
-### Sign-offs
-- **BR-31** A sign-off is allowed only on an assignment that is `Pending` **and** points to a revision with `IsCurrentRevision = Yes` and `DocStatus = Active`. Any other sign-off attempt is rejected, both in the UI and in the flow.
-- **BR-32** **PWI:** the assigned employee or any Manager can sign off.
-- **BR-33** **PWI:** the Sign Off button stays disabled until a `PWI Training Log` evidence file with status `Uploaded` exists for that assignment **and** the attestation checkbox is ticked.
-- **BR-34** **JQC:** only a Manager can sign off, and only when the Manager isn't the assigned employee. A Manager viewing their own JQC assignment sees it as read-only, with the message "Another manager must sign off your JQC."
-- **BR-35** **JQC:** the Confirm Qualified button stays disabled until a `Signed JQC` evidence file with status `Uploaded` exists for that assignment **and** the "I confirm this employee is qualified" checkbox is ticked.
-- **BR-36** On sign-off, the flow sets `AssignmentStatus = Completed`, `SignedOffBy` = the signed-in user, `SignedOffOn` = server UTC time, `Attestation = Yes` and `EvidenceRecord`, and changes that evidence record to `Final`.
-- **BR-37** A `Completed` assignment can't be signed off again or edited. The only change allowed is Remove (BR-29), or Superseded through a revision.
+### Sign-off
+- **BR-27** A sign-off is allowed only on a row with `IsCurrent = Yes`, a pending `Status` (`Assigned` or `In Training`), on an `Active` document, **and** `RevisionAssigned` = the document's current `Revision`. Otherwise the sign-off control is disabled and shows "This revision is no longer current."
+- **BR-28** **PWI:**
+  - Only the assigned employee or a Manager can sign off.
+  - **Sign Off** stays disabled until a training log has been uploaded for this row.
+  - On sign-off the app sets `Status = Signed Off`, `SignedOffBy` = current user, `SignedOffDate = Now()` and `SignoffFileID`.
+- **BR-29** **JQC:**
+  - Only a Manager can sign off, and never on a row where they are the assigned employee.
+  - The Manager uploads the signed JQC and ticks *"I verified this employee is qualified to perform this task."*
+  - The confirm button stays disabled until both the upload and the tick are done.
+  - On confirm the app sets `Status = Signed Off`, `SignedOffBy` = the Manager, `SignedOffDate = Now()` and `SignoffFileID`.
+  - Technicians never see JQC sign-off controls.
+- **BR-30** Each uploaded sign-off file creates a `JP_SignoffRecords` item with `AssignmentID`, `DocType`, `Revision` (= `RevisionAssigned`), `EmployeeEmail` and `UploadedBy`. It is named using the §3.5 format.
 
-### Revisions
-- **BR-38** **New PWI revision:** the flow, as a single logical operation, (a) creates the new revision row (`Active`, current), copying trainers forward; (b) sets the old current row to `Superseded`, not current, and fills in `SupersededDate`; (c) for each active assignment on that `DocumentNumber`:
-  - if the employee is **active** and the assignment was `Completed`: marks it `Superseded` and creates a new `Pending` row on the new revision with `AssignmentReason = Re-sign`, `DueDate = today + ResignDueDays`, and `PreviousAssignment` set;
-  - if the employee is **active** and the assignment was `Pending`: marks it `Superseded` and creates a new `Pending` row on the new revision that keeps its original `AssignmentReason` and `DueDate` (or today + `ResignDueDays`, whichever is later), with `PreviousAssignment` set;
-  - if the employee is **inactive**: marks it `Superseded` and creates nothing.
-- **BR-39** **New JQC revision:** the flow does (a) and (b) from BR-38. `Completed` JQC assignments stay `Completed` and remain valid (see BR-40). `Pending` JQC assignments are moved to the new revision in the same way as pending PWI assignments, so nobody can sign off an outdated revision. No re-sign items are created.
-- **BR-40** **Qualified** means:
-  - PWI: the employee is active and has a `Completed` assignment on the **current** revision.
-  - JQC: the employee is active and has a `Completed` assignment on any revision of the document, and the document isn't Obsolete. A JQC revision doesn't invalidate earlier qualifications (assumption A-08 / OQ-01).
-- **BR-41** Employees assigned after a revision is issued are always assigned the revision that is current at that time (follows from BR-26).
-- **BR-42** If a revision flow fails partway, it reports failure, and running it again for the same new revision label finishes the remaining steps without creating duplicate rows. In other words, the flow is idempotent and keyed on `DocumentNumber` + `Revision` + employee.
+### PWI revision change
+- **BR-31** Only a Manager can upload a new revision (`scrDocumentEdit` → **Upload New Revision**). A new file, a new `Revision` value (different from the current one, A-06) and `RevisionNotes` are all required.
+- **BR-32** Before saving, the app shows *"This will require X employees to sign off on Rev {new}."* X = the number of rows for this `DocumentID` with `IsCurrent = Yes`, `Status` not `Removed`, and an active employee.
+- **BR-33** On confirm, the app first replaces the file in place (upload flow with `ExistingItemID`) and updates `Revision`, `RevisionDate = Today()` and `RevisionNotes` on the document item. The item ID doesn't change.
+- **BR-34** Next, for **every** row with this `DocumentID`, `IsCurrent = Yes`, `Status` in Assigned, In Training or Signed Off, and an active employee:
+  - **Old row:** set `Status = Superseded` if it was `Signed Off`, otherwise keep its status. Set `IsCurrent = No`.
+  - **New row:** same `Employee` and `Trainer`, with:
+    - `RevisionAssigned` = the new revision
+    - `AssignmentReason = Revision Change`
+    - `PreviousAssignmentID` = the old row's ID
+    - `Status = Assigned`
+    - `IsCurrent = Yes`
+    - `DueDate = Today() + ResignDueDays`
+    - copies of the other columns, as in BR-22
+- **BR-35** After processing, a summary shows the number re-assigned and the number of failures, with a **Retry** button. Retry processes only rows that still have `IsCurrent = Yes` on an old revision, so it never creates duplicates.
+- **BR-36** Earlier sign-off records and files stay in `JP_SignoffRecords` and appear on `scrEmployeeDetail` under "Previous revisions".
+- **BR-37** Re-sign rows show in **My Pending** with the badge "New Revision – Please Re-Sign" and the `RevisionNotes`.
+- **BR-38** The revision process is built with `ForAll` + `Patch` in the app. It is designed for up to 500 affected rows per document; the limit is documented in Admin-Guide.md.
 
-### Matrix and cross-training
-- **BR-43** Each matrix cell shows exactly one state, chosen in this order of precedence:
-  1. **Qualified** (BR-40)
-  2. **Re-sign due**: `Pending` with reason `Re-sign`
-  3. **Overdue**: `Pending` and past the due date
-  4. **Pending**
-  5. **Not assigned**: no active assignment
+### JQC revision change
+- **BR-39** Uploading a new JQC revision replaces the file and updates `Revision`, `RevisionDate` and `RevisionNotes`, as in BR-33. It **doesn't** create re-sign rows, and existing `Signed Off` JQC rows stay valid. A Manager can still re-assign an employee manually by removing their row (BR-26) and assigning again. How pending JQC rows are handled is covered by A-09 and OQ-01.
 
-  Re-sign due and Overdue can both apply. In that case the cell shows Re-sign with an overdue marker.
-- **BR-44** Matrix rows are active employees with `AppRole` Technician or Manager/Supervisor. Matrix columns are current, non-obsolete documents.
-- **BR-45** The effective cross-training target for a task is `JP_Documents.CrossTrainingTarget` if set, otherwise `JP_Settings.CrossTrainingTarget`, otherwise 2.
-- **BR-46** **Below target:** a task where the count of qualified active employees is less than the effective target.
-- **BR-47** **Single point of failure:** a task with exactly 1 qualified active employee.
-- **BR-48** **Shift gap:** for a task and a shift that has at least one active Technician or Manager employee, there are 0 qualified employees on that shift.
-- **BR-49** A task with 0 qualified employees is flagged **No coverage**. It also counts as below target.
+### Qualification and status
+- **BR-40** **Qualified:**
+  - **PWI:** the employee is active and their current row has `Status = Signed Off` **and** `RevisionAssigned` = the document's current `Revision`.
+  - **JQC:** the employee is active and their current row has `Status = Signed Off`, on any revision (BR-39).
+  - Only qualified rows count as Signed Off in the matrix, the cross-training counts and the library counts.
+- **BR-41** The display status (`fxAssignmentDisplayStatus`) is the first match in this list:
 
-### Uploads
-- **BR-50** Only `.pdf`, `.docx`, `.xlsx`, `.jpg`, `.jpeg` and `.png` files are accepted, checked by extension in the app and again in the flow, case-insensitively.
-- **BR-51** Files larger than 25 MB (26,214,400 bytes) are rejected with a message showing the file's size.
-- **BR-52** Each upload, of a document revision or of evidence, accepts exactly one file.
-- **BR-53** Uploading a new evidence file for a `Pending` assignment that already has an `Uploaded` evidence file marks the earlier file `Replaced`. Neither file is deleted.
+  | # | Condition | Display status | Color |
+  |---|---|---|---|
+  | 1 | No current row | Not Assigned | Grey |
+  | 2 | Qualified per BR-40 | Signed Off | Green |
+  | 3 | Pending and `DueDate` set and `DueDate < Today()` | Overdue | Red |
+  | 4 | Pending and `AssignmentReason = Revision Change` | Re-Sign Required | Amber |
+  | 5 | JQC, `Status = In Training` | Waiting on Supervisor | Amber |
+  | 6 | Pending | Pending | Amber |
+  | 7 | PWI, current row `Signed Off` but on an older revision (integrity exception) | Re-Sign Required | Amber |
 
-### Records and audit
-- **BR-54** Nothing is ever deleted. Status changes replace deletion: assignments become `Removed` or `Superseded`, documents become `Obsolete`, employees become Inactive.
-- **BR-55** Every write records the acting user (an explicit Person column) and a server timestamp.
-- **BR-56** The full sign-off history of an employee (every assignment, including Superseded and Removed) and of a document (every revision and assignment) can be viewed on S12 and S04.
+  The order of rows 3–6 is set out in A-10. Where an Overdue row is also a re-sign, it shows a secondary "Re-sign" badge.
+- **BR-42** Colors come from theme named formulas and are never hard-coded on controls. Every status appears as a text label alongside its color.
 
-### Settings
-- **BR-57** Only Managers can edit settings. Values outside the allowed ranges in §3.6 are rejected.
-- **BR-58** Changing `ResignDueDays` affects only re-sign items created afterwards. Existing due dates don't change.
-- **BR-59** Changing `CrossTrainingTarget` updates the cross-training view the next time data is refreshed. Nothing stored is recalculated.
+### Cross-training
+- **BR-43** **Coverage per task** = the number of active employees qualified (BR-40) on that `Active` document. The target is `JP_Settings.MinQualifiedPerTask`, or 2 if that is blank.
+- **BR-44** A task is **below target** when coverage < target. Below-target tasks show in red and are listed first.
+- **BR-45** A task is a **single point of failure** when coverage is exactly 1. The view names that person.
+- **BR-46** **Coverage by shift** shows coverage per task for each `Shift` value that has at least one active employee. A cell with 0 marks a shift with no coverage.
+- **BR-47** **Employee breadth** = the number of tasks each active employee is qualified on.
+- **BR-48** The "pending re-sign" count for a task = current rows with display status Re-Sign Required, or Overdue on a re-sign row.
+
+### Records
+- **BR-49** Nothing is deleted:
+  - Assignments become `Removed` (manual) or `Superseded` (revision), with `IsCurrent = No`.
+  - Documents become `Obsolete`.
+  - Employees become `Active = No`.
+  - Sign-off files are never removed.
 
 ---
 
 ## 5. Acceptance criteria per screen
 
-Format: **AC-Sxx-n**. Each one should pass with the fictional sample data set (§5.16).
+Checks use the fictional seed data, which must include at least these scenarios:
+- one PWI with a revision change, such as `PWI-DEMO-001` Rev A → Rev B
+- one JQC with no trainer
+- one task with exactly one qualified person
+- one shift with no coverage
+- one overdue item
+- one inactive employee
 
-### S01 Home / My Items
-- **AC-S01-1** A Technician sees three tabs or sections: **To Do** (Pending, with re-sign items labelled "Re-sign" and overdue items highlighted), **Completed**, and a count badge for each.
-- **AC-S01-2** To Do is sorted by overdue first, then by due date ascending.
-- **AC-S01-3** Only the signed-in user's own assignments with status `Pending`/`Completed` appear. Superseded and Removed items don't.
-- **AC-S01-4** Selecting an item opens S02 for that assignment.
-- **AC-S01-5** A Manager also sees team tiles (Pending, Re-sign, Overdue counts for their direct reports) that open S10 with that filter applied.
-- **AC-S01-6** A Viewer sees no personal items section, only navigation tiles to S03, S08 and S09.
-- **AC-S01-7** On a phone, the sections stack in one column with no horizontal scrolling.
+### 5.1 `scrHome`
+- **AC-HOME-1** A Technician sees My Pending, with a separate Re-Sign Required count, and My Signed Off tiles. The counts match their current rows.
+- **AC-HOME-2** A Manager also sees Team Pending, counted over employees whose `Supervisor` is the Manager.
+- **AC-HOME-3** Every role sees a Coverage Gaps tile showing the number of tasks below target, which opens `scrCrossTraining`.
+- **AC-HOME-4** A Viewer sees no My Pending, My Signed Off or Team Pending tiles.
+- **AC-HOME-5** A user with no `JP_Employees` match lands here with Viewer navigation only.
+- **AC-HOME-6** Phones show a bottom nav bar. Tablets and desktops show a left nav rail. Both list only the screens the role can reach.
 
-### S02 Assignment Detail / Sign-Off
-- **AC-S02-1** Shows employee, document number and title, type, revision, status, reason, due date, assigned by and on, and an Open/Download button for the assigned revision's file.
-- **AC-S02-2** For a PWI assignment that is `Pending` on the current revision, the assigned Technician sees Upload Training Log, an attestation checkbox and a Sign Off button. Sign Off stays disabled until both an upload exists and the checkbox is ticked (BR-33).
-- **AC-S02-3** After a successful PWI sign-off, the status shows `Completed` with "Signed off by {name} on {local date/time}", and the item moves from To Do to Completed on S01.
-- **AC-S02-4** For a JQC assignment, a Technician sees status and document only, with no upload or sign-off controls.
-- **AC-S02-5** For a JQC assignment of another employee, a Manager sees Upload Signed JQC, a "I confirm this employee is qualified" checkbox and a Confirm Qualified button, which follows the same enable rules (BR-35).
-- **AC-S02-6** For a Manager's **own** JQC assignment, the sign-off controls are hidden and the message from BR-34 is shown.
-- **AC-S02-7** Trying to upload a `.exe`, or a PDF larger than 25 MB, shows a validation message and uploads nothing.
-- **AC-S02-8** If the document was revised while the screen was open, pressing Sign Off fails with "This revision is no longer current. Open your new item from Home." and nothing is written.
-- **AC-S02-9** A `Completed`, `Superseded` or `Removed` assignment is read-only and shows its history: evidence link (P15 visibility applies), who signed and when, superseded or removed info, and a link to the next or previous assignment.
-- **AC-S02-10** A Manager can open S02 for any employee. A Technician who opens another employee's assignment (for example through a deep link) sees "You can only view your own items."
+### 5.2 `scrMyTraining`
+- **AC-MYT-1** The Pending, Signed Off and All tabs show only the user's own rows with `IsCurrent = Yes`.
+- **AC-MYT-2** Re-sign rows show the "New Revision – Please Re-Sign" badge and the revision notes.
+- **AC-MYT-3** Overdue rows show the red Overdue label and sort first in Pending.
+- **AC-MYT-4** Tapping a row opens `scrAssignmentDetail` for that row.
+- **AC-MYT-5** An empty Pending tab shows "Nothing pending — you're all caught up."
 
-### S03 Documents
-- **AC-S03-1** Lists current revisions only by default, showing number, title, type, revision, effective date, trainer count and status.
-- **AC-S03-2** Search matches document number or title. Filters: type, department, status (Active by default, Obsolete optional), "I'm a trainer".
-- **AC-S03-3** Documents with no trainers show a "No trainer — can't assign" badge (Managers only).
-- **AC-S03-4** The **+ New Document** button is visible only to Managers and opens S05 in Add mode.
-- **AC-S03-5** Selecting a row opens S04.
+### 5.3 `scrAssignmentDetail`
+- **AC-ASD-1** Shows document number and title, a view/download link, `RevisionAssigned`, the trainer, the due date, the display status, and the revision notes when the row is a re-sign.
+- **AC-ASD-2** **PWI, own pending row:** **Upload Training Log** is enabled. **Sign Off** stays disabled until the upload succeeds. After Sign Off, the status shows Signed Off with "Signed off by {name} on {date/time}", and a `JP_SignoffRecords` item exists with the right `AssignmentID`, `Revision` and file name.
+- **AC-ASD-3** **PWI, outdated revision** (`RevisionAssigned` ≠ current): Upload and Sign Off are disabled and the screen shows "This revision is no longer current."
+- **AC-ASD-4** **JQC, viewed by a Technician:** no upload or sign-off controls appear. The status shows "Waiting on Supervisor" or Pending.
+- **AC-ASD-5** **JQC, a Manager viewing another employee's row:** upload control, confirmation checkbox and confirm button are shown. Confirm stays disabled until both are done. After confirming, `SignedOffBy` is the Manager.
+- **AC-ASD-6** **JQC, a Manager viewing their own row:** the sign-off controls are hidden.
+- **AC-ASD-7** Choosing a `.exe` file, or a file over 25 MB, is rejected with a message and the flow isn't called.
+- **AC-ASD-8** If the upload or the Patch fails, a Notify error appears and the row is unchanged. The button is disabled while saving.
+- **AC-ASD-9** A Technician who opens another employee's row sees "You can only view your own items."
 
-### S04 Document Detail
-- **AC-S04-1** Shows current revision metadata, trainers, change notes, and Open/Download.
-- **AC-S04-2** **Revision history** lists every revision, newest first, with label, effective date, uploaded by and change notes. Opening a superseded or obsolete file shows the banner "Superseded — not for use".
-- **AC-S04-3** **Assignments** tab lists the current status of each assigned employee (Qualified, Re-sign due, Pending, Overdue), with counts. Managers can also show Removed and Superseded rows.
-- **AC-S04-4** Managers see **Edit**, **Revise**, **Assign** and **Mark Obsolete**. Technicians and Viewers see none of these.
-- **AC-S04-5** **Assign** is disabled, with the tooltip "Add at least one trainer first", when the current revision has no active trainers.
-- **AC-S04-6** **Mark Obsolete** asks for a required reason and confirmation. Afterwards the document shows status Obsolete and all its pending assignments show Removed (BR-23).
-- **AC-S04-7** For an Obsolete document, Edit, Revise and Assign are hidden.
+### 5.4 `scrJQCLibrary` and `scrPWILibrary`
+- **AC-LIB-1** Each row shows document number, title, current revision, trainers, template or PWI link, and the number qualified (BR-40). The PWI library also shows "X of Y signed off on current rev".
+- **AC-LIB-2** Search matches document number and title. Filters for Area and Status default to Active.
+- **AC-LIB-3** Managers see **Add** and **Revise/Edit**, which open `scrDocumentEdit`. Technicians and Viewers don't.
+- **AC-LIB-4** Documents with no trainer show a "No trainer — can't assign" label.
+- **AC-LIB-5** For `PWI-DEMO-001` after its revision, "X of Y" counts only rows signed off on Rev B.
 
-### S05 Document Form (Add / Edit)
-- **AC-S05-1** Add mode requires a file, document number, title, type and revision label. Trainers, department and target are optional.
-- **AC-S05-2** Saving with a duplicate document number shows "Document number PWI-0001 already exists." and saves nothing.
-- **AC-S05-3** File type and size rules (BR-50, BR-51) are enforced before the save is sent.
-- **AC-S05-4** The trainer picker lists only active Technician and Manager employees and allows more than one choice.
-- **AC-S05-5** Edit mode shows document number, type, revision and file as read-only. Only title, trainers, department and cross-training target can be edited.
-- **AC-S05-6** After saving, the user returns to S04 for that document and sees the saved values.
+### 5.5 `scrDocumentEdit`
+- **AC-DOC-1** **Add mode** requires a file, `DocType`, `DocNumber`, `DocTitle` and `Revision`. A duplicate `DocNumber` is rejected. On save the document appears in its library with `Status = Active`.
+- **AC-DOC-2** **Edit mode** lets the Manager change the title, area, description and trainers without changing the revision or any assignment.
+- **AC-DOC-3** **Trainers** allows several people, chosen from active employees.
+- **AC-DOC-4** **Upload New Revision** requires a new file, a new revision different from the current one, and revision notes. A confirmation shows the BR-32 message with the correct X.
+- **AC-DOC-5** **PWI revision, after confirm:**
+  - the document item keeps its ID, with the new `Revision`, `RevisionDate` and `RevisionNotes`
+  - the previous file is in version history
+  - every affected employee has a new current row matching BR-34
+  - their old rows have `IsCurrent = No`, and `Status = Superseded` where they had been signed off
+  - inactive employees get no new rows
+  - a summary shows "{n} re-assigned, {f} failed", with Retry when f > 0
+- **AC-DOC-6** **JQC revision:** no new assignment rows are created, and previously signed-off employees still count as qualified.
+- **AC-DOC-7** **Mark Obsolete** asks for confirmation and sets `Status = Obsolete`. The document disappears from the default library view, the matrix and the cross-training view.
 
-### S06 Revise Document
-- **AC-S06-1** Requires a new file, a new revision label (BR-08) and change notes (BR-09). Trainers are pre-filled from the current revision and can be edited.
-- **AC-S06-2** Before confirming, the screen shows an impact preview. For a **PWI**: "{n} employees will need to re-sign; {m} pending items move to the new revision; {k} inactive employees' items will be superseded." For a **JQC**: "Existing qualifications stay valid; {m} pending items move to the new revision."
-- **AC-S06-3** After confirming a PWI revision, S04 shows the new revision as current. Every previously Completed active employee has a `Pending`/`Re-sign` item due today + `ResignDueDays`, and their old row is `Superseded`.
-- **AC-S06-4** After a PWI revision, the matrix shows those employees as **Re-sign due**, not Qualified.
-- **AC-S06-5** After a JQC revision, previously qualified employees are still shown as Qualified in the matrix, and no re-sign items exist.
-- **AC-S06-6** A revision label that's already been used shows "Revision B already exists for PWI-0001." and nothing is saved.
+### 5.6 `scrPWIStatus`
+- **AC-PWS-1** Lists every employee with a current row for the selected PWI, showing `RevisionAssigned` and the display status (Signed Off, Re-Sign Required, Overdue, Pending).
+- **AC-PWS-2** Shows summary counts by status. These match AC-LIB-1.
+- **AC-PWS-3** Managers see **Assign More Employees**, which opens `scrAssign` with this PWI already selected, and a **Remove** action that asks for a reason (BR-26). Viewers see neither.
 
-### S07 Assign
-- **AC-S07-1** The manager picks one or more current, active documents that have at least one trainer, and one or more active Technician or Manager employees. Filters by department, shift and supervisor help with the selection.
-- **AC-S07-2** Due date is required. It defaults to today + `ResignDueDays` and can't be in the past.
-- **AC-S07-3** Before saving, a summary shows "{x} new assignments, {y} already assigned (skipped)", listing who is skipped.
-- **AC-S07-4** Saving creates exactly {x} rows, each pointing to the current revision. Running the same assignment again creates 0 new rows (BR-27).
-- **AC-S07-5** Documents with no trainer can't be selected and show the reason.
-- **AC-S07-6** Only Managers can reach this screen. A deep link from another role redirects to S01 with a permission message.
+### 5.7 `scrEmployees`
+- **AC-EMP-1** Lists active employees by default, with name, job title, department, shift, supervisor and role. A toggle includes inactive employees, which show an "Inactive" label.
+- **AC-EMP-2** Search by name or email. Filters for department, shift, supervisor and role.
+- **AC-EMP-3** Managers can add and edit employees. Required fields and unique `Email` are enforced. Setting `Active = No` asks for confirmation.
+- **AC-EMP-4** Technicians and Viewers see a read-only list with no add or edit controls.
 
-### S08 Training Matrix
-- **AC-S08-1** On desktop and tablet, rows are employees (BR-44) and columns are documents, with sticky headers. Each cell shows one state from BR-43, using an icon **and** a text label or tooltip, so color isn't the only cue.
-- **AC-S08-2** Filters: department, shift, supervisor ("My team" shortcut for Managers), document type, employee search and document search. A legend is always visible.
-- **AC-S08-3** A PWI cell is Qualified only when the sign-off is on the current revision. A cell that was Qualified before a PWI revision shows **Re-sign due** after it.
-- **AC-S08-4** JQC cells qualified on an older revision show Qualified with the tooltip "Signed on Rev {x}".
-- **AC-S08-5** Selecting a cell opens S02 for that assignment, read-only unless permissions allow sign-off. Selecting an empty cell does nothing for Technicians and Viewers. For Managers it offers "Assign".
-- **AC-S08-6** On a phone, the matrix becomes a list grouped by employee, with a toggle to group by document. Each entry shows the state label.
-- **AC-S08-7** Totals are shown per row (qualified/assigned) and per column (qualified count against target).
-- **AC-S08-8** The matrix loads correctly with the sample data at test scale (NFR-02), and nothing is missing because of delegation limits.
+### 5.8 `scrEmployeeDetail`
+- **AC-EDT-1** Shows the employee's profile and their current rows grouped by display status.
+- **AC-EDT-2** **Previous revisions** lists Superseded rows and their sign-off files, for example `Tech A` signed off on `PWI-DEMO-001` Rev A, with links that follow BR-04.
+- **AC-EDT-3** A Technician can open only their own detail.
+- **AC-EDT-4** Managers see Assign (opens `scrAssign` with this employee already selected) and Remove on current rows.
 
-### S09 Cross-Training
-- **AC-S09-1** Lists every task (current, non-obsolete document) with qualified count, effective target and a status of OK, Below target, Single point of failure or No coverage (BR-45–BR-49).
-- **AC-S09-2** Has quick filters for **Below target**, **Single point of failure** and **No coverage**, plus filters for type and department.
-- **AC-S09-3** **Gaps by shift**: a task × shift table with qualified counts, where cells with 0 are marked as a gap (BR-48). Only shifts that have active employees appear.
-- **AC-S09-4** Each task shows the names of its qualified employees and how many are in progress (Pending/Re-sign), so managers can see who will soon close the gap.
-- **AC-S09-5** Changing `CrossTrainingTarget` in S14 changes the Below target results the next time the screen is opened.
-- **AC-S09-6** On a phone, the task list and the shift table display as cards.
+### 5.9 `scrAssign`
+- **AC-ASN-1** Multi-select employees (active Technicians and Managers only) and Active documents that have at least one trainer. Documents with no trainer can't be selected, and the reason is shown.
+- **AC-ASN-2** Each document can have a trainer, chosen from its `Trainers`. Due date is optional.
+- **AC-ASN-3** The preview shows "{x} will be created, {y} already assigned (skipped)", listing the skipped pairs.
+- **AC-ASN-4** **Create** makes exactly x rows that match BR-22. Running the same selection again creates 0 rows.
+- **AC-ASN-5** A pre-selection passed in from `scrPWIStatus`, `scrEmployeeDetail` or `scrCrossTraining` is applied when the screen opens.
 
-### S10 Team Status
-- **AC-S10-1** Defaults to the signed-in manager's direct reports (`Supervisor` = me). The manager can pick another supervisor, department or shift.
-- **AC-S10-2** Shows each employee with Pending, Re-sign and Overdue counts. Expanding an employee shows their items.
-- **AC-S10-3** Has a filter for Overdue only and Re-sign only.
-- **AC-S10-4** **Remove** on an item asks for a required reason. Afterwards the item disappears from the active list and shows as Removed on S12.
-- **AC-S10-5** **Assign** opens S07 with the selected employees already chosen.
+### 5.10 `scrMatrix`
+- **AC-MTX-1** **Desktop/tablet:** employees are rows and Active documents are columns, with a frozen employee name column. Each cell shows the BR-41 status as text and color.
+- **AC-MTX-2** Filters: Area, DocType, Department, Shift, Supervisor, and "Re-Sign Required only".
+- **AC-MTX-3** **Phone:** choose an employee to see their documents as status chips, or choose a document to see its employees.
+- **AC-MTX-4** For `PWI-DEMO-001` after Rev B, an employee who signed only Rev A shows **Re-Sign Required** (or Overdue), never Signed Off.
+- **AC-MTX-5** Inactive employees and Obsolete documents don't appear.
+- **AC-MTX-6** Cell values match the seed data's expected results table (in `/seed/`).
 
-### S11 Employees
-- **AC-S11-1** Lists active employees by default, with name, employee number, job title, department, shift, supervisor and role. "Show inactive" includes inactive employees with an Inactive badge.
-- **AC-S11-2** Search matches name or employee number. There are filters for department, shift, supervisor and role.
-- **AC-S11-3** **+ New Employee** is visible only to Managers.
-- **AC-S11-4** Selecting a row opens S12.
+### 5.11 `scrCrossTraining`
+- **AC-XT-1** **Coverage by task:** one bar per Active task showing qualified count against target. Below-target tasks are red and listed first. Each task shows its pending re-sign count.
+- **AC-XT-2** **Single points of failure:** lists tasks with exactly one qualified person and names that person.
+- **AC-XT-3** **Coverage by shift:** a table of tasks × shifts with qualified counts. Cells with 0 are highlighted.
+- **AC-XT-4** **Employee breadth:** the number of qualifications per active employee, sorted ascending.
+- **AC-XT-5** Tapping a gap opens `scrAssign` with that document pre-selected, for Managers only. For other roles the tap does nothing.
+- **AC-XT-6** Counts use current-revision sign-offs only and match the seed data's expected results.
+- **AC-XT-7** Built only from standard controls (galleries, shapes, labels and the built-in column chart), and readable on a phone.
 
-### S12 Employee Detail
-- **AC-S12-1** Shows the profile fields and a training record: active assignments with their BR-43 state, and a History tab with every Superseded, Removed and Completed assignment.
-- **AC-S12-2** Evidence links follow P15: Managers see every file, the employee sees their own, and Viewers see none.
-- **AC-S12-3** Managers see **Edit** and **Assign**. **Edit** opens S13.
-- **AC-S12-4** For an inactive employee, a banner shows "Inactive since {date}" and Assign is hidden.
+### 5.12 `scrSignoffReview`
+- **AC-SOR-1** Four sections or tabs: Recently Signed Off, JQCs Waiting on Supervisor, Re-Sign Required, and Overdue.
+- **AC-SOR-2** Filters for employee, document and date range.
+- **AC-SOR-3** Each item links to its sign-off file where one exists. Managers can open `scrAssignmentDetail` from an item.
+- **AC-SOR-4** Viewers can see everything but can't change anything.
 
-### S13 Employee Form (Add / Edit)
-- **AC-S13-1** The user account is picked with an Office 365 Users search. Choosing it fills in full name and email, and the full name can be edited.
-- **AC-S13-2** The required fields (BR-05) are enforced. Duplicate employee number or email is rejected (BR-06).
-- **AC-S13-3** The Supervisor picker lists only active Manager employees and excludes the employee being edited.
-- **AC-S13-4** When a Manager edits their own record, AppRole and Active are read-only (BR-12).
-- **AC-S13-5** Setting Active to No shows a confirmation: "{n} pending items will be marked Removed." After confirming, those items are Removed (BR-14).
-
-### S14 Settings
-- **AC-S14-1** Shows `CrossTrainingTarget` and `ResignDueDays` with their descriptions and allowed ranges.
-- **AC-S14-2** Values that are out of range or not whole numbers are rejected inline.
-- **AC-S14-3** Saving shows a confirmation and records who changed it and when.
-- **AC-S14-4** Only Managers can reach this screen.
-
-### S15 No Access / Not Registered
-- **AC-S15-1** A user who can't read the site sees "You don't have access to JQC/PWI Management. Contact your supervisor or site owner." and no data or navigation.
-- **AC-S15-2** A user with read access but no employee record gets Viewer access, and a dismissible notice says "You have read-only access. Ask a manager to add you as an employee to receive assignments."
-
-### 5.16 Cross-cutting acceptance criteria
-- **AC-X-1** Every screen works with no horizontal page scrolling at 360 px, 768 px and 1366 px widths. The matrix grid may scroll inside its own container.
-- **AC-X-2** Every write shows a busy indicator, then a success or error notification that uses the flow's message. A failed write leaves the screen data unchanged.
-- **AC-X-3** No SharePoint site URL or list name appears as a literal in the app or flows. All of them come from environment variables.
-- **AC-X-4** The solution imports into a clean environment, and after the environment variables and connection references are set, it runs against freshly created lists with sample data.
-- **AC-X-5** The sample data set uses only fictional names, numbers and files, for example employees "Alex Rivera (E-1001)" and "Sam Patel (E-1002)", documents "PWI-0001 Widget Torque Check" and "JQC-0001 Line 1 Operator". It covers every state in BR-43 and every flag in BR-46 to BR-49.
-- **AC-X-6** Controls have accessible labels, a logical tab order, and color contrast of at least 4.5:1. Status is never shown by color alone.
-
-### Non-functional requirements
-- **NFR-01** Standard connectors only: SharePoint, Office 365 Users, and Power Automate with the Power Apps trigger. No premium connectors, Dataverse, PCF or code components.
-- **NFR-02** Test scale: 300 active employees, 300 current documents and 10,000 assignment rows. Data screens must load within 5 s on desktop over a normal corporate network, and must not drop records because of the 2,000-row delegation limit.
-- **NFR-03** Times are stored in UTC and shown in the user's local time zone.
+### 5.13 Cross-cutting
+- **AC-X-1** Every screen works at phone portrait, tablet portrait and landscape, and desktop widths, using responsive containers.
+- **AC-X-2** Every gallery has an empty-state message.
+- **AC-X-3** No URL, tenant ID, site name or GUID appears in the app, the flow or the scripts. Everything comes from the environment variables.
+- **AC-X-4** The repo contains only fictional data, and `.gitignore` meets CLAUDE §2.
+- **AC-X-5** The solution imports into a clean environment and asks only for environment variable values and connections.
+- **AC-X-6** Only standard connectors are used: SharePoint, Office 365 Users, and Power Automate with the Power Apps (V2) trigger.
 
 ---
 
@@ -457,52 +517,44 @@ Format: **AC-Sxx-n**. Each one should pass with the fictional sample data set (�
 
 | # | Assumption |
 |---|---|
-| A-01 | `CLAUDE.md` wasn't available. This spec is based only on `intake.md` and must be reconciled with `CLAUDE.md` when it's provided. |
-| A-02 | The app is a **canvas** app (model-driven needs Dataverse, which is out of scope). |
-| A-03 | Every Technician and Manager has a Microsoft 365 account and a Power Apps license that covers standard connectors. |
-| A-04 | The app role is stored in `JP_Employees.AppRole`. The SharePoint groups only control read access to the site and lists. |
-| A-05 | All writes run through Power Automate flows that use a service-account connection, so users only need Read permissions (§1.3). This needs a non-personal service account. |
-| A-06 | `JP_Documents` stores one item per revision, so superseded files stay available for audit. This differs from a literal reading of the intake ("current revision" as a column on one item). |
-| A-07 | "Task" in the cross-training view means one current, non-obsolete document, either JQC or PWI. |
-| A-08 | After a JQC revision, existing JQC qualifications stay valid (Qualified = Completed on any non-obsolete revision of that JQC). This reconciles "a new JQC revision doesn't force anyone to re-sign" with "qualified means signed off on the current revision". |
-| A-09 | Pending items on a revised document, PWI or JQC, are moved to the new revision because "no one can sign off on an outdated revision". A moved pending PWI item keeps its reason and the later of its original due date and today + `ResignDueDays`. |
-| A-10 | Any Manager can sign off any employee's PWI or JQC (except their own JQC). The signer doesn't have to be the employee's supervisor or a designated trainer. |
-| A-11 | Trainers don't have to be qualified on the document themselves. |
-| A-12 | Trainers are chosen from active Technician or Manager employees in `JP_Employees`, using a multi-value lookup. |
-| A-13 | An initial assignment needs a due date, which defaults to today + `ResignDueDays`. |
-| A-14 | Employees with `AppRole = Viewer` can't be assigned and don't appear as matrix rows. Users with no employee record who can read the site are Viewers. |
-| A-15 | Making an employee inactive removes their pending items. Making a document obsolete removes its pending items. Completed items are kept for history in both cases. Reactivating restores nothing, and obsolete documents can't be reactivated. |
-| A-16 | A Manager can't change their own role or deactivate themselves. The first Manager is added directly in SharePoint by the site owner at deployment. |
-| A-17 | The same allowed file types and 25 MB limit apply to both document files and evidence files. |
-| A-18 | The JQC has a single sign-off: the manager uploads the already-signed paper or electronic JQC and confirms. The employee doesn't also sign in the app. |
-| A-19 | Department and Shift are choice columns with placeholder values (`Production`/`Quality`/`Other`; `1st`/`2nd`/`3rd`/`Weekend`) that can be edited at deployment. |
-| A-20 | The cross-training target can be overridden per document. The global setting is the default. |
-| A-21 | A shift gap means 0 qualified employees on a shift that has active employees. The target isn't applied per shift. |
-| A-22 | Superseded and obsolete revision files can be opened by every role but are clearly marked "not for use". |
-| A-23 | Excel export of the matrix isn't required. Users can see everything in the app. |
-| A-24 | Sign-off in the app records the signed-in user and a server UTC timestamp. No separate electronic signature or password re-entry is required (pending OQ-03). |
-| A-25 | `EmployeeNumber` is added as a unique business key, although the intake doesn't list it. |
-| A-26 | Volumes stay within NFR-02 for the first phase. |
+| A-01 | `CLAUDE.md` is authoritative. Intake details it doesn't repeat (such as Viewer scope) are kept only where they don't conflict. |
+| A-02 | The app is a canvas app, built from per-screen `.pa.yaml` files pasted into Power Apps Studio. No `.msapp` is built by hand. |
+| A-03 | Business rules are enforced in the app with `Patch` and `IfError`. The only server-side logic is the upload flow, so the SharePoint permissions in §1.4 are the only back-stop (see OQ-03). |
+| A-04 | Settings are edited directly in the `JP_Settings` SharePoint list by Managers, since CLAUDE.md doesn't include a settings screen. If the row is missing, the app uses 2 and 14. |
+| A-05 | `DocNumber` is unique across documents. CLAUDE.md doesn't say so, but `DocumentID`-based logic depends on one item per document. |
+| A-06 | A new revision's label only has to differ from the current `Revision`. There is no format check. |
+| A-07 | Trainers are picked from active `JP_Employees` (Technician or Manager) and stored as people in the `Trainers` Person column. |
+| A-08 | Viewers can't be assigned documents. Matrix rows are active employees with `AppRole` Technician or Manager/Supervisor. |
+| A-09 | On a **JQC** revision, pending JQC rows on the old revision stay as they are. Because BR-27 blocks sign-off on an outdated revision, a Manager must remove the row and re-assign it before a sign-off. `scrSignoffReview` flags these rows as "Revision changed – re-assign". See OQ-01. |
+| A-10 | Status precedence when several apply: Signed Off, then Overdue, then Re-Sign Required, then Waiting on Supervisor, then Pending. |
+| A-11 | `In Training` is set from `scrAssignmentDetail`. For a PWI, the employee or a Manager taps "Start Training". For a JQC, the employee or a Manager taps "Training Complete – Ready for Supervisor". A JQC row in `In Training` displays as **Waiting on Supervisor**. See OQ-02. |
+| A-12 | Removing an assignment happens on `scrPWIStatus` or `scrEmployeeDetail` (Managers only). The reason is stored in `Comments`. |
+| A-13 | When an employee is deactivated, their rows stay unchanged and are simply left out of views and counts (BR-13). When a document is made Obsolete, its rows stay unchanged and it is left out of views. |
+| A-14 | Employees with a blank `Shift` are grouped under "Unassigned" in coverage by shift. |
+| A-15 | Following CLAUDE §7.8, a row that was still pending (never signed) on the old revision also gets a **Revision Change** row, so it shows Re-Sign Required, and its due date resets to Today() + `ResignDueDays`. |
+| A-16 | A Manager who signs off a PWI on an employee's behalf must still upload the training log. `SignedOffBy` is the Manager. |
+| A-17 | Users without SharePoint access see a friendly "You don't have access" message, triggered when the employee lookup returns a data-source error. |
+| A-18 | If two files for the same assignment are uploaded on the same day and get the same name, the flow adds `_HHmmss` to the name so the earlier file isn't overwritten. |
+| A-19 | Data volumes: no more than 2,000 active employees or documents, so filtered lookups stay delegable. No more than 500 affected rows per PWI revision (BR-38). Limits are documented in Admin-Guide.md. |
+| A-20 | Seed data uses only CLAUDE §2 style placeholders (`Tech A`, `manager1@contoso.com`, `JQC-DEMO-100`, `PWI-DEMO-001`) and includes an expected-results table for matrix and cross-training checks. |
 
 ## 7. Open questions
 
-| # | Question | Why it matters | Default if unanswered |
-|---|---|---|---|
-| OQ-01 | After a **JQC** revision, should employees qualified on the earlier revision still count as Qualified, or become "not qualified" until a manager manually re-qualifies them? | The intake says both "JQC revision doesn't force re-sign" and "Qualified = current revision". This changes the matrix and the cross-training counts. | A-08: they stay Qualified. |
-| OQ-02 | Confirm the default re-sign due period of **14 days**. *(intake open item)* | Seed value for `ResignDueDays`. | 14 |
-| OQ-03 | Does in-app sign-off (signed-in user + timestamp + attestation) meet quality record requirements, or is an electronic signature, re-authentication or 21 CFR Part 11-style control needed? *(intake open item)* | Could need extra steps or a different approach. | A-24 |
-| OQ-04 | Confirm the cross-training target of **2 qualified per task**. *(intake open item)* Should it apply per shift as well as overall? | Changes BR-46 and BR-48. | 2, overall only |
-| OQ-05 | Which real SharePoint groups map to `JP Managers`, `JP Technicians` and `JP Viewers`? *(intake open item)* | Needed at deployment. | Placeholders |
-| OQ-06 | Is a service account available for the flow connection (A-05)? If not, users would need Contribute on the lists, and rules could be bypassed through SharePoint directly. | Record integrity. | Service account required |
-| OQ-07 | Who may open evidence files (signed JQCs, training logs)? Should Technicians be blocked from opening other people's evidence at the SharePoint level, not just in the app? | Privacy. App-only restrictions can be bypassed by anyone with Read permission. | UI restriction only; library readable by Managers and Technicians groups, not Viewers. |
-| OQ-08 | Should only the employee's own supervisor, or a designated trainer, be allowed to sign off JQCs (and PWIs on behalf of others), instead of any Manager? | Changes BR-32 and BR-34. | Any Manager (A-10) |
-| OQ-09 | Must a trainer be qualified on the document before being designated? | Changes trainer picker validation. | No (A-11) |
-| OQ-10 | Should a PWI sign-off also need trainer confirmation, for example the trainer named on the training log? | Possible extra field or step. | No |
-| OQ-11 | What are the real department, shift and job title values? Should job titles be a controlled list? | Choice column values. | A-19 |
-| OQ-12 | Do revision labels follow a set scheme (A, B, C… or 01, 02…)? Should the app suggest the next label? | Validation of `Revision`. | Free text, unique per document |
-| OQ-13 | When an employee is deactivated or a document made obsolete, should their pending items be Removed automatically (A-15), or left for a manager to decide? | Data cleanliness compared with control. | Automatic |
-| OQ-14 | Should Viewers be able to open superseded or obsolete revision files (A-22)? | Risk of someone using outdated instructions. | Yes, with a banner |
-| OQ-15 | Is an Excel or CSV export of the matrix needed for audits or meetings (A-23)? | Scope. | Not in phase 1 |
-| OQ-16 | What are the expected data volumes (employees, documents, assignments per year)? | Delegation design and performance (NFR-02). | NFR-02 figures |
-| OQ-17 | Can a JQC or PWI apply to people outside Production and Quality, and do those people need app access? | Role and department values. | No |
-| OQ-18 | Should the matrix show only current employees, or offer a historical "as of date" view for audits? | Scope and complexity. | Current only |
+| # | Question | Default until answered |
+|---|---|---|
+| OQ-01 | When a **JQC** is revised, what happens to JQC rows that are still pending on the old revision? Options: leave them for manual re-assignment, or move them automatically to the new revision. Moving them isn't a re-sign, but CLAUDE §7.9 and the rule that nobody signs off an outdated revision together leave this undefined. | A-09: manual re-assign, flagged in Sign-off Review |
+| OQ-02 | Who sets `In Training`, and how is "training complete" recorded for a JQC so it can show **Waiting on Supervisor**? Could the designated trainer do it, even though trainers aren't an app role? | A-11 |
+| OQ-03 | Technicians have Contribute on `JP_Assignments` and `JP_SignoffRecords`, so they could edit their own (or anyone's) rows in SharePoint directly. Is in-app enforcement enough for quality records, or should sign-off writes move to a flow running under a service account? This ties to the in-app sign-off open item. | In-app enforcement plus the §1.4 permissions |
+| OQ-04 | `TODO:` Confirm the default re-sign due period of **14 days**. | 14 |
+| OQ-05 | `TODO:` Confirm the cross-training target of **2 qualified per task**. Should it also apply per shift? | 2, overall only |
+| OQ-06 | `TODO:` Does in-app sign-off (signed-in user + timestamp, plus the confirmation checkbox for JQCs) meet quality record requirements? | Assumed yes |
+| OQ-07 | `TODO:` Which real groups map to JQCPWI Managers, Technicians and Viewers? | Placeholders |
+| OQ-08 | Should a pending, never-signed row on a revised PWI show **Re-Sign Required** (literal CLAUDE §7.8) or stay **Pending**, and should it keep its original due date? | A-15: literal CLAUDE |
+| OQ-09 | CLAUDE §5 makes sign-off files visible to Viewers but only their own to Technicians. Is that the intended privacy level? With Technicians at Contribute (§1.4), the restriction holds in the app only. | As specified |
+| OQ-10 | Is a settings screen wanted, or is editing `JP_Settings` in SharePoint acceptable? | SharePoint only (A-04) |
+| OQ-11 | Must `DocNumber` be unique, and is there a required revision label scheme (A, B, C… or 01, 02…)? | Unique number, free-text revision |
+| OQ-12 | When an employee is deactivated, or a document made obsolete, should their pending rows be marked `Removed` automatically? | No (A-13) |
+| OQ-13 | When several documents are assigned at once, should a trainer be chosen per document, or should one trainer apply to all? | Per document, optional |
+| OQ-14 | Should a Manager be prevented from changing their own role or deactivating themselves, to avoid locking everyone out? | Not enforced; noted in Admin-Guide.md |
+| OQ-15 | What are the expected data volumes? This confirms the A-19 limits for the matrix and for re-assigning rows after a revision. | A-19 |
+| OQ-16 | Should Technicians and Viewers be able to open superseded revision files (version history) from the app, or only the current revision? | Current revision only. Managers can use SharePoint version history. |
