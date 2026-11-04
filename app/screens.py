@@ -115,7 +115,11 @@ def build(B):
         p = {"MaxAttachments": 1, "MaxAttachmentSize": 25, "Height": 100, "FillPortions": 0,
              "NoAttachmentsText": q("No file selected"), "AddAttachmentText": q("Choose a file (PDF, DOCX, XLSX, JPG or PNG, max 25 MB)"),
              "BorderColor": "clrBorder", "BorderThickness": 1, "Font": B.FONT, "Size": 14, "Color": "clrText",
-             "AccessibleLabel": q("File to upload")}
+             "AccessibleLabel": q("File to upload"),
+             # An attachments control outside a form is read-only ("No file selected",
+             # no "Choose a file" link) unless it is told it is in a data card and in
+             # Edit mode. This is the same state a control cut out of an Edit form keeps.
+             "IsInDataCard": "true", "DisplayMode": "DisplayMode.Edit", "Items": "[]"}
         if visible:
             p["Visible"] = visible
         return C(name, "attachments", p)
