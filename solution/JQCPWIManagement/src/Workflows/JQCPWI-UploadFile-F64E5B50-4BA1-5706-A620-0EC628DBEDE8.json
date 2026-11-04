@@ -387,92 +387,10 @@
                 }
               }
             },
-            "Which_library": {
-              "type": "If",
-              "runAfter": {
-                "New_or_replace": [
-                  "Succeeded"
-                ]
-              },
-              "metadata": {
-                "operationMetadataId": "6183a364-9074-5df6-9402-4c9c7c713ae8"
-              },
-              "expression": {
-                "and": [
-                  {
-                    "equals": [
-                      "@equals(triggerBody()?['text'], 'Documents')",
-                      true
-                    ]
-                  }
-                ]
-              },
-              "actions": {
-                "Update_document_properties": {
-                  "type": "OpenApiConnection",
-                  "runAfter": {},
-                  "metadata": {
-                    "operationMetadataId": "6d9acb75-bf27-5e0b-bbc4-c99a60e59607"
-                  },
-                  "inputs": {
-                    "host": {
-                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-                      "operationId": "PatchFileItem",
-                      "connectionName": "shared_sharepointonline"
-                    },
-                    "parameters": {
-                      "dataset": "@parameters('JQC/PWI - SharePoint site (jp_SiteUrl)')",
-                      "table": "@parameters('JQC/PWI - JP_Documents library (jp_LibDocuments)')",
-                      "id": "@variables('ItemId')",
-                      "item/Title": "@outputs('Metadata')?['DocNumber']",
-                      "item/DocType/Value": "@outputs('Metadata')?['DocType']",
-                      "item/DocNumber": "@outputs('Metadata')?['DocNumber']",
-                      "item/DocTitle": "@outputs('Metadata')?['DocTitle']",
-                      "item/Revision": "@outputs('Metadata')?['Revision']",
-                      "item/RevisionDate": "@outputs('Metadata')?['RevisionDate']",
-                      "item/RevisionNotes": "@outputs('Metadata')?['RevisionNotes']",
-                      "item/Area/Value": "@outputs('Metadata')?['Area']",
-                      "item/Status/Value": "@coalesce(outputs('Metadata')?['Status'], 'Active')",
-                      "item/Trainers": "@outputs('Metadata')?['Trainers']",
-                      "item/Description": "@outputs('Metadata')?['Description']"
-                    }
-                  }
-                }
-              },
-              "else": {
-                "actions": {
-                  "Update_signoff_properties": {
-                    "type": "OpenApiConnection",
-                    "runAfter": {},
-                    "metadata": {
-                      "operationMetadataId": "10ba0642-266f-57b6-98f1-b76e8cdd44a9"
-                    },
-                    "inputs": {
-                      "host": {
-                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-                        "operationId": "PatchFileItem",
-                        "connectionName": "shared_sharepointonline"
-                      },
-                      "parameters": {
-                        "dataset": "@parameters('JQC/PWI - SharePoint site (jp_SiteUrl)')",
-                        "table": "@parameters('JQC/PWI - JP_SignoffRecords library (jp_LibSignoffs)')",
-                        "id": "@variables('ItemId')",
-                        "item/Title": "@outputs('Metadata')?['FileName']",
-                        "item/AssignmentID": "@outputs('Metadata')?['AssignmentID']",
-                        "item/DocType/Value": "@outputs('Metadata')?['DocType']",
-                        "item/Revision": "@outputs('Metadata')?['Revision']",
-                        "item/EmployeeEmail": "@outputs('Metadata')?['EmployeeEmail']",
-                        "item/UploadedBy/Claims": "@outputs('Metadata')?['UploadedBy']"
-                      }
-                    }
-                  }
-                }
-              }
-            },
             "Get_file_link": {
               "type": "OpenApiConnection",
               "runAfter": {
-                "Which_library": [
+                "New_or_replace": [
                   "Succeeded"
                 ]
               },

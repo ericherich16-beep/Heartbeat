@@ -127,38 +127,13 @@ def definition():
                                "metadata": meta("Set_ItemId_new"),
                                "inputs": {"name": "ItemId",
                                           "value": "@int(body('Create_file')?['ItemId'])"}}}}}
-    # ---- file properties (CLAUDE.md Section 6.2 / 6.4) ----
-    docs_item = {
-        "dataset": SITE, "table": f"@parameters('{P_DOCS}')", "id": "@variables('ItemId')",
-        "item/Title": f"@{META}?['DocNumber']",
-        "item/DocType/Value": f"@{META}?['DocType']",
-        "item/DocNumber": f"@{META}?['DocNumber']",
-        "item/DocTitle": f"@{META}?['DocTitle']",
-        "item/Revision": f"@{META}?['Revision']",
-        "item/RevisionDate": f"@{META}?['RevisionDate']",
-        "item/RevisionNotes": f"@{META}?['RevisionNotes']",
-        "item/Area/Value": f"@{META}?['Area']",
-        "item/Status/Value": f"@coalesce({META}?['Status'], 'Active')",
-        "item/Trainers": f"@{META}?['Trainers']",          # array of {"Claims": "<email>"}
-        "item/Description": f"@{META}?['Description']",
-    }
-    sign_item = {
-        "dataset": SITE, "table": f"@parameters('{P_SIGN}')", "id": "@variables('ItemId')",
-        "item/Title": f"@{META}?['FileName']",
-        "item/AssignmentID": f"@{META}?['AssignmentID']",
-        "item/DocType/Value": f"@{META}?['DocType']",
-        "item/Revision": f"@{META}?['Revision']",
-        "item/EmployeeEmail": f"@{META}?['EmployeeEmail']",
-        "item/UploadedBy/Claims": f"@{META}?['UploadedBy']",
-    }
-    t["Which_library"] = {
-        "type": "If", "runAfter": {"New_or_replace": ["Succeeded"]}, "metadata": meta("Which_library"),
-        "expression": {"and": [{"equals": [is_docs, True]}]},
-        "actions": {"Update_document_properties": sp("Update_document_properties", "PatchFileItem", docs_item)},
-        "else": {"actions": {"Update_signoff_properties": sp("Update_signoff_properties", "PatchFileItem", sign_item)}}}
+    # Column values are NOT set here: "Update file properties" names each column, and Power Automate
+    # validates those names against the real library when the flow is saved, so any naming
+    # difference stops the flow from turning on. The app sets the columns with Patch after the
+    # upload instead (SPEC.md A-38). MetadataJson is only used for the file name.
     t["Get_file_link"] = sp("Get_file_link", "GetFileItem",
                             {"dataset": SITE, "table": "@outputs('Library_ID')", "id": "@variables('ItemId')"},
-                            {"Which_library": ["Succeeded"]})
+                            {"New_or_replace": ["Succeeded"]})
     t["Respond_success"] = respond("Respond_success", "true", "@variables('ItemId')",
                                    "@{body('Get_file_link')?['{Link}']}", "Uploaded.", {"Get_file_link": ["Succeeded"]})
     acts["Try"] = {"type": "Scope", "runAfter": {"Is_valid": ["Succeeded"]}, "metadata": meta("Try"), "actions": t}
@@ -263,9 +238,11 @@ def write_doc():
           "> be reviewed or rebuilt by hand if needed.", "",
           "## Purpose", "",
           "Canvas apps can't write files to a document library, so the app calls this instant flow (CLAUDE.md Section 11).",
-          "- A **new file** (JQC template, PWI, signed JQC or training log): **Create file**, then **Update file properties**.",
+          "- A **new file** (JQC template, PWI, signed JQC or training log): **Create file**.",
           "- A **new revision**: **Update file** replaces the content of the existing item in place, so the item ID stays the",
-          "  same and library versioning keeps the old revision. Then **Update file properties**.",
+          "  same and library versioning keeps the old revision.",
+          "- The flow does **not** set the file's columns. The app does that with `Patch` once the upload returns the item ID",
+          "  (SPEC.md A-38). That keeps the flow independent of the libraries' column names.",
           "- It responds with `success`, `itemid`, `fileurl` and `message`.", "",
           "Only standard SharePoint actions are used. **\"Send an HTTP request to SharePoint\" is never used**: it's blocked",
           "by the tenant's data policy (SPEC.md A-28).", "",
@@ -287,7 +264,8 @@ def write_doc():
           "| MetadataJson | `text_1` | Text | JSON with the file name and column values (below) |", "",
           "`ExistingItemID` is required, with `0` meaning \"new file\". This avoids optional-parameter syntax in the app.", "",
           "### MetadataJson", "",
-          "**Documents** (JQC templates and PWIs). The app sends **every** field, because blanks clear the column:", "",
+          "Only `FileName` is used by the flow. The other fields are optional context and are ignored.", "",
+          "**Documents** (JQC templates and PWIs):", "",
           "```json",
           '{ "FileName": "PWI-DEMO-001.pdf", "DocType": "PWI", "DocNumber": "PWI-DEMO-001", "DocTitle": "Demo Widget Torque Check",',
           '  "Revision": "B", "RevisionDate": "2026-11-04", "RevisionNotes": "What changed", "Area": "Production",',

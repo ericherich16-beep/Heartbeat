@@ -565,6 +565,7 @@ Checks use the fictional seed data, which must include at least these scenarios:
 | A-35 | **Employees:** add and edit happen in a side panel on `scrEmployees` (full screen on phones). `scrEmployeeDetail` → Edit opens that panel. The optional `EmployeeUser` person column isn't on the form. |
 | A-36 | **Put Into Training** and JQC sign-off live on `scrAssignmentDetail`. `scrSignoffReview` lists JQCs needing training, and tapping a row opens the assignment, where the manager acts. A manager can also sign off a PWI on an employee's behalf, but must still upload the training log (A-16). |
 | A-37 | A **revision** is applied in this order for each affected row: create the new row (skipped if one already exists), then close the old row. A row that fails stays current on the old revision, so **Retry failures** runs the same logic again without creating duplicates (CLAUDE.md Section 7 rule 8, step 3). |
+| A-38 | The upload flow only saves the file (create, or replace in place) and returns its item ID. **The app sets the library columns with `Patch`** right after the upload. The flow's "Update file properties" action was removed because Power Automate checks its column names against the real library when the flow is saved: with the user's `field_N` internal names the flow couldn't be turned on. |
 
 ## 7. Open questions
 

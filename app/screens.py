@@ -485,8 +485,25 @@ def build(B):
     {upload('attDoc', 'Documents', '0', new_meta)};
     If(
         gblUpload.success = "true",
-        Notify("Document added.", NotificationType.Success); Refresh(JP_Documents); Reset(attDoc);
-        Navigate(If(gblDocFormType = "JQC", scrJQCLibrary, scrPWILibrary), ScreenTransition.None),
+        // The flow only saves the file; the app sets its columns (SPEC.md A-38).
+        IfError(
+            Patch(JP_Documents, LookUp(JP_Documents, ID = gblUpload.itemid), {{
+                Title: Upper(Trim(txtDocNumber.Text)),
+                DocType: {{Value: gblDocFormType}},
+                DocNumber: Upper(Trim(txtDocNumber.Text)),
+                DocTitle: Trim(txtDocTitle.Text),
+                Revision: Trim(txtDocRev.Text),
+                RevisionDate: Today(),
+                RevisionNotes: Trim(txtDocNotes.Text),
+                Area: If(IsBlank(drpDocArea.Selected.Value), Blank(), {{Value: drpDocArea.Selected.Value}}),
+                Status: {{Value: "Active"}},
+                Trainers: {trainers_people},
+                Description: Trim(txtDocDesc.Text)
+            }}),
+            Notify("The file was uploaded, but its details couldn't be saved: " & FirstError.Message, NotificationType.Error),
+            Notify("Document added.", NotificationType.Success); Refresh(JP_Documents); Reset(attDoc);
+            Navigate(If(gblDocFormType = "JQC", scrJQCLibrary, scrPWILibrary), ScreenTransition.None)
+        ),
         Notify(gblUpload.message, NotificationType.Error)
     );
     Set(gblSaving, false)
@@ -578,6 +595,13 @@ Set(gblRevDoc, {{ID: gblDocForm.ID, NewRev: Trim(txtDocNewRev.Text)}});
 {upload('attDocRev', 'Documents', 'gblDocForm.ID', rev_meta)};
 If(
     gblUpload.success = "true",
+    // The flow replaced the file; the app updates the revision columns (SPEC.md A-38).
+    IfError(
+        Patch(JP_Documents, LookUp(JP_Documents, ID = gblDocForm.ID), {{
+            Revision: Trim(txtDocNewRev.Text), RevisionDate: Today(), RevisionNotes: Trim(txtDocRevNotes.Text)
+        }}),
+        Notify("The new file was uploaded, but the revision details couldn't be saved: " & FirstError.Message, NotificationType.Error)
+    );
     Refresh(JP_Documents);
     {reassign};
     UpdateContext({{locRevConfirm: false, locRevDone: true}});
@@ -844,7 +868,15 @@ Set(gblSaving, false)"""
     Set(gblSaving, true);
     {upload('attSignLog', 'Signoffs', '0', sign_meta('attSignLog'))};
     If(gblUpload.success = "true",
-        UpdateContext({{locEvidenceId: gblUpload.itemid, locEvidenceFor: {a}.ID}}); Notify("Training log uploaded.", NotificationType.Success),
+        // The flow only saves the file; the app sets its columns (SPEC.md A-38).
+        IfError(
+            Patch(JP_SignoffRecords, LookUp(JP_SignoffRecords, ID = gblUpload.itemid), {{
+                AssignmentID: {a}.ID, DocType: {{Value: {a}.DocType.Value}}, Revision: {a}.RevisionAssigned,
+                EmployeeEmail: Lower({a}.EmployeeEmail), UploadedBy: fxMePerson
+            }}),
+            Notify("The file was uploaded, but its details couldn't be saved: " & FirstError.Message, NotificationType.Error),
+            UpdateContext({{locEvidenceId: gblUpload.itemid, locEvidenceFor: {a}.ID}}); Notify("Training log uploaded.", NotificationType.Success)
+        ),
         Notify(gblUpload.message, NotificationType.Error));
     Set(gblSaving, false)
 )"""

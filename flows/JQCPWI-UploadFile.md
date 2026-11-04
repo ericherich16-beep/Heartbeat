@@ -7,9 +7,11 @@
 ## Purpose
 
 Canvas apps can't write files to a document library, so the app calls this instant flow (CLAUDE.md Section 11).
-- A **new file** (JQC template, PWI, signed JQC or training log): **Create file**, then **Update file properties**.
+- A **new file** (JQC template, PWI, signed JQC or training log): **Create file**.
 - A **new revision**: **Update file** replaces the content of the existing item in place, so the item ID stays the
-  same and library versioning keeps the old revision. Then **Update file properties**.
+  same and library versioning keeps the old revision.
+- The flow does **not** set the file's columns. The app does that with `Patch` once the upload returns the item ID
+  (SPEC.md A-38). That keeps the flow independent of the libraries' column names.
 - It responds with `success`, `itemid`, `fileurl` and `message`.
 
 Only standard SharePoint actions are used. **"Send an HTTP request to SharePoint" is never used**: it's blocked
@@ -43,7 +45,9 @@ by the tenant's data policy (SPEC.md A-28).
 
 ### MetadataJson
 
-**Documents** (JQC templates and PWIs). The app sends **every** field, because blanks clear the column:
+Only `FileName` is used by the flow. The other fields are optional context and are ignored.
+
+**Documents** (JQC templates and PWIs):
 
 ```json
 { "FileName": "PWI-DEMO-001.pdf", "DocType": "PWI", "DocNumber": "PWI-DEMO-001", "DocTitle": "Demo Widget Torque Check",
@@ -156,44 +160,7 @@ If(gblUpload.success = "true", /* Patch the assignment with SignoffFileID = gblU
           "value": "@int(body('Create_file')?['ItemId'])"
         }
         ```
-  - **Which_library** — If — runs after: New_or_replace (Succeeded)
-    Condition: `{"and": [{"equals": ["@equals(triggerBody()?['text'], 'Documents')", true]}]}`
-    - *If yes:*
-      - **Update_document_properties** — OpenApiConnection `PatchFileItem` — runs after: start
-        ```json
-        {
-          "dataset": "@parameters('JQC/PWI - SharePoint site (jp_SiteUrl)')",
-          "table": "@parameters('JQC/PWI - JP_Documents library (jp_LibDocuments)')",
-          "id": "@variables('ItemId')",
-          "item/Title": "@outputs('Metadata')?['DocNumber']",
-          "item/DocType/Value": "@outputs('Metadata')?['DocType']",
-          "item/DocNumber": "@outputs('Metadata')?['DocNumber']",
-          "item/DocTitle": "@outputs('Metadata')?['DocTitle']",
-          "item/Revision": "@outputs('Metadata')?['Revision']",
-          "item/RevisionDate": "@outputs('Metadata')?['RevisionDate']",
-          "item/RevisionNotes": "@outputs('Metadata')?['RevisionNotes']",
-          "item/Area/Value": "@outputs('Metadata')?['Area']",
-          "item/Status/Value": "@coalesce(outputs('Metadata')?['Status'], 'Active')",
-          "item/Trainers": "@outputs('Metadata')?['Trainers']",
-          "item/Description": "@outputs('Metadata')?['Description']"
-        }
-        ```
-    - *If no:*
-      - **Update_signoff_properties** — OpenApiConnection `PatchFileItem` — runs after: start
-        ```json
-        {
-          "dataset": "@parameters('JQC/PWI - SharePoint site (jp_SiteUrl)')",
-          "table": "@parameters('JQC/PWI - JP_SignoffRecords library (jp_LibSignoffs)')",
-          "id": "@variables('ItemId')",
-          "item/Title": "@outputs('Metadata')?['FileName']",
-          "item/AssignmentID": "@outputs('Metadata')?['AssignmentID']",
-          "item/DocType/Value": "@outputs('Metadata')?['DocType']",
-          "item/Revision": "@outputs('Metadata')?['Revision']",
-          "item/EmployeeEmail": "@outputs('Metadata')?['EmployeeEmail']",
-          "item/UploadedBy/Claims": "@outputs('Metadata')?['UploadedBy']"
-        }
-        ```
-  - **Get_file_link** — OpenApiConnection `GetFileItem` — runs after: Which_library (Succeeded)
+  - **Get_file_link** — OpenApiConnection `GetFileItem` — runs after: New_or_replace (Succeeded)
     ```json
     {
       "dataset": "@parameters('JQC/PWI - SharePoint site (jp_SiteUrl)')",
