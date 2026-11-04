@@ -68,7 +68,7 @@ def F(name, display, ftype, **kw):
     return d
 
 LISTS = [
-    {"Title": "JP_Employees", "Template": 100, "TitleDisplay": "Employee Name",
+    {"Title": "JP_Employees", "Template": 100,
      "Description": "JQC/PWI Management - employees. Never delete; set Active = No.",
      "Fields": [
          F("Email", "Email", "Text", Required=True, Indexed=True, Unique=True),
@@ -160,7 +160,7 @@ def step(label, uri, body, headers=None, method="POST"):
 def field_xml(lst, f):
     is_library = lst["Template"] == 101
     req = "TRUE" if (f.get("Required") and not is_library) else "FALSE"   # SPEC.md A-21
-    a = (f'Name="{f["Name"]}" StaticName="{f["Name"]}" DisplayName={quoteattr(f["Display"])} '
+    a = (f'Name="{f["Name"]}" StaticName="{f["Name"]}" DisplayName="{f["Name"]}" '   # display = internal (A-27)
          f'Required="{req}"')
     t = f["Type"]
     inner = ""
@@ -203,9 +203,6 @@ def phase_a():
             steps.append(step(f"Versioning on {lst['Title']}", q(lst["Title"]),
                               {"__metadata": {"type": "SP.List"}, "EnableVersioning": True,
                                "MajorVersionLimit": 50}, MERGE))
-        if lst.get("TitleDisplay"):
-            steps.append(step(f"Rename Title on {lst['Title']}", q(lst["Title"]) + "/fields/getbyinternalnameortitle('Title')",
-                              {"__metadata": {"type": "SP.Field"}, "Title": lst["TitleDisplay"]}, MERGE))
     return steps
 
 

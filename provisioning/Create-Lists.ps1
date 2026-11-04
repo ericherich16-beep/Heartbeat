@@ -81,7 +81,7 @@ $ErrorActionPreference = 'Stop'
 # ---------------------------------------------------------------------------
 # Schema definition
 #   Name     : internal column name (no spaces, never changes)
-#   Display  : friendly display name shown in SharePoint and Power Apps
+#   Display  : descriptive label (documentation only; the SharePoint display name is set to Name)
 #   Type     : Text | Note | Choice | Number | Boolean | DateOnly | DateTime | User | UserMulti | Lookup
 #   Required : enforced by SharePoint (lists only, see notes above)
 #   Indexed  : creates a column index (needed for delegable, large-list filtering)
@@ -100,7 +100,6 @@ $schema = @(
         Title       = 'JP_Employees'
         Template    = 'GenericList'
         Description = 'JQC/PWI Management - employees. Never delete; set Active = No.'
-        TitleDisplay = 'Employee Name'
         Fields = @(
             @{ Name = 'Email';        Display = 'Email';         Type = 'Text';     Required = $true;  Indexed = $true; Unique = $true }
             @{ Name = 'EmployeeUser'; Display = 'Employee User'; Type = 'User' }
@@ -134,7 +133,6 @@ $schema = @(
         Title       = 'JP_Assignments'
         Template    = 'GenericList'
         Description = 'JQC/PWI Management - one row per employee per document revision. Never delete; use Removed or Superseded.'
-        TitleDisplay = 'Title'
         Fields = @(
             @{ Name = 'Employee';             Display = 'Employee';               Type = 'Lookup';   Required = $true; LookupList = 'JP_Employees'; LookupField = 'Title' }
             @{ Name = 'EmployeeEmail';        Display = 'Employee Email';         Type = 'Text';     Required = $true; Indexed = $true }
@@ -174,7 +172,6 @@ $schema = @(
         Title       = 'JP_Settings'
         Template    = 'GenericList'
         Description = 'JQC/PWI Management - global settings. Keep exactly one row.'
-        TitleDisplay = 'Title'
         Fields = @(
             # TODO: confirm defaults (CLAUDE.md Section 19)
             @{ Name = 'MinQualifiedPerTask'; Display = 'Min Qualified Per Task'; Type = 'Number'; Required = $true; Default = '2';  Min = 1 }
@@ -297,9 +294,6 @@ foreach ($def in $schema) {
 foreach ($def in $schema) {
     Write-Step "Columns on $($def.Title)"
 
-    if ($def.ContainsKey('TitleDisplay')) {
-        Set-PnPField -List $def.Title -Identity 'Title' -Values @{ Title = $def.TitleDisplay } | Out-Null
-    }
 
     $isLibrary = $def.Template -eq 'DocumentLibrary'
     $view      = Get-PnPView -List $def.Title -Includes ViewFields | Where-Object { $_.DefaultView } | Select-Object -First 1
@@ -319,7 +313,8 @@ foreach ($def in $schema) {
             Write-Info "$($f.Name) already exists"
         }
 
-        Set-PnPField -List $def.Title -Identity $f.Name -Values @{ Title = $field.Display } | Out-Null
+        # Display name = internal name (SPEC.md A-27): the app's formulas use these exact names.
+        Set-PnPField -List $def.Title -Identity $f.Name -Values @{ Title = $f.Name } | Out-Null
 
         $wantIndex = ($f.ContainsKey('Indexed') -and $f.Indexed) -or ($f.ContainsKey('Unique') -and $f.Unique)
         if ($wantIndex) {

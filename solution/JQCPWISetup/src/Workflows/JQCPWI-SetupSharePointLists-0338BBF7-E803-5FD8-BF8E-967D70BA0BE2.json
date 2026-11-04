@@ -131,18 +131,6 @@
               "body": "{\"__metadata\": {\"type\": \"SP.List\"}, \"Title\": \"JP_Employees\", \"BaseTemplate\": 100, \"Description\": \"JQC/PWI Management - employees. Never delete; set Active = No.\", \"AllowContentTypes\": true, \"ContentTypesEnabled\": false}"
             },
             {
-              "label": "Rename Title on JP_Employees",
-              "method": "POST",
-              "uri": "_api/web/lists/getbytitle('JP_Employees')/fields/getbyinternalnameortitle('Title')",
-              "headers": {
-                "Accept": "application/json;odata=verbose",
-                "Content-Type": "application/json;odata=verbose",
-                "X-HTTP-Method": "MERGE",
-                "IF-MATCH": "*"
-              },
-              "body": "{\"__metadata\": {\"type\": \"SP.Field\"}, \"Title\": \"Employee Name\"}"
-            },
-            {
               "label": "Create JP_Documents",
               "method": "POST",
               "uri": "_api/web/lists",
@@ -339,7 +327,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"EmployeeUser\\\" StaticName=\\\"EmployeeUser\\\" DisplayName=\\\"Employee User\\\" Required=\\\"FALSE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"EmployeeUser\\\" StaticName=\\\"EmployeeUser\\\" DisplayName=\\\"EmployeeUser\\\" Required=\\\"FALSE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Employees.JobTitle",
@@ -349,7 +337,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"JobTitle\\\" StaticName=\\\"JobTitle\\\" DisplayName=\\\"Job Title\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>Production Technician</CHOICE><CHOICE>Quality Technician</CHOICE><CHOICE>Supervisor</CHOICE><CHOICE>Manager</CHOICE><CHOICE>Other</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"JobTitle\\\" StaticName=\\\"JobTitle\\\" DisplayName=\\\"JobTitle\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>Production Technician</CHOICE><CHOICE>Quality Technician</CHOICE><CHOICE>Supervisor</CHOICE><CHOICE>Manager</CHOICE><CHOICE>Other</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Employees.Department",
@@ -389,7 +377,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"AppRole\\\" StaticName=\\\"AppRole\\\" DisplayName=\\\"App Role\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>Manager/Supervisor</CHOICE><CHOICE>Technician</CHOICE><CHOICE>Viewer</CHOICE></CHOICES><Default>Technician</Default></Field>\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"AppRole\\\" StaticName=\\\"AppRole\\\" DisplayName=\\\"AppRole\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>Manager/Supervisor</CHOICE><CHOICE>Technician</CHOICE><CHOICE>Viewer</CHOICE></CHOICES><Default>Technician</Default></Field>\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Employees.Active",
@@ -409,7 +397,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"DocType\\\" StaticName=\\\"DocType\\\" DisplayName=\\\"Doc Type\\\" Required=\\\"FALSE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>JQC</CHOICE><CHOICE>PWI</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"DocType\\\" StaticName=\\\"DocType\\\" DisplayName=\\\"DocType\\\" Required=\\\"FALSE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>JQC</CHOICE><CHOICE>PWI</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Documents.DocNumber",
@@ -419,7 +407,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocNumber\\\" StaticName=\\\"DocNumber\\\" DisplayName=\\\"Doc Number\\\" Required=\\\"FALSE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocNumber\\\" StaticName=\\\"DocNumber\\\" DisplayName=\\\"DocNumber\\\" Required=\\\"FALSE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Documents.DocTitle",
@@ -429,7 +417,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocTitle\\\" StaticName=\\\"DocTitle\\\" DisplayName=\\\"Doc Title\\\" Required=\\\"FALSE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocTitle\\\" StaticName=\\\"DocTitle\\\" DisplayName=\\\"DocTitle\\\" Required=\\\"FALSE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Documents.Revision",
@@ -449,7 +437,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"RevisionDate\\\" StaticName=\\\"RevisionDate\\\" DisplayName=\\\"Revision Date\\\" Required=\\\"FALSE\\\" Format=\\\"DateOnly\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"RevisionDate\\\" StaticName=\\\"RevisionDate\\\" DisplayName=\\\"RevisionDate\\\" Required=\\\"FALSE\\\" Format=\\\"DateOnly\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Documents.RevisionNotes",
@@ -459,7 +447,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Note\\\" Name=\\\"RevisionNotes\\\" StaticName=\\\"RevisionNotes\\\" DisplayName=\\\"Revision Notes\\\" Required=\\\"FALSE\\\" NumLines=\\\"6\\\" RichText=\\\"FALSE\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Note\\\" Name=\\\"RevisionNotes\\\" StaticName=\\\"RevisionNotes\\\" DisplayName=\\\"RevisionNotes\\\" Required=\\\"FALSE\\\" NumLines=\\\"6\\\" RichText=\\\"FALSE\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Documents.Area",
@@ -519,7 +507,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"EmployeeEmail\\\" StaticName=\\\"EmployeeEmail\\\" DisplayName=\\\"Employee Email\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"EmployeeEmail\\\" StaticName=\\\"EmployeeEmail\\\" DisplayName=\\\"EmployeeEmail\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.DocumentID",
@@ -529,7 +517,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"DocumentID\\\" StaticName=\\\"DocumentID\\\" DisplayName=\\\"Document ID\\\" Required=\\\"TRUE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"DocumentID\\\" StaticName=\\\"DocumentID\\\" DisplayName=\\\"DocumentID\\\" Required=\\\"TRUE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.DocType",
@@ -539,7 +527,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"DocType\\\" StaticName=\\\"DocType\\\" DisplayName=\\\"Doc Type\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>JQC</CHOICE><CHOICE>PWI</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"DocType\\\" StaticName=\\\"DocType\\\" DisplayName=\\\"DocType\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>JQC</CHOICE><CHOICE>PWI</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.DocNumber",
@@ -549,7 +537,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocNumber\\\" StaticName=\\\"DocNumber\\\" DisplayName=\\\"Doc Number\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocNumber\\\" StaticName=\\\"DocNumber\\\" DisplayName=\\\"DocNumber\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.DocTitle",
@@ -559,7 +547,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocTitle\\\" StaticName=\\\"DocTitle\\\" DisplayName=\\\"Doc Title\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"DocTitle\\\" StaticName=\\\"DocTitle\\\" DisplayName=\\\"DocTitle\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.RevisionAssigned",
@@ -569,7 +557,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"RevisionAssigned\\\" StaticName=\\\"RevisionAssigned\\\" DisplayName=\\\"Revision Assigned\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"RevisionAssigned\\\" StaticName=\\\"RevisionAssigned\\\" DisplayName=\\\"RevisionAssigned\\\" Required=\\\"TRUE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.AssignmentReason",
@@ -579,7 +567,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"AssignmentReason\\\" StaticName=\\\"AssignmentReason\\\" DisplayName=\\\"Assignment Reason\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>New Assignment</CHOICE><CHOICE>Revision Change</CHOICE></CHOICES><Default>New Assignment</Default></Field>\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"AssignmentReason\\\" StaticName=\\\"AssignmentReason\\\" DisplayName=\\\"AssignmentReason\\\" Required=\\\"TRUE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>New Assignment</CHOICE><CHOICE>Revision Change</CHOICE></CHOICES><Default>New Assignment</Default></Field>\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.PreviousAssignmentID",
@@ -589,7 +577,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"PreviousAssignmentID\\\" StaticName=\\\"PreviousAssignmentID\\\" DisplayName=\\\"Previous Assignment ID\\\" Required=\\\"FALSE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"PreviousAssignmentID\\\" StaticName=\\\"PreviousAssignmentID\\\" DisplayName=\\\"PreviousAssignmentID\\\" Required=\\\"FALSE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.IsCurrent",
@@ -599,7 +587,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Boolean\\\" Name=\\\"IsCurrent\\\" StaticName=\\\"IsCurrent\\\" DisplayName=\\\"Is Current\\\" Required=\\\"FALSE\\\"><Default>1</Default></Field>\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Boolean\\\" Name=\\\"IsCurrent\\\" StaticName=\\\"IsCurrent\\\" DisplayName=\\\"IsCurrent\\\" Required=\\\"FALSE\\\"><Default>1</Default></Field>\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.AssignedBy",
@@ -609,7 +597,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"AssignedBy\\\" StaticName=\\\"AssignedBy\\\" DisplayName=\\\"Assigned By\\\" Required=\\\"TRUE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"AssignedBy\\\" StaticName=\\\"AssignedBy\\\" DisplayName=\\\"AssignedBy\\\" Required=\\\"TRUE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.AssignedDate",
@@ -619,7 +607,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"AssignedDate\\\" StaticName=\\\"AssignedDate\\\" DisplayName=\\\"Assigned Date\\\" Required=\\\"TRUE\\\" Format=\\\"DateOnly\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"AssignedDate\\\" StaticName=\\\"AssignedDate\\\" DisplayName=\\\"AssignedDate\\\" Required=\\\"TRUE\\\" Format=\\\"DateOnly\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.DueDate",
@@ -629,7 +617,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"DueDate\\\" StaticName=\\\"DueDate\\\" DisplayName=\\\"Due Date\\\" Required=\\\"FALSE\\\" Format=\\\"DateOnly\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"DueDate\\\" StaticName=\\\"DueDate\\\" DisplayName=\\\"DueDate\\\" Required=\\\"FALSE\\\" Format=\\\"DateOnly\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.Trainer",
@@ -659,7 +647,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"SignedOffBy\\\" StaticName=\\\"SignedOffBy\\\" DisplayName=\\\"Signed Off By\\\" Required=\\\"FALSE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"SignedOffBy\\\" StaticName=\\\"SignedOffBy\\\" DisplayName=\\\"SignedOffBy\\\" Required=\\\"FALSE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.SignedOffDate",
@@ -669,7 +657,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"SignedOffDate\\\" StaticName=\\\"SignedOffDate\\\" DisplayName=\\\"Signed Off Date\\\" Required=\\\"FALSE\\\" Format=\\\"DateTime\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"DateTime\\\" Name=\\\"SignedOffDate\\\" StaticName=\\\"SignedOffDate\\\" DisplayName=\\\"SignedOffDate\\\" Required=\\\"FALSE\\\" Format=\\\"DateTime\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.SignoffFileID",
@@ -679,7 +667,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"SignoffFileID\\\" StaticName=\\\"SignoffFileID\\\" DisplayName=\\\"Sign-off File ID\\\" Required=\\\"FALSE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"SignoffFileID\\\" StaticName=\\\"SignoffFileID\\\" DisplayName=\\\"SignoffFileID\\\" Required=\\\"FALSE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Assignments.Comments",
@@ -699,7 +687,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"AssignmentID\\\" StaticName=\\\"AssignmentID\\\" DisplayName=\\\"Assignment ID\\\" Required=\\\"FALSE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"AssignmentID\\\" StaticName=\\\"AssignmentID\\\" DisplayName=\\\"AssignmentID\\\" Required=\\\"FALSE\\\" Decimals=\\\"0\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_SignoffRecords.DocType",
@@ -709,7 +697,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"DocType\\\" StaticName=\\\"DocType\\\" DisplayName=\\\"Doc Type\\\" Required=\\\"FALSE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>JQC</CHOICE><CHOICE>PWI</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Choice\\\" Name=\\\"DocType\\\" StaticName=\\\"DocType\\\" DisplayName=\\\"DocType\\\" Required=\\\"FALSE\\\" Format=\\\"Dropdown\\\" FillInChoice=\\\"FALSE\\\"><CHOICES><CHOICE>JQC</CHOICE><CHOICE>PWI</CHOICE></CHOICES></Field>\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_SignoffRecords.Revision",
@@ -729,7 +717,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"EmployeeEmail\\\" StaticName=\\\"EmployeeEmail\\\" DisplayName=\\\"Employee Email\\\" Required=\\\"FALSE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Text\\\" Name=\\\"EmployeeEmail\\\" StaticName=\\\"EmployeeEmail\\\" DisplayName=\\\"EmployeeEmail\\\" Required=\\\"FALSE\\\" MaxLength=\\\"255\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_SignoffRecords.UploadedBy",
@@ -739,7 +727,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"UploadedBy\\\" StaticName=\\\"UploadedBy\\\" DisplayName=\\\"Uploaded By\\\" Required=\\\"FALSE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"User\\\" Name=\\\"UploadedBy\\\" StaticName=\\\"UploadedBy\\\" DisplayName=\\\"UploadedBy\\\" Required=\\\"FALSE\\\" UserSelectionMode=\\\"PeopleOnly\\\" UserSelectionScope=\\\"0\\\" ShowField=\\\"ImnName\\\" />\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Settings.MinQualifiedPerTask",
@@ -749,7 +737,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"MinQualifiedPerTask\\\" StaticName=\\\"MinQualifiedPerTask\\\" DisplayName=\\\"Min Qualified Per Task\\\" Required=\\\"TRUE\\\" Decimals=\\\"0\\\" Min=\\\"1\\\"><Default>2</Default></Field>\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"MinQualifiedPerTask\\\" StaticName=\\\"MinQualifiedPerTask\\\" DisplayName=\\\"MinQualifiedPerTask\\\" Required=\\\"TRUE\\\" Decimals=\\\"0\\\" Min=\\\"1\\\"><Default>2</Default></Field>\", \"Options\": 24}}"
             },
             {
               "label": "Column JP_Settings.ResignDueDays",
@@ -759,7 +747,7 @@
                 "Accept": "application/json;odata=verbose",
                 "Content-Type": "application/json;odata=verbose"
               },
-              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"ResignDueDays\\\" StaticName=\\\"ResignDueDays\\\" DisplayName=\\\"Re-sign Due Days\\\" Required=\\\"TRUE\\\" Decimals=\\\"0\\\" Min=\\\"1\\\"><Default>14</Default></Field>\", \"Options\": 24}}"
+              "body": "{\"parameters\": {\"__metadata\": {\"type\": \"SP.XmlSchemaFieldCreationInformation\"}, \"SchemaXml\": \"<Field Type=\\\"Number\\\" Name=\\\"ResignDueDays\\\" StaticName=\\\"ResignDueDays\\\" DisplayName=\\\"ResignDueDays\\\" Required=\\\"TRUE\\\" Decimals=\\\"0\\\" Min=\\\"1\\\"><Default>14</Default></Field>\", \"Options\": 24}}"
             },
             {
               "label": "Index JP_Employees.Email",

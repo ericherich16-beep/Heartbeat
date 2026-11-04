@@ -55,7 +55,7 @@ Claude Code builds the **importable solution `.zip` itself** with the Power Plat
 | Component | Claude Code produces | User does |
 |---|---|---|
 | Toolchain | `/tools/setup-pac-linux.sh`, which gets `pac` and the .NET runtime from nuget.org in a container with no .NET | On a PC: install `pac` normally (only needed to rebuild) |
-| SharePoint lists and libraries | **Setup solution** `/solution/dist/JQCPWISetup_*.zip`, built by `/solution/build_setup.py`. It holds one flow, "JQCPWI - Setup SharePoint Lists", which uses only the standard SharePoint connector. **Or** the PnP PowerShell script `/provisioning/Create-Lists.ps1`. Both build the same schema; `build_setup.py` checks that they match | Import the setup zip and run its flow once with the site address (or run the script) |
+| SharePoint lists and libraries | **Manual guide** `/provisioning/Manual-Setup.md` (the user's tenant blocks the SharePoint `HttpRequest` action, so the setup flow can't be turned on there). Also available: the **setup solution** `/solution/dist/JQCPWISetup_*.zip`, built by `/solution/build_setup.py`. It holds one flow, "JQCPWI - Setup SharePoint Lists", which uses only the standard SharePoint connector. **Or** the PnP PowerShell script `/provisioning/Create-Lists.ps1`. Both build the same schema; `build_setup.py` checks that they match | Import the setup zip and run its flow once with the site address (or run the script) |
 | Solution project | `/solution/JQCPWIManagement/` (from `pac solution init`, publisher prefix `jp`) and `/solution/build.py`, which generates components and runs `pac solution pack` | — |
 | Environment variables | Defined in the solution by `build.py` with **no values**. Documented in `/solution/env-vars.md` | Pick the site and lists in the import wizard |
 | Canvas app | Generator `/app/build_app.py`. It writes `.fx.yaml` sources using control templates from a Microsoft sample `.msapp`, runs `pac canvas pack`, and adds the app to `CanvasApps/` with SharePoint data sources bound to the environment variables. `/app/App.fx.md` documents the named formulas, role logic, status logic and theme | Open in Studio after import, check, publish |
@@ -93,7 +93,8 @@ The role is stored on the employee record (`JP_Employees.AppRole`).
 ---
 
 ## 6. Data Model
-All list and library names use the prefix `JP_`. Use internal column names without spaces. Index every column used in filters.
+All list and library names use the prefix `JP_`. Use internal column names without spaces, and make each **display name the same as the internal name** (`Title` keeps its default name). Index every column used in filters.
+**Never use the SharePoint action "Send an HTTP request to SharePoint" (`HttpRequest`)**: the tenant's data policy blocks it (`SPEC.md` A-28).
 In the two document libraries, ✔ columns are enforced by the app and the upload flow rather than set as required in SharePoint (`SPEC.md` A-21).
 
 ### 6.1 `JP_Employees` (list)

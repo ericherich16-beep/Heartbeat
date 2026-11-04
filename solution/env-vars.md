@@ -27,7 +27,9 @@ Notes:
 
 The variables point at the JP_ lists, so the lists must exist first. Use either option.
 
-**Option A — setup flow (no PowerShell, no admin rights beyond Site Owner)**
+**Option A — by hand in the browser (works everywhere):** follow `provisioning/Manual-Setup.md`, about 30–40 minutes.
+
+**Option B — setup flow.** Only if your tenant allows the SharePoint action "Send an HTTP request to SharePoint". The current tenant's data policy blocks it.
 1. **make.powerapps.com** → **Solutions** → **Import solution** → pick `solution/dist/JQCPWISetup_1_0_0_0_unmanaged.zip` → **Next**.
 2. When asked, pick or create a **SharePoint** connection → **Import**.
 3. Open the **JQC/PWI Management - Setup** solution → **Cloud flows** → **JQCPWI - Setup SharePoint Lists**.
@@ -41,7 +43,7 @@ The variables point at the JP_ lists, so the lists must exist first. Use either 
    - It's safe to run again: lists and columns that already exist are skipped, and nothing is deleted.
 6. Optional: set up the SharePoint group permissions (CLAUDE.md Section 9) by hand, or with `Create-Lists.ps1 -ConfigurePermissions`.
 
-**Option B — PowerShell:** run `provisioning/Create-Lists.ps1`. This needs PowerShell 7, PnP.PowerShell and a PnP app registration.
+**Option C — PowerShell:** run `provisioning/Create-Lists.ps1`. This needs PowerShell 7, PnP.PowerShell and a PnP app registration.
 
 ## How the values get set
 
