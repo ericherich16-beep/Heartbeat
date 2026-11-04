@@ -24,6 +24,10 @@ All names, emails and documents in this repository are **fictional**.
 2. Import `solution/dist/JQCPWIManagement_<version>_unmanaged.zip` at make.powerapps.com → Solutions → Import solution, and pick your site and lists.
 3. Turn on the flow and add yourself as a manager in `JP_Employees`.
 
+## What the screens look like
+
+`docs/mockups/` has a reference image of every screen (desktop 1366×768) and of Home, My Training and Matrix on a phone. They're drawings of the intended design, with the app's layout, theme and labels and the fictional seed data, rendered by `tools/render_mockups.py`. They are not Power Apps screenshots.
+
 ## What's in the solution
 
 | Component | Name |

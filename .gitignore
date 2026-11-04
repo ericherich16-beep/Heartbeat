@@ -24,3 +24,4 @@ Thumbs.db
 /app/build/
 __pycache__/
 /app/build_demo/
+/docs/mockups/.html/
