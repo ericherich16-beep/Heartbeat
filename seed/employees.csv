@@ -1,0 +1,10 @@
+Title,Email,JobTitle,Department,Shift,SupervisorEmail,AppRole,Active
+Manager One,manager1@contoso.com,Manager,Production,Days,,Manager/Supervisor,TRUE
+Supervisor Two,supervisor2@contoso.com,Supervisor,Quality,Days,manager1@contoso.com,Manager/Supervisor,TRUE
+Tech A,techa@contoso.com,Production Technician,Production,1st,manager1@contoso.com,Technician,TRUE
+Tech B,techb@contoso.com,Production Technician,Production,1st,manager1@contoso.com,Technician,TRUE
+Tech C,techc@contoso.com,Production Technician,Production,2nd,manager1@contoso.com,Technician,TRUE
+Tech D,techd@contoso.com,Quality Technician,Quality,2nd,supervisor2@contoso.com,Technician,TRUE
+Tech E,teche@contoso.com,Quality Technician,Quality,3rd,supervisor2@contoso.com,Technician,TRUE
+Tech F,techf@contoso.com,Production Technician,Production,3rd,manager1@contoso.com,Technician,FALSE
+Viewer One,viewer1@contoso.com,Other,Other,Days,,Viewer,TRUE

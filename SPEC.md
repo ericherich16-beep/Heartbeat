@@ -547,7 +547,10 @@ Checks use the fictional seed data, which must include at least these scenarios:
 | A-17 | Users without SharePoint access see a friendly "You don't have access" message, triggered when the employee lookup returns a data-source error. |
 | A-18 | If two files for the same assignment are uploaded on the same day and get the same name, the flow adds `_HHmmss` to the name so the earlier file isn't overwritten. |
 | A-19 | Data volumes: no more than 2,000 active employees or documents, so filtered lookups stay delegable. No more than 500 affected rows per revision, PWI or JQC (BR-38). Limits are documented in Admin-Guide.md. |
-| A-20 | Seed data uses only CLAUDE §2 style placeholders (`Tech A`, `manager1@contoso.com`, `JQC-DEMO-100`, `PWI-DEMO-001`) and includes an expected-results table for matrix and cross-training checks. |
+| A-20 | Seed data uses only CLAUDE §2 style placeholders (`Tech A`, `manager1@contoso.com`, `JQC-DEMO-100`, `PWI-DEMO-001`) and includes an expected-results table for matrix and cross-training checks (`/seed/expected-results.md`). Seed dates are offsets from the import day. |
+| A-21 | In the two document libraries (`JP_Documents`, `JP_SignoffRecords`), columns marked required are **not** set as required in SharePoint. The app and the upload flow enforce them instead, so a file the flow creates before it sets properties is never left incomplete. List columns are required in SharePoint as marked. |
+| A-22 | My Pending, My Signed Off and Team Pending count only current rows on `Active` documents. Rows on Obsolete documents stay in history (`scrEmployeeDetail`). |
+| A-23 | Seed people columns need real tenant accounts. `Import-SeedData.ps1` takes a git-ignored `seed/user-map.csv` that maps seed emails to test accounts, and falls back to the signed-in account for required people columns. |
 
 ## 7. Open questions
 

@@ -1,0 +1,21 @@
+# JQC/PWI Management - CLAUDE.md Section 2 (no confidential data, no secrets)
+
+# Environment and secrets files
+*.env
+*.secrets*
+
+# Solution exports (exported by the user from Power Apps, never committed)
+/exports/
+
+# Any zip not built by this project. If the project ever builds a package,
+# put it in /solution/dist/ (which is allowed by the rule below).
+*.zip
+!/solution/dist/*.zip
+
+# Real tenant account mapping for seed import (copy of seed/user-map.example.csv)
+/seed/user-map.csv
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.log

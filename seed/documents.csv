@@ -1,0 +1,8 @@
+DocNumber,DocType,DocTitle,Area,Status,TrainerEmails,Description,PreviousRevision,PreviousRevisionDaysAgo,PreviousRevisionNotes,Revision,RevisionDaysAgo,RevisionNotes
+PWI-DEMO-001,PWI,Demo Widget Torque Check,Production,Active,techa@contoso.com;manager1@contoso.com,Fictional PWI used to test the PWI revision re-sign scenario.,A,120,Initial release.,B,5,Fictional change: torque value table updated and a photo added to step 4.
+PWI-DEMO-002,PWI,Demo Label Printer Setup,Production,Active,techb@contoso.com;manager1@contoso.com,Fictional PWI with an overdue assignment.,,,,A,90,Initial release.
+PWI-DEMO-003,PWI,Demo Gauge Check,Metrology,Active,techd@contoso.com;supervisor2@contoso.com,Fictional PWI with a removed assignment.,,,,A,60,Initial release.
+PWI-DEMO-004,PWI,Demo Retired Procedure,Production,Obsolete,techa@contoso.com;manager1@contoso.com,Fictional obsolete PWI. Must not appear in the matrix or cross-training view.,,,,A,300,Initial release.
+JQC-DEMO-100,JQC,Demo Line 1 Operator,Production,Active,manager1@contoso.com,Fictional JQC used to test the JQC revision Needs Training scenario (SPEC.md D-01).,A,200,Initial release.,B,3,Fictional change: new checklist item for the start-up safety check.
+JQC-DEMO-101,JQC,Demo Final Inspection,Quality,Active,supervisor2@contoso.com,Fictional JQC with a manager in training and an overdue item.,,,,A,150,Initial release.
+JQC-DEMO-102,JQC,Demo Forklift Spotter,Production,Active,,Fictional JQC with no trainer. It cannot be assigned and has no coverage.,,,,A,30,Initial release.

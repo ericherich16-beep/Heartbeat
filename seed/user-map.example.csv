@@ -1,0 +1,10 @@
+SeedEmail,TenantEmail
+manager1@contoso.com,TODO-test-manager-account
+supervisor2@contoso.com,TODO-test-supervisor-account
+techa@contoso.com,TODO-test-technician-account
+techb@contoso.com,TODO
+techc@contoso.com,TODO
+techd@contoso.com,TODO
+teche@contoso.com,TODO
+techf@contoso.com,TODO
+viewer1@contoso.com,TODO-test-viewer-account
