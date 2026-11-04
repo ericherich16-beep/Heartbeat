@@ -394,7 +394,12 @@ def screen(name, title, active_key, body_children):
     main = vbox(f"conMain{sfx}", [header(sfx, title), body, nav_bottom(sfx, active_key)], FillPortions=1)
     root = hbox(f"conRoot{sfx}", [nav_rail(sfx, active_key), main],
                 X=0, Y=0, Width="Parent.Width", Height="Parent.Height", Fill="clrBg")
+    # Screen size must be set explicitly: without Width/Height Studio sizes a generated screen 0 x 0,
+    # and every container (sized from Parent) collapses. Same rules as Studio's responsive screens.
     return C(name, "screen", {"Fill": "clrBg", "LoadingSpinnerColor": "clrPrimary",
+                              "Width": "App.Width", "Height": "App.Height",
+                              "Size": "1 + CountRows(App.SizeBreakpoints) - CountIf(App.SizeBreakpoints, Value >= Self.Width)",
+                              "Orientation": "If(Self.Width < Self.Height, Layout.Vertical, Layout.Horizontal)",
                               "OnVisible": f'Set(gblNavKey, "{active_key}")'}, [root])
 
 
@@ -757,7 +762,8 @@ def write_sources(schema):
     os.makedirs(os.path.join(SRC, "Src"))
     os.makedirs(os.path.join(SRC, "pkgs"))
 
-    app = C("App", "appinfo", {"BackEnabled": "false", "Formulas": formulas_text().rstrip("\n"),
+    app = C("App", "appinfo", {"BackEnabled": "false", "SizeBreakpoints": "[640, 1024, 1366]",
+                               "Formulas": formulas_text().rstrip("\n"),
                                "OnStart": APP_ONSTART, "Theme": "PowerAppsTheme"})
     sys.path.insert(0, HERE)
     import screens as screen_defs
