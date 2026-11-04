@@ -43,7 +43,7 @@ SOLUTION_DESCRIPTION = (
     "assignments, sign-offs, training matrix and cross-training view. SharePoint lists "
     "are configured through environment variables."
 )
-SOLUTION_VERSION = "1.0.4.0"   # bump the middle number with each build step that adds components
+SOLUTION_VERSION = "1.0.5.0"   # bump the middle number with each build step that adds components
 PUBLISHER_DISPLAY_NAME = "JQC/PWI Management"
 
 SHAREPOINT_API = "/providers/microsoft.powerapps/apis/shared_sharepointonline"
