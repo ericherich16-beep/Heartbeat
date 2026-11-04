@@ -551,6 +551,8 @@ Checks use the fictional seed data, which must include at least these scenarios:
 | A-21 | In the two document libraries (`JP_Documents`, `JP_SignoffRecords`), columns marked required are **not** set as required in SharePoint. The app and the upload flow enforce them instead, so a file the flow creates before it sets properties is never left incomplete. List columns are required in SharePoint as marked. |
 | A-22 | My Pending, My Signed Off and Team Pending count only current rows on `Active` documents. Rows on Obsolete documents stay in history (`scrEmployeeDetail`). |
 | A-23 | Seed people columns need real tenant accounts. `Import-SeedData.ps1` takes a git-ignored `seed/user-map.csv` that maps seed emails to test accounts, and falls back to the signed-in account for required people columns. |
+| A-24 | The target Power Platform environment has Dataverse enabled. Solutions, environment variables and connection references need it. App data stays in SharePoint only, so the "no Dataverse" constraint still holds. |
+| A-25 | `pac canvas pack` is deprecated by Microsoft, but still works in `pac` 2.14 and produced an app that opened in Studio in an earlier project. Each generated `.msapp` is round-trip checked. If Studio rejects it, the fallback is to paste `.pa.yaml` per screen (D-02). |
 
 ## 7. Open questions
 
@@ -584,4 +586,6 @@ These override `CLAUDE.md` and `intake.md` where they conflict.
 |---|---|---|---|---|
 | D-01 | 2026-11-04 | When a new JQC revision is uploaded, the system automatically puts every currently assigned active employee back to **Needs Training** on the new revision. The Manager is responsible for putting them into training and signing them off. Qualification on the old revision no longer counts. | CLAUDE §7.9 ("existing JQC sign-offs stay valid, no automatic re-sign"), CLAUDE §18 and intake out-of-scope ("automatic re-sign on JQC revisions"), CLAUDE §7.10 (current revision rule was PWI-only) | BR-32, BR-34, BR-37, BR-39, BR-40, BR-41, BR-48. AC-DOC-6, AC-ASD-4/5, AC-MTX-4, AC-SOR-1. A-09, A-11, A-15. Resolves OQ-01. |
 
-`CLAUDE.md` should be updated to match D-01 (§7.9, §7.10, §8, §18 and §20) so the build brief and this spec agree.
+| D-02 | 2026-11-04 | Claude Code builds the importable solution `.zip` itself with the Power Platform CLI (`pac solution pack`, and `pac canvas pack` for the app), the same method used successfully in an earlier project. The user imports the zip instead of assembling the solution by hand. | CLAUDE §4 (originally: no hand-built `.msapp`; the user pastes `.pa.yaml` and assembles the solution) | CLAUDE §4, §16, §17, §20 updated. `/solution/build.py`, `/solution/JQCPWIManagement/`, `/tools/setup-pac-linux.sh`. |
+
+`CLAUDE.md` has been updated to match D-01 and D-02.

@@ -1,0 +1,15 @@
+<environmentvariabledefinition schemaname="jp_SiteUrl">
+  <apiid>/providers/microsoft.powerapps/apis/shared_sharepointonline</apiid>
+  <description default="SharePoint site that holds the JP_ lists and libraries.">
+    <label description="SharePoint site that holds the JP_ lists and libraries." languagecode="1033" />
+  </description>
+  <displayname default="JQC/PWI - SharePoint site">
+    <label description="JQC/PWI - SharePoint site" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <parameterkey>dataset</parameterkey>
+  <secretstore>0</secretstore>
+  <type>100000004</type>
+</environmentvariabledefinition>

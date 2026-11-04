@@ -1,0 +1,18 @@
+<environmentvariabledefinition schemaname="jp_ListAssignments">
+  <apiid>/providers/microsoft.powerapps/apis/shared_sharepointonline</apiid>
+  <description default="SharePoint list JP_Assignments (one row per employee per document revision).">
+    <label description="SharePoint list JP_Assignments (one row per employee per document revision)." languagecode="1033" />
+  </description>
+  <displayname default="JQC/PWI - JP_Assignments list">
+    <label description="JQC/PWI - JP_Assignments list" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <parameterkey>table</parameterkey>
+  <parentdefinitionid>
+    <schemaname>jp_SiteUrl</schemaname>
+  </parentdefinitionid>
+  <secretstore>0</secretstore>
+  <type>100000004</type>
+</environmentvariabledefinition>

@@ -47,19 +47,23 @@ These rules override everything else in this file.
 ---
 
 ## 4. Build Approach
-`pac canvas pack/unpack` is deprecated, so do **not** hand-build a `.msapp`.
+Claude Code builds the **importable solution `.zip` itself** with the Power Platform CLI (`pac`), the same method that produced a working app in an earlier project (product owner decision D-02 in `SPEC.md` §8).
+- `pac canvas pack` is marked deprecated by Microsoft, but it still ships in `pac` 2.14.
+- Every generated `.msapp` is checked by a round trip (`pac canvas unpack`, then compare) before it goes into the solution.
+- If Studio ever refuses the generated app, the fallback is to paste per-screen `.pa.yaml` into Studio.
 
 | Component | Claude Code produces | User does |
 |---|---|---|
+| Toolchain | `/tools/setup-pac-linux.sh`, which gets `pac` and the .NET runtime from nuget.org in a container with no .NET | On a PC: install `pac` normally (only needed to rebuild) |
 | SharePoint lists and libraries | PnP PowerShell script `/provisioning/Create-Lists.ps1` (site URL and PnP app client ID passed as parameters) | Run it against the target site |
-| Screens | One `*.pa.yaml` per screen in `/app/screens/` | Paste into Power Apps Studio (Tree view → Paste) |
-| App logic | `/app/App.fx.md`: named formulas, role logic, status logic, theme | Paste into App.Formulas / OnStart |
-| File upload flow | Build spec `/flows/JQCPWI-UploadFile.md` with exact expressions | Build it inside the solution |
-| Environment variables | `/solution/env-vars.md` | Create in the solution and set values at import |
+| Solution project | `/solution/JQCPWIManagement/` (from `pac solution init`, publisher prefix `jp`) and `/solution/build.py`, which generates components and runs `pac solution pack` | — |
+| Environment variables | Defined in the solution by `build.py` with **no values**. Documented in `/solution/env-vars.md` | Pick the site and lists in the import wizard |
+| Canvas app | Generator `/app/build_app.py`. It writes `.fx.yaml` sources using control templates from a Microsoft sample `.msapp`, runs `pac canvas pack`, and adds the app to `CanvasApps/` with SharePoint data sources bound to the environment variables. `/app/App.fx.md` documents the named formulas, role logic, status logic and theme | Open in Studio after import, check, publish |
+| File upload flow | Flow definition in the solution's `Workflows/`, using a SharePoint connection reference and the environment variables. Build spec `/flows/JQCPWI-UploadFile.md` | Turn the flow on after import |
 | Seed data | `/seed/*.csv`, **fictional only**, plus `/seed/expected-results.md` and `/provisioning/Import-SeedData.ps1` | Optional import to a test site |
 | Docs | `README.md`, `Admin-Guide.md`, `Technician-Quick-Guide.md` | — |
 
-**Final step:** the user adds the app, the flow and the environment variables to one solution, then exports it.
+**Output:** `/solution/dist/JQCPWIManagement_<version>_unmanaged.zip`. The user imports it at make.powerapps.com → **Solutions** → **Import solution**. Each build step bumps the version and rebuilds the zip.
 
 ---
 
@@ -351,9 +355,14 @@ Use standard controls only (galleries, shapes, labels and the built-in column ch
 ```
 /provisioning/Create-Lists.ps1
 /app/App.fx.md
-/app/screens/*.pa.yaml
+/app/build_app.py      (generates .fx.yaml sources and packs the .msapp)
+/app/screens/*.pa.yaml (fallback only)
 /flows/JQCPWI-UploadFile.md
 /solution/env-vars.md
+/solution/build.py
+/solution/JQCPWIManagement/   (pac solution project: src/Other, environmentvariabledefinitions, CanvasApps, Workflows)
+/solution/dist/*.zip   (built solution, importable)
+/tools/setup-pac-linux.sh
 /seed/*.csv            (fictional only; include one PWI and one JQC with a revision-change scenario)
 /seed/expected-results.md
 /provisioning/Import-SeedData.ps1
@@ -374,7 +383,7 @@ SPEC.md
 5. Screens, in this order: Home → Employees → JQC/PWI Libraries → Document Edit (incl. Upload New Revision) → Assign → PWI Status → My Training → Assignment Detail → Sign-off Review → Matrix → Cross-Training
 6. Docs
 
-After each step, list:
+After each step, rebuild the solution (`python3 solution/build.py`) and then list:
 - the files created
 - the assumptions made
 - any `TODO:` placeholders
@@ -410,3 +419,4 @@ After each step, list:
 - [ ] Nobody can sign off an outdated revision
 - [ ] Matrix and cross-training views show correct counts against the seed data (current revision only)
 - [ ] The solution imports into a clean environment and only asks for environment variable values and connections
+- [ ] `/solution/dist/` holds the current importable solution zip, built by `solution/build.py`

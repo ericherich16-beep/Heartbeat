@@ -1,0 +1,18 @@
+<environmentvariabledefinition schemaname="jp_ListEmployees">
+  <apiid>/providers/microsoft.powerapps/apis/shared_sharepointonline</apiid>
+  <description default="SharePoint list JP_Employees (employees, roles, shifts).">
+    <label description="SharePoint list JP_Employees (employees, roles, shifts)." languagecode="1033" />
+  </description>
+  <displayname default="JQC/PWI - JP_Employees list">
+    <label description="JQC/PWI - JP_Employees list" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <parameterkey>table</parameterkey>
+  <parentdefinitionid>
+    <schemaname>jp_SiteUrl</schemaname>
+  </parentdefinitionid>
+  <secretstore>0</secretstore>
+  <type>100000004</type>
+</environmentvariabledefinition>
