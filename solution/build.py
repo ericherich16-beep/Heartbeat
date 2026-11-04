@@ -43,7 +43,7 @@ SOLUTION_DESCRIPTION = (
     "assignments, sign-offs, training matrix and cross-training view. SharePoint lists "
     "are configured through environment variables."
 )
-SOLUTION_VERSION = "1.0.0.0"   # bump the middle number with each build step that adds components
+SOLUTION_VERSION = "1.0.1.0"   # bump the middle number with each build step that adds components
 PUBLISHER_DISPLAY_NAME = "JQC/PWI Management"
 
 SHAREPOINT_API = "/providers/microsoft.powerapps/apis/shared_sharepointonline"
@@ -164,6 +164,43 @@ def update_solution_xml():
         f.write(xml)
 
 
+def ensure_canvas_section():
+    """pac solution init leaves <CanvasApps /> out of Customizations.xml. Without it, solution pack
+    silently drops the canvas app and the import fails with "Cannot add a Root Component ... of
+    type 300 because it is not in the target system"."""
+    path = os.path.join(SRC, "Other", "Customizations.xml")
+    xml = open(path, encoding="utf-8-sig").read()
+    if "<CanvasApps" not in xml:
+        xml = xml.replace("  <EntityDataProviders />", "  <EntityDataProviders />\n  <CanvasApps />", 1)
+        assert "<CanvasApps" in xml, "could not add <CanvasApps /> to Customizations.xml"
+        open(path, "w", encoding="utf-8").write(xml)
+
+
+def verify(zip_path):
+    """Every root component in solution.xml must really be in the package (stops a broken import)."""
+    import zipfile
+    with zipfile.ZipFile(zip_path) as z:
+        sol = z.read("solution.xml").decode("utf-8-sig")
+        cust = z.read("customizations.xml").decode("utf-8-sig")
+        names = z.namelist()
+    problems = []
+    for name in re.findall(r'<RootComponent type="300" schemaName="([^"]+)"', sol):
+        if f"<Name>{name}</Name>" not in cust:
+            problems.append(f"canvas app {name} is not in customizations.xml")
+        if f"CanvasApps/{name}_DocumentUri.msapp" not in names:
+            problems.append(f"canvas app file for {name} is missing")
+    for wid in re.findall(r'<RootComponent type="29" id="\{([^}]+)\}"', sol):
+        if wid.lower() not in cust.lower():
+            problems.append(f"flow {wid} is not in customizations.xml")
+    for ev in re.findall(r'<RootComponent type="380" schemaName="([^"]+)"', sol):
+        if f"environmentvariabledefinitions/{ev}/environmentvariabledefinition.xml" not in names:
+            problems.append(f"environment variable {ev} is missing")
+    if problems:
+        os.remove(zip_path)
+        sys.exit("Solution package check FAILED (zip deleted):\n  " + "\n  ".join(problems))
+    print("Package check: every root component is present in the zip")
+
+
 def pack():
     pac = shlex.split(os.environ.get("PAC", "pac"))
     os.makedirs(DIST, exist_ok=True)
@@ -177,6 +214,7 @@ def pack():
     if res.returncode != 0 or not os.path.exists(out):
         sys.stderr.write(res.stderr)
         sys.exit(f"pac solution pack failed (exit {res.returncode})")
+    verify(out)
     print("Built:", os.path.relpath(out, os.path.dirname(HERE)))
     return out
 
@@ -186,6 +224,7 @@ def main():
     ap.add_argument("--no-pack", action="store_true", help="regenerate sources only")
     args = ap.parse_args()
     write_env_vars()
+    ensure_canvas_section()
     update_solution_xml()
     print(f"Wrote {len(ENV_VARS)} environment variable definitions and updated Solution.xml")
     if not args.no_pack:

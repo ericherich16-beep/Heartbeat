@@ -10,7 +10,7 @@
     <Descriptions>
       <Description description="JQC/PWI Management: job qualification checklists and process work instructions, assignments, sign-offs, training matrix and cross-training view. SharePoint lists are configured through environment variables." languagecode="1033" />
     </Descriptions>
-    <Version>1.0.0.0</Version>
+    <Version>1.0.1.0</Version>
     <!-- Solution Package Type: Unmanaged(0)/Managed(1)/Both(2)-->
     <Managed>2</Managed>
     <Publisher>

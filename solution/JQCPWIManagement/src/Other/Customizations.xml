@@ -12,6 +12,7 @@
   <CustomControls />
   <SolutionPluginAssemblies />
   <EntityDataProviders />
+  <CanvasApps />
   <connectionreferences>
     <connectionreference connectionreferencelogicalname="jp_sharepoint">
       <connectionreferencedisplayname>JQC/PWI - SharePoint</connectionreferencedisplayname>
