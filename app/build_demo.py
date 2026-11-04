@@ -36,7 +36,7 @@ REPO = os.path.dirname(HERE)
 SEED = os.path.join(REPO, "seed")
 DEMO_PROJECT = os.path.join(REPO, "solution", "JQCPWIDemo")
 DIST = os.path.join(REPO, "solution", "dist")
-VERSION = "1.0.0.0"
+VERSION = "1.0.1.0"
 
 sys.path.insert(0, HERE)
 import build_app as B      # noqa: E402

@@ -857,7 +857,7 @@ Set(gblSaving, false)"""
     rev_ok = f'({a}.RevisionAssigned = {doc}.Revision && {doc}.Status.Value = "Active" && {a}.IsCurrent)'
     pending = f'({a}.Status.Value = "Assigned" || {a}.Status.Value = "In Training")'
     pwi_can = f'{a}.DocType.Value = "PWI" && {pending} && {rev_ok} && ({is_own} || fxIsManager)'
-    jqc_mgr = f'{a}.DocType.Value = "JQC" && fxIsManager && !{is_own} && {rev_ok}'
+    jqc_mgr = f'{a}.DocType.Value = "JQC" && fxIsManager && !({is_own}) && {rev_ok}'
     file_name = (f'{a}.DocNumber & "_Rev" & {a}.RevisionAssigned & "_" & {a}.Employee.Id & "_" & Text(Now(), "yyyymmdd_hhmmss") '
                  f'& "." & {{EXT}}')
     sign_meta = lambda att: (f'{{FileName: {file_name.replace("{EXT}", file_ext(att))}, AssignmentID: {a}.ID, '
