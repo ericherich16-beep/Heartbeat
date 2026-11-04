@@ -19,3 +19,7 @@
 .DS_Store
 Thumbs.db
 *.log
+
+# Generated app build output (rebuilt by app/build_app.py)
+/app/build/
+__pycache__/

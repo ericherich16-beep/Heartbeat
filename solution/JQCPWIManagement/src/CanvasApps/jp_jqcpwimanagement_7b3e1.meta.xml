@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CanvasApp xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>jp_jqcpwimanagement_7b3e1</Name>
+  <AppVersion>2026-11-04T21:10:25Z</AppVersion>
+  <Status>Ready</Status>
+  <CreatedByClientVersion>3.26094.9.0</CreatedByClientVersion>
+  <MinClientVersion>3.26094.9.0</MinClientVersion>
+  <Tags>{"primaryDeviceWidth":"1366","primaryDeviceHeight":"768","supportsPortrait":"true","supportsLandscape":"true","primaryFormFactor":"Tablet","showStatusBar":"false","publisherVersion":"3.26094.9","minimumRequiredApiVersion":"2.2.0","hasComponent":"false","hasUnlockedComponent":"false","isUnifiedRootApp":"false"}</Tags>
+  <IsCdsUpgraded>0</IsCdsUpgraded>
+  <GalleryItemId xsi:nil="true"></GalleryItemId>
+  <BackgroundColor>RGBA(19,50,91,1)</BackgroundColor>
+  <DisplayName>JQC/PWI Management</DisplayName>
+  <Description>Job qualification checklists (JQC) and process work instructions (PWI): assignments, sign-offs, re-signs after revisions, training matrix and cross-training.</Description>
+  <CommitMessage xsi:nil="true"></CommitMessage>
+  <Publisher xsi:nil="true"></Publisher>
+  <AuthorizationReferences>[]</AuthorizationReferences>
+  <ConnectionReferences>{"eddeaf5c-42bb-5e39-8c87-5957440d780b":{"id":"/providers/microsoft.powerapps/apis/shared_sharepointonline","displayName":"SharePoint","dataSources":["JP_Employees","JP_Documents","JP_Assignments","JP_SignoffRecords","JP_Settings"],"dependencies":[],"dependents":[],"parameterHints":{},"parameterHintsV2":{},"isOnPremiseConnection":false,"bypassConsent":false,"dataSets":{"https://contoso.sharepoint.com/sites/JQCPWI":{"datasetOverride":{"environmentVariableName":"jp_SiteUrl"},"dataSources":{"JP_Employees":{"tableName":"d4f11606-f1e7-5220-8067-51dbdddfe702","tableNameOverride":{"environmentVariableName":"jp_ListEmployees"}},"JP_Documents":{"tableName":"b1e862da-8731-5d8c-876f-0a5262bceeea","tableNameOverride":{"environmentVariableName":"jp_LibDocuments"}},"JP_Assignments":{"tableName":"7934d733-14ca-554f-94d7-e423a82be0e9","tableNameOverride":{"environmentVariableName":"jp_ListAssignments"}},"JP_SignoffRecords":{"tableName":"39388271-89f3-50ec-b715-b6a2390b9838","tableNameOverride":{"environmentVariableName":"jp_LibSignoffs"}},"JP_Settings":{"tableName":"e69bb327-2ef8-54b4-a6c6-668564a2e22d","tableNameOverride":{"environmentVariableName":"jp_ListSettings"}}}}},"apiTier":"Standard","actions":["providers/PowerPlatform.Governance/Operations/Read"]}}</ConnectionReferences>
+  <DatabaseReferences>{}</DatabaseReferences>
+  <AppComponents>[]</AppComponents>
+  <AppComponentDependencies>[]</AppComponentDependencies>
+  <CanConsumeAppPass>1</CanConsumeAppPass>
+  <CanvasAppType>0</CanvasAppType>
+  <BypassConsent>0</BypassConsent>
+  <AdminControlBypassConsent>0</AdminControlBypassConsent>
+  <EmbeddedApp xsi:nil="true"></EmbeddedApp>
+  <IntroducedVersion>1.0</IntroducedVersion>
+  <CdsDependencies>{"cdsdependencies":[{"logicalname":"jp_SiteUrl","componenttype":380,"componenttypeplatformname":"EnvironmentVariableDefinition"},{"logicalname":"jp_ListEmployees","componenttype":380,"componenttypeplatformname":"EnvironmentVariableDefinition"},{"logicalname":"jp_LibDocuments","componenttype":380,"componenttypeplatformname":"EnvironmentVariableDefinition"},{"logicalname":"jp_ListAssignments","componenttype":380,"componenttypeplatformname":"EnvironmentVariableDefinition"},{"logicalname":"jp_LibSignoffs","componenttype":380,"componenttypeplatformname":"EnvironmentVariableDefinition"},{"logicalname":"jp_ListSettings","componenttype":380,"componenttypeplatformname":"EnvironmentVariableDefinition"}]}</CdsDependencies>
+  <IsCustomizable>1</IsCustomizable>
+  <BackgroundImageUri>/CanvasApps/jp_jqcpwimanagement_7b3e1_BackgroundImageUri</BackgroundImageUri>
+  <DocumentUri>/CanvasApps/jp_jqcpwimanagement_7b3e1_DocumentUri.msapp</DocumentUri>
+</CanvasApp>
