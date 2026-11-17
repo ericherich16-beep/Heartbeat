@@ -1,0 +1,22 @@
+{
+  "Rejections": {
+    "kind": "list",
+    "columns": {
+      "Title": "Text",
+      "PartNumber": "Text",
+      "Status": "Choice",
+      "QtyRejected": "Number",
+      "ClosedOn": "DateTime",
+      "IsOverdue": "Boolean",
+      "Owner": "User"
+    }
+  },
+  "RejectionDocuments": {
+    "kind": "library",
+    "columns": {
+      "Title": "Text",
+      "RejectionID": "Number",
+      "DocType": "Choice"
+    }
+  }
+}
