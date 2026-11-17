@@ -1,0 +1,288 @@
+POWER APPS BUILD RULES
+Reference for Copilot Chat. Every rule comes from a real failure in an earlier build (Quality Rejection, Laser Shift Checklist, JQC/PWI Management).
+
+Each item gives:
+  SEEN     what the user saw
+  RULE     what must be true
+  COPILOT  what Copilot checks itself in pasted source or formulas
+  SCRIPT   the line in the Verify-PowerAppsPackage.ps1 report (same ID)
+
+Report statuses: FAIL = must fix before delivery. WARN = review and fix or explain. MANUAL = confirm by hand and say so.
+
+======================================================================
+WORKFLOW
+======================================================================
+1. Spec first: lists (internal names, types, list or library), screens, rules, flows.
+2. Generate the source. Start from a real Studio-saved app (PKG-04).
+3. On the PC: pac canvas pack, then pac solution pack (or pac solution init + add the app).
+4. On the PC: run Verify-PowerAppsPackage.ps1 on the zip. Paste the report into Copilot. Fix every FAIL, then run it again.
+5. Import at Solutions > Import solution. Follow POST_IMPORT. App checker must show 0 errors.
+6. Paste any import message or App checker error exactly: control name + property + message.
+
+======================================================================
+A. PACKAGE AND IMPORT
+======================================================================
+PKG-01  Deliver a solution zip, and send the user to the right import button.
+  SEEN     The user zipped the .msapp and used Apps > Import canvas app: "manifest file could not be found".
+           Studio no longer has a File > Open menu.
+  RULE     Deliver a solution zip built with pac solution pack. Import it at Solutions > Import solution.
+           Don't unzip it.
+           A bare .msapp opens only from Apps > Import app > From file (.msapp). Never use "Import canvas app",
+           which takes only packages exported from another environment (they contain manifest.json).
+  COPILOT  Instructions never mention "Import canvas app" except to say don't use it.
+  SCRIPT   PKG-01: solution.xml, customizations.xml and [Content_Types].xml are at the zip root, with no nested zip.
+
+PKG-02  Every root component must really be in the zip.
+  SEEN     "Cannot add a Root Component <name> of type 300 because it is not in the target system."
+  CAUSE    pac solution init leaves the <CanvasApps> section out of Customizations.xml, so pac solution pack
+           silently dropped the app.
+  RULE     Add <CanvasApps><CanvasApp>...</CanvasApp></CanvasApps> to Other/Customizations.xml.
+           After packing, open the zip and confirm the app (type 300), each flow (type 29) and each
+           environment variable (type 380) are inside.
+  SCRIPT   PKG-02.
+
+PKG-03  Bump the version on every build.
+  RULE     Solution version has 4 parts and goes up every build. Ship unmanaged while the app is changing.
+  SCRIPT   PKG-03 (use -PreviousVersion).
+
+PKG-04  Build the .msapp from a real app's supporting files.
+  SEEN     Import succeeded, but opening the app gave ErrOpeningDocument_UnknownError (no detail).
+  CAUSE    Header.json, Properties.json, References and the manifest were written from scratch.
+  RULE     Start from a Studio-saved .msapp, or from pac canvas unpack of a real sample. Generate only the
+           screens and formulas.
+           If an app won't open and the error gives no detail, make a small diagnostic solution with
+           several tiny apps that each change one thing. Don't guess.
+  SCRIPT   PKG-04 (structure). MANUAL: confirm where the template came from.
+
+PKG-05  Round-trip every .msapp.
+  RULE     pac canvas unpack, then pac canvas pack, then compare. No formula may change. pac strips default
+           values, so compare against the packed result.
+
+PKG-06  Toolchain notes.
+  - Install pac on Windows with the VS Code "Power Platform Tools" extension, the MSI, or
+    dotnet tool install --global Microsoft.PowerApps.CLI.Tool.
+  - The .fx.yaml format used by pac canvas pack is deprecated (pac warns) but works. Fallback: paste
+    .pa.yaml per screen in Studio.
+  - Solutions, environment variables and connection references need Dataverse in the environment, even
+    when the data is in SharePoint. Say so in the README.
+
+======================================================================
+B. CANVAS APP
+======================================================================
+APP-01  Only set properties the control actually has.
+  SEEN     20 import errors: AccessibleLabel on classic buttons (they don't have it).
+           The import failed again because of SearchItems on classic combo boxes.
+  RULE     Use only properties in the control's template. Classic Button has no AccessibleLabel.
+           Prefer a classic Dropdown to a Combo box for short lists. Add combo boxes in Studio.
+  COPILOT  In generated source, flag AccessibleLabel on any classic button and SearchItems on any
+           combo box. If unsure a property exists on that control, say so.
+  SCRIPT   APP-01 (checks every property against the control template in the package).
+
+APP-02  Don't leave template defaults that point at sample data.
+  SEEN     Errors mentioning Value1 (the combo box default search formula uses a sample column).
+  COPILOT  Flag any formula containing Value1, Value2, ... or other sample names (SampleText, etc.).
+  SCRIPT   APP-02.
+
+APP-03  Every screen needs Width and Height.
+  SEEN     Every screen blank. Tree view showed the root container at 0 x 0.
+  RULE     Each screen needs:
+             Width       = App.Width
+             Height      = App.Height
+             Size        = 1 + CountRows(App.SizeBreakpoints) - CountIf(App.SizeBreakpoints, Value >= Self.Width)
+             Orientation = If(Self.Width < Self.Height, Layout.Vertical, Layout.Horizontal)
+           App.SizeBreakpoints = [640, 1024, 1366]
+  COPILOT  Every screen in generated source has Width and Height.
+  SCRIPT   APP-03.
+
+APP-04  No EditorState files when packing generated source.
+  SEEN     Labels, inputs and dropdowns black.
+  CAUSE    With Src/EditorState/*.editorstate.json present, pac adds no theme defaults (no Fill).
+  RULE     Delete EditorState files before pac canvas pack. Every text input, dropdown, combo box and date
+           picker needs Fill. Every label needs Color.
+  SCRIPT   APP-04.
+
+APP-05  Galleries need an explicit Layout.
+  SEEN     Nav rail and lists ran sideways.
+  RULE     Every gallery sets Layout (Layout.Vertical unless horizontal is intended).
+  COPILOT  Every gallery in generated source has Layout.
+  SCRIPT   APP-05.
+
+APP-06  An attachments control outside a form must be made editable.
+  SEEN     The file box showed only "No file selected", then "Please fill in: File".
+  RULE     Set DisplayMode = DisplayMode.Edit, IsInDataCard = true, Items = [].
+  COPILOT  Check every attachments control for all three.
+  SCRIPT   APP-06.
+
+APP-07  Watch ! precedence.
+  SEEN     Visibility rules errored: !Lower(email) = fxMeEmail negates the text, not the comparison.
+  RULE     Write !(a = b) or Not(a = b).
+  COPILOT  Search every formula for "!" followed by an operand and then = or <>.
+  SCRIPT   APP-07.
+
+APP-08  Keep paired controls wired to their own pair.
+  SEEN     chk_cboPN2 used chk_tglL1Run. Turning Laser 1 off disabled both part boxes and blocked Submit.
+  COPILOT  When controls come in numbered sets (…1/…2), check each one refers only to its own set. When
+           giving the user copy/rename steps for Studio, list every property that names the other set.
+  SCRIPT   APP-08 (WARN).
+
+APP-09  Keep SharePoint queries delegable.
+  SEEN     SharePoint rejected the History screen's query.
+  RULE     Send SharePoint only simple filters on indexed Text, Number, Choice, Date or Yes/No columns:
+           =, <, >, StartsWith, && and ||. Never apply Lower, Upper, Trim, Len, IsBlank, Text, Year,
+           "in" or Search to a COLUMN inside Filter/LookUp on a SharePoint list.
+           For complex filters, query a capped date range first (under 2,000 rows), then filter in the app.
+  COPILOT  Review every Filter/LookUp/Search on a SharePoint list. Name each non-delegable part.
+  SCRIPT   Not automated (MANUAL RUN-03).
+
+APP-10  Don't name record fields after Power Fx names.
+  SEEN     A field called Type clashed with a built-in name and had to become ItemType.
+  COPILOT  Flag record fields named Type, Self, Parent, ThisItem or ThisRecord.
+
+APP-11  No hard-coded tenant values.
+  RULE     Site URLs, list IDs and chat IDs come from environment variables. Environment variables ship
+           with no value, so the import wizard asks for them. Placeholders like contoso are fine only
+           where an environment variable overrides them.
+  COPILOT  Flag any real *.sharepoint.com URL, GUID or email in source.
+  SCRIPT   APP-11.
+
+APP-12  Bind every SharePoint data source to environment variables.
+  RULE     In the app's ConnectionReferences in customizations.xml, each SharePoint data source needs
+           datasetOverride (the site variable) and tableNameOverride (the list variable). Both variables
+           must be in the solution.
+  SCRIPT   APP-12.
+
+APP-13  The app's flow reference must point at the flow in the same solution.
+  SEEN     After an import, App checker said the flow had no "Run", with knock-on errors.
+  RULE     The flow data source's WorkflowEntityId equals the solution's workflow ID, and CdsDependencies
+           lists it. POST_IMPORT includes the fallback: Power Automate pane > remove the flow > add it again.
+  SCRIPT   APP-13.
+
+APP-14  The app's embedded list definitions must match the schema.
+  SEEN     Things worked after Refresh in Studio, then broke again after the next import.
+  CAUSE    Every solution import resets the app's embedded list definitions.
+  RULE     Generate them from the same lists.json as the setup guide. After every import:
+           Data > each list > ... > Refresh.
+  SCRIPT   APP-14 (use -Schema).
+
+ALSO     Hidden controls with formula errors do nothing.
+  SEEN     Submit stuck on "Saving..." with no message. The save logic sat on a hidden button that had an
+           App checker error, and Power Apps doesn't run a formula that has an error.
+  RULE     Put the save logic on the visible button. Wrap each step in IfError. Show which step is running.
+           Always clear the busy state. App checker must show 0 errors before testing.
+
+======================================================================
+C. SHAREPOINT LISTS AND LIBRARIES
+======================================================================
+SP-01  Display name = internal name, created in the right order.
+  SEEN     Columns had internal names like field_1 and field_3, from lists made by hand or from Excel.
+           The app showed 800-990 errors and the flow couldn't turn on.
+  RULE     Every column's internal name equals its display name: a plain identifier with no spaces
+           (DocNumber). Create each column with that exact name first, then never rename it. Never create
+           lists by importing from Excel.
+  COPILOT  Setup guides tell the user to type the exact name when creating each column.
+  SCRIPT   SP-01 (-Schema).
+
+SP-02  Mark each entry as list or library.
+  SEEN     Document libraries were created as lists. The environment variable couldn't be changed after
+           import, so they had to be recreated.
+  RULE     lists.json says "kind": "list" or "library". The setup guide says "Document library" in bold.
+  SCRIPT   SP-02 (-Schema, -TenantFields).
+
+SP-03  Compare against the real site before blaming the app.
+  SEEN     Wrong column types: Text instead of Person, Choice instead of Yes/No, Choice columns with no
+           choices, and a duplicate DocTitle. Refresh can't fix a type mismatch.
+  RULE     Export the real fields, one command per list (PnP PowerShell):
+             Get-PnPField -List "<List>" | Select InternalName,Title,TypeAsString | Export-Csv "<List>.csv" -NoTypeInformation
+           Run the script with -Schema lists.json -TenantFields <folder>.
+           Before asking the user to spend time fixing lists, prove the app works on built-in sample data
+           with a demo copy that uses collections instead of SharePoint.
+  SCRIPT   SP-03.
+
+SP-04  Data added outside the app must still show.
+  SEEN     A file uploaded straight into the library didn't appear. The filter required DocType and Status,
+           and both were blank.
+  RULE     Treat blank as the default, show the row with a "details missing" flag, and let Edit fill it in.
+           Sample data includes one row with blank metadata.
+  COPILOT  For each gallery filter, ask: what if this column is blank?
+
+======================================================================
+D. FLOWS
+======================================================================
+FLOW-01  Use only connectors and actions the tenant allows.
+  SEEN     "Admin data policy 'Advanced Connector Policy' restricts ... HttpRequest".
+  RULE     No "Send an HTTP request to SharePoint", no premium connectors (HTTP, Dataverse) and no custom
+           connectors. Create lists by hand (guide) or with PnP PowerShell.
+  SCRIPT   FLOW-01.
+
+FLOW-02  Flows don't set list columns.
+  SEEN     "The API operation does not contain a definition for parameter 'item/DocType/Value'", and the
+           flow wouldn't turn on.
+  CAUSE    "Update file properties" checks its column names against the REAL library when the flow is saved.
+  RULE     The flow only creates or replaces the file and returns the item ID. The app sets the columns
+           with Patch right after.
+  SCRIPT   FLOW-02.
+
+FLOW-03  Connection references must be defined in the solution.
+  RULE     The user picks the connection in the import wizard. If they skip it, the flow stays off.
+  SCRIPT   FLOW-03.
+
+FLOW-04  No placeholders that silently break.
+  SEEN     The Teams chat imported as REPLACE_CHAT_ID, and the user re-picked it after every import.
+  RULE     Ask for the real ID once (action > ... > Peek code > body/recipient) and build it in. Until
+           then, POST_IMPORT lists the step.
+  SCRIPT   FLOW-04 (WARN).
+
+FLOW-05  A flow the app waits on must fail fast.
+  SEEN     The app stuck on "Saving..." for minutes while a failing Teams post retried.
+  RULE     In flows called from Power Apps, set Retry policy = None and Timeout = PT1M on non-SharePoint
+           actions.
+  SCRIPT   FLOW-05 (WARN).
+
+FLOW-06  Respond to the app on failure too.
+  RULE     Put the work in a Try scope. Add a "Respond to a PowerApp or flow" step that runs after it fails
+           or times out.
+
+FLOW-07  The flow may be off after import.
+  SEEN     "flows may not have turned on", then "flow is switched off" when uploading.
+  RULE     POST_IMPORT says: bind the connection reference, then Cloud flows > Turn on. Check again after
+           every upgrade import.
+
+======================================================================
+E. DOCS AND HANDOVER
+======================================================================
+DOC-01  POST_IMPORT has every step:
+  - Solutions > Import solution, and don't unzip
+  - pick connections
+  - fill in environment variables
+  - turn on flows
+  - open the app and Refresh every data source
+  - re-add the flow if Run is missing
+  - App checker shows 0 errors, then Save and Publish
+  - Dataverse prerequisite
+  SCRIPT   DOC-01 (-Docs).
+
+DOC-02  The docs never send the user to "Import canvas app".
+
+RUN-01  Test formulas against sample data before delivery, including edge cases: blank metadata, inactive
+        users, revisions, overdue items.
+
+RUN-02  A re-import overwrites the app. Before rebuilding, collect every change made in Studio and put it
+        into the source. A re-import also means re-adding data sources and the flow, and re-picking any
+        placeholders. For small fixes, offer paste-in-Studio steps instead of a new zip.
+
+RUN-03  Every handover says: passed Verify-PowerAppsPackage, NOT opened in Power Apps. Lists the
+        post-import steps. Asks for the exact error text if anything fails.
+
+======================================================================
+lists.json format (for -Schema)
+======================================================================
+{
+  "Rejections": { "kind": "list",
+                  "columns": { "Title": "Text", "PartNumber": "Text", "Status": "Choice",
+                               "QtyRejected": "Number", "ClosedOn": "DateTime",
+                               "IsOverdue": "Boolean", "Owner": "User" } },
+  "RejectionDocuments": { "kind": "library",
+                          "columns": { "Title": "Text", "RejectionID": "Number", "DocType": "Choice" } }
+}
+Types use SharePoint TypeAsString names: Text, Note, Number, Currency, DateTime, Boolean, Choice,
+MultiChoice, User, UserMulti, Lookup, URL.

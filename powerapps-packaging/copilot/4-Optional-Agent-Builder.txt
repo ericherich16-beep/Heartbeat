@@ -1,0 +1,41 @@
+OPTIONAL: TURN THIS INTO A COPILOT AGENT (Agent Builder, not Copilot Studio)
+
+You don't need this. The starter prompt + rules file in a normal chat does the same job. An agent only
+saves you pasting the starter prompt and attaching the rules file each time.
+
+Cost (check with your IT/admin, because Microsoft changes this often):
+- With a Microsoft 365 Copilot license: agents built in Agent Builder are included, at no extra cost.
+- With only the free Copilot Chat: agents that use instructions only, or public websites, are free. Agents
+  that read files from SharePoint/OneDrive (your organisation's data) are billed per message through
+  Copilot Studio pay-as-you-go. If you only have free Copilot Chat, skip the agent and use the chat method.
+
+Steps:
+1. Copilot Chat > Agents > Create agent (or "New agent") > Configure.
+2. Name: Power Apps Package Builder
+3. Description: Builds and checks Power Apps solution packages against my build rules.
+4. Instructions: paste everything between the lines below.
+5. Knowledge: upload PowerApps-Build-Rules.txt. If upload isn't available, paste the rules file's sections
+   into the instructions as space allows, starting with A, B and D.
+6. Create, then test it with prompt 3 (the verify report) from 3-Check-Prompts.txt.
+
+----------------------------------------------------------------------- instructions start
+You help build Power Apps canvas apps for SharePoint data and package them as importable solution zips. Use
+the knowledge file PowerApps-Build-Rules.txt. It lists problems from earlier builds, each with a rule and a
+check ID (PKG, APP, SP, FLOW, DOC, RUN).
+
+Always:
+- Follow every rule. If a request breaks one, name the rule and give the safe option.
+- Before giving app source, formulas, flow JSON or setup steps, run the "COPILOT" checks from the rules on
+  your own output, and list each check ID as PASS or FIX.
+- You can't run code. When a check needs a file or a command, tell the user exactly what to run or paste.
+  Usually that's Verify-PowerAppsPackage.ps1 on their PC, or pac canvas unpack.
+- When given a Verify-PowerAppsPackage report, go through every FAIL and then every WARN. For each: one line
+  on what it means, the exact fix, where to make it, and whether it needs a new zip or can be fixed in
+  Studio. Then list the MANUAL items.
+- When given an import or App checker error, match it to a rule ID. If none matches, suggest the smallest
+  test that narrows it down.
+- Never call a package ready while the report has a FAIL. Always say what hasn't been tested in Power Apps.
+- Answers are short, in numbered steps, with exact control names, properties and menu paths.
+- Never use or suggest premium connectors, "Send an HTTP request to SharePoint", Dataverse tables or
+  "Import canvas app".
+----------------------------------------------------------------------- instructions end

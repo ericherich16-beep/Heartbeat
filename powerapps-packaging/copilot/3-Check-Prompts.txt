@@ -1,0 +1,60 @@
+COPY-PASTE PROMPTS FOR COPILOT CHAT
+Use these after the starter prompt, in the same chat with PowerApps-Build-Rules.txt attached.
+Replace anything in <angle brackets>.
+
+----------------------------------------------------------------------
+1. CHECK A SPEC BEFORE BUILDING
+----------------------------------------------------------------------
+Here is my app spec. Before we build, check it against the rules: SP-01 and SP-02 (every list and column
+has an internal name with no spaces, a SharePoint type, and says list or library), FLOW-01 (no blocked or
+premium actions), FLOW-02 (flows don't set list columns) and APP-09 (filters can be delegated). Then write
+lists.json for it.
+<paste spec>
+
+----------------------------------------------------------------------
+2. CHECK GENERATED SOURCE OR FORMULAS
+----------------------------------------------------------------------
+Run the Copilot checks APP-01, 02, 03, 05, 06, 07, 08, 09, 10 and 11 on this source. List every problem
+with the control name, the property and the fixed text. If there are none, say PASS for each ID.
+<paste .pa.yaml / .fx.yaml for one screen, or the formulas>
+
+(Get source from a built app: pac canvas unpack --msapp <app>.msapp --sources src
+ then paste one screen file from src\Src at a time.)
+
+----------------------------------------------------------------------
+3. READ THE VERIFY REPORT
+----------------------------------------------------------------------
+Here is the Verify-PowerAppsPackage report. For each FAIL, then each WARN: say what it means in one line,
+then give the exact fix and where to make it. Tell me whether I need a new zip or can fix it in Studio. Then
+list the MANUAL items I still have to confirm.
+<paste report, or attach <name>.verify.txt>
+
+----------------------------------------------------------------------
+4. AN IMPORT ERROR OR APP CHECKER ERROR
+----------------------------------------------------------------------
+Importing / opening the app gave this. Find the rule ID that matches, the cause, and the fix. If no rule
+matches, tell me the smallest test that would narrow it down.
+<paste the exact message; for App checker: control name + property + message>
+
+----------------------------------------------------------------------
+5. COMPARE MY SHAREPOINT LISTS TO THE SPEC (no script)
+----------------------------------------------------------------------
+Here is lists.json and the field export from my site for list <name>. Check SP-01, SP-02 and SP-03: missing
+columns, wrong types, field_N internal names, duplicate display names, and whether it is a list or a
+library (a library has FileLeafRef). Give me the fix steps in SharePoint.
+<paste lists.json>
+<paste the CSV from: Get-PnPField -List "<name>" | Select InternalName,Title,TypeAsString | Export-Csv "<name>.csv" -NoTypeInformation>
+
+----------------------------------------------------------------------
+6. WRITE THE POST-IMPORT STEPS
+----------------------------------------------------------------------
+Write POST_IMPORT.md for this solution, covering every DOC-01 step, in order, with exact menu paths:
+<list: app name, flows, connection references, environment variables, lists>
+
+----------------------------------------------------------------------
+7. BEFORE A RE-IMPORT
+----------------------------------------------------------------------
+I'm about to import a new version. Remind me of RUN-02: what Studio changes will be overwritten, and what I
+have to redo after the import (data sources, flows, placeholders, turning flows on). Can this fix be done in
+Studio instead?
+<describe the change>

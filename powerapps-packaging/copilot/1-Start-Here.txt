@@ -1,0 +1,60 @@
+POWER APPS BUILD KIT FOR COPILOT CHAT
+Works in the normal Microsoft 365 Copilot Chat window. No agent, Copilot Studio or other model needed.
+
+WHAT'S IN THE FOLDER
+  1-Start-Here.txt               this file
+  2-Starter-Prompt.txt           paste this as the first message of a new chat
+  PowerApps-Build-Rules.txt      attach this to the same chat (the rules and checks)
+  3-Check-Prompts.txt            copy-paste prompts for each stage (spec, source, report, errors)
+  4-Optional-Agent-Builder.txt   only if you later want a reusable agent; read the cost note first
+  Verify-PowerAppsPackage.ps1    runs the checks on your PC (Copilot Chat can't run code)
+  lists.example.json             sample list schema for the -Schema option
+
+HOW TO USE IT
+1. Open Copilot Chat and start a new chat.
+2. Attach PowerApps-Build-Rules.txt (paperclip / + > Upload).
+   If your Copilot won't take .txt files, open it in Word, save it as .docx, and attach that.
+3. Paste the text of 2-Starter-Prompt.txt and send it. Copilot replies "Ready".
+4. Work through the build. Use the prompts in 3-Check-Prompts.txt at each stage.
+5. Each time you have a solution zip, run the script on your PC (below). Then attach the .verify.txt file it
+   writes (or paste it) using prompt 3.
+6. Import only when the report has no FAIL lines.
+Copilot forgets between chats: start every new chat with steps 2 and 3.
+
+RUNNING THE SCRIPT (Windows, no installs needed)
+1. Put Verify-PowerAppsPackage.ps1 in the same folder as your solution zip.
+2. In File Explorer, click that folder's address bar, type powershell, and press Enter.
+3. Run:
+     powershell -ExecutionPolicy Bypass -File .\Verify-PowerAppsPackage.ps1 -Zip .\<YourSolution>.zip
+   Optional extras:
+     -PreviousVersion 1.0.2.0       the version you last imported (checks the version was bumped)
+     -Schema .\lists.json           your list design (checks the app's list definitions)
+     -TenantFields .\exports        one CSV per list exported from your site (checks the real lists)
+     -Docs .\docs                   your README / POST_IMPORT files (checks the steps are all there)
+4. FAIL lines are red and WARN lines are yellow. The report is saved next to the zip as <name>.verify.txt.
+   The script only reads the zip. It changes nothing and sends nothing anywhere.
+   If Windows says scripts are blocked even with -ExecutionPolicy Bypass, right-click the .ps1 >
+   Properties > tick Unblock > OK, then try again.
+
+SELF-TEST THE SCRIPT FIRST (2 minutes)
+The script couldn't be tested on Windows when it was written. A Python version of the same checks has been
+tested on every JQC/PWI build. Run it once on the JQC/PWI zip you already have
+(JQCPWIManagement_1_0_7_0_unmanaged.zip). You should see:
+  - 4 FAIL lines for APP-02: cmbAssignDoc, cmbAssignEmp, cmbDocTrainers and cmbEmpSup, each saying
+    "refers to sample column 'Value1'" (a real leftover in that app)
+  - 4 WARN lines for APP-01, about SearchItems on the same 4 combo boxes
+  - PASS for PKG-01, PKG-02, FLOW-01 to FLOW-03, APP-03 to APP-07, APP-12 and APP-13
+If you get a red PowerShell error instead of a report, or different results, paste the error into a Claude
+Code session and it can be fixed.
+
+EXPORTING YOUR LIST FIELDS (for -TenantFields; optional)
+Needs PnP PowerShell, which your IT may need to allow. One command per list, after Connect-PnPOnline to
+your site:
+  Get-PnPField -List "<ListName>" | Select InternalName,Title,TypeAsString | Export-Csv ".\exports\<ListName>.csv" -NoTypeInformation
+No PnP? Use prompt 5 in 3-Check-Prompts.txt, and tell Copilot each column's name and type from
+List settings instead.
+
+WHAT COPILOT CHAT CAN AND CAN'T DO HERE
+  Can:   write the spec, lists.json, screen source, formulas and setup steps. Check pasted source against
+         the rules. Explain the report and errors, and give exact fixes.
+  Can't: run pac, unzip packages, or open Power Apps. You run those on your PC and paste the results back.
