@@ -35,6 +35,7 @@ Screens:
         );
         Set(varIsQEorQM, varIsQE || varIsQM);
         Set(varCurrentGate, If(IsBlank(varProject.Gate1SignedDate), 1, IsBlank(varProject.Gate2SignedDate), 2, IsBlank(varProject.Gate3SignedDate), 3, 4));
+        Set(varFolderName, Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(varProject.Title & "_" & Trim(varProject.PartNumber) & "_" & Trim(varProject.Revision), Char(34), "-"), "*", "-"), ":", "-"), "<", "-"), ">", "-"), "?", "-"), "/", "-"), "\", "-"), "|", "-"), "#", "-"), "%", "-"));
         Set(varGate, varCurrentGate);
         Set(varDocFilter, "Needed");
         Set(varShowDetails, false);
@@ -230,11 +231,11 @@ Screens:
             BorderColor: =RGBA(255, 255, 255, 0.6)
             BorderThickness: =1
             Color: =Color.White
-            DisplayMode: =If(IsBlank(varProject.ProjectFolderUrl), DisplayMode.Disabled, DisplayMode.Edit)
+            DisplayMode: =DisplayMode.Edit
             Fill: =RGBA(10, 92, 178, 1)
             Height: =42
             HoverFill: =ColorFade(Self.Fill, -12%)
-            OnSelect: =Launch(varProject.ProjectFolderUrl)
+            OnSelect: =Launch(Coalesce(varProject.ProjectFolderUrl, varSiteUrl & "/" & varProjectLibrary & "/" & EncodeUrl(varFolderName)))
             RadiusBottomLeft: =4
             RadiusBottomRight: =4
             RadiusTopLeft: =4
@@ -261,6 +262,7 @@ Screens:
                   ClearCollect(colProjects, 'NPI Projects');
                   Set(varProject, LookUp(colProjects, ID = projId));
                   Set(varCurrentGate, If(IsBlank(varProject.Gate1SignedDate), 1, IsBlank(varProject.Gate2SignedDate), 2, IsBlank(varProject.Gate3SignedDate), 3, 4));
+                  Set(varFolderName, Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(Substitute(varProject.Title & "_" & Trim(varProject.PartNumber) & "_" & Trim(varProject.Revision), Char(34), "-"), "*", "-"), ":", "-"), "<", "-"), ">", "-"), "?", "-"), "/", "-"), "\", "-"), "|", "-"), "#", "-"), "%", "-"));
                   ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
                   Refresh('NPI Open Questions');
                   ClearCollect(colQs, Filter('NPI Open Questions', ProjectID = varProject.Title));
@@ -1096,7 +1098,7 @@ Screens:
                           IfError(
                               NPIUploadFile.Run(
                                   mode,
-                                  varProject.ProjectFolderUrl,
+                                  Coalesce(varProject.ProjectFolderUrl, varFolderName),
                                   finalName,
                                   JSON(f.Value, JSONFormat.IncludeBinaryData),
                                   varProject.Title,
@@ -1630,7 +1632,7 @@ Screens:
                               IfError(
                                   NPIUploadFile.Run(
                                       "remove",
-                                      varProject.ProjectFolderUrl,
+                                      Coalesce(varProject.ProjectFolderUrl, varFolderName),
                                       "",
                                       "",
                                       varProject.Title,

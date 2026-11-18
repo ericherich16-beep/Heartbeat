@@ -20,7 +20,7 @@ With(
             IfError(
                 NPIUploadFile.Run(
                     mode,
-                    varProject.ProjectFolderUrl,
+                    Coalesce(varProject.ProjectFolderUrl, varFolderName),
                     finalName,
                     JSON(f.Value, JSONFormat.IncludeBinaryData),
                     varProject.Title,
