@@ -1305,8 +1305,8 @@ Screens:
             Text: |-
               =If(!IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)), "Gate " & varRow.Gate & " is signed, so this item is locked.", Switch(
                   varRow.Status.Value,
-                  "Not started", If(varPdfRequired, "PDF required before submitting.", "Submit for review first. The QE or QM can then mark it reviewed."),
-                  "Draft", If(varPdfRequired, "PDF required before submitting.", "Submit for review first. The QE or QM can then mark it reviewed."),
+                  "Not started", If(varPdfRequired && IsBlank(varRow.FileLink), "PDF required before submitting.", "Submit for review when it is ready. The QE or QM then reviews it."),
+                  "Draft", If(varPdfRequired && IsBlank(varRow.FileLink), "PDF required before submitting.", "Submit for review when it is ready. The QE or QM then reviews it."),
                   "Done", If(
                       varCanReview,
                       "Send back returns it to Draft for rework. Add a note to say why.",
