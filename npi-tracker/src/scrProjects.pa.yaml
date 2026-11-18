@@ -10,6 +10,8 @@ Screens:
         Refresh('Project Requirements');
         ClearCollect(colProjects, 'NPI Projects');
         ClearCollect(colAllReqs, 'Project Requirements');
+        Refresh('NPI Open Questions');
+        ClearCollect(colAllQs, Filter('NPI Open Questions', QStatus.Value = "Open"));
         Set(varOpenIds, Filter(colProjects, ProjectStatus.Value = "Open").Title)
     Children:
       - rectHeader:
@@ -312,6 +314,8 @@ Screens:
               Refresh('Project Requirements');
               ClearCollect(colProjects, 'NPI Projects');
               ClearCollect(colAllReqs, 'Project Requirements');
+              Refresh('NPI Open Questions');
+              ClearCollect(colAllQs, Filter('NPI Open Questions', QStatus.Value = "Open"));
               Set(varOpenIds, Filter(colProjects, ProjectStatus.Value = "Open").Title)
             RadiusBottomLeft: =4
             RadiusBottomRight: =4
@@ -399,7 +403,7 @@ Screens:
             Height: =40
             Size: =13
             Text: =If(varProjectFilter in ["My tasks", "Overdue"], "Due", "Next due")
-            Width: =(Parent.Width - 48) * 0.08
+            Width: =(Parent.Width - 48) * 0.07
             X: =24 + (Parent.Width - 48) * 0.8
             Y: =240
       - lblCol7:
@@ -411,8 +415,20 @@ Screens:
             Height: =40
             Size: =13
             Text: =If(varProjectFilter in ["My tasks", "Overdue"], "", "Overdue")
-            Width: =(Parent.Width - 48) * 0.06
-            X: =24 + (Parent.Width - 48) * 0.88
+            Width: =(Parent.Width - 48) * 0.05
+            X: =24 + (Parent.Width - 48) * 0.86
+            Y: =240
+      - lblCol8:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Center
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            Size: =13
+            Text: =If(varProjectFilter in ["My tasks", "Overdue"], "", "Open Qs")
+            Width: =(Parent.Width - 48) * 0.05
+            X: =24 + (Parent.Width - 48) * 0.91
             Y: =240
       - lblEmpty:
           Control: Label@2.5.1
@@ -608,7 +624,7 @@ Screens:
                         {r: Filter(colAllReqs, ProjectID = ThisItem.Title && !(Status.Value in ["Reviewed", "N/A"]) && !IsBlank(DueDate))},
                         If(CountRows(r) = 0, "-", Text(Min(r, DueDate), "mmm d"))
                     )
-                  Width: =Parent.TemplateWidth * 0.08
+                  Width: =Parent.TemplateWidth * 0.07
                   X: =Parent.TemplateWidth * 0.80
                   Y: =0
             - lblOverdueCount:
@@ -622,8 +638,21 @@ Screens:
                   Size: =12
                   Text: |-
                     =CountRows(Filter(colAllReqs, ProjectID = ThisItem.Title && !(Status.Value in ["Reviewed", "N/A"]) && !IsBlank(DueDate) && DueDate < Today()))
-                  Width: =Parent.TemplateWidth * 0.06
-                  X: =Parent.TemplateWidth * 0.88
+                  Width: =Parent.TemplateWidth * 0.05
+                  X: =Parent.TemplateWidth * 0.86
+                  Y: =0
+            - lblOpenQsCount:
+                Control: Label@2.5.1
+                Properties:
+                  Align: =Align.Center
+                  Color: =If(Value(Self.Text) > 0, RGBA(177, 14, 30, 1), RGBA(107, 114, 128, 1))
+                  FontWeight: =If(Value(Self.Text) > 0, FontWeight.Semibold, FontWeight.Normal)
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =12
+                  Text: =CountRows(Filter(colAllQs, ProjectID = ThisItem.Title))
+                  Width: =Parent.TemplateWidth * 0.05
+                  X: =Parent.TemplateWidth * 0.91
                   Y: =0
             - lblChevron:
                 Control: Label@2.5.1
@@ -953,6 +982,7 @@ Screens:
                   Refresh('Project Requirements');
                   ClearCollect(colProjects, 'NPI Projects');
                   ClearCollect(colAllReqs, 'Project Requirements');
+                  ClearCollect(colAllQs, Filter('NPI Open Questions', QStatus.Value = "Open"));
                   Set(varOpenIds, Filter(colProjects, ProjectStatus.Value = "Open").Title);
                   Set(varShowNew, false);
                   Set(varLastMessage, varResult.projectid & " created with " & Text(varResult.reqcount) & " requirements."),

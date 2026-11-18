@@ -1,0 +1,8 @@
+version: 1.4.0.0
+title: Increment 3 Open Questions (F-Q-08)
+base: base/tenant_export_1_2_0_1.zip
+summary: |
+  New SharePoint list NPI Open Questions. Project details gets an Open questions window: add a question
+  (text, gate, owner, optional due date), close it with a resolution, reopen it, or move it to another gate
+  with a required reason. Every change is logged. Gate strip shows open questions per gate; overview shows
+  an Open Qs count per project.

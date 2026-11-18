@@ -45,6 +45,15 @@ Screens:
         Set(varSelectedAssignee, Blank());
         Set(varRow, Blank());
         ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
+        Refresh('NPI Open Questions');
+        ClearCollect(colQs, Filter('NPI Open Questions', ProjectID = varProject.Title));
+        Set(varShowQs, false);
+        Set(varQ, Blank());
+        Set(varQMode, "");
+        Set(varQFilter, "Open");
+        Set(varQGate, 1);
+        Set(varQMoveGate, Blank());
+        Set(varQOwner, Blank());
         If(
             !IsBlank(varJumpRowId) && !IsBlank(LookUp(colReqs, ID = varJumpRowId)),
             Set(varRow, LookUp(colReqs, ID = varJumpRowId));
@@ -252,6 +261,8 @@ Screens:
                   Set(varProject, LookUp(colProjects, ID = projId));
                   Set(varCurrentGate, Max(1, Min(4, Coalesce(varProject.CurrentGate, 1))));
                   ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
+                  Refresh('NPI Open Questions');
+                  ClearCollect(colQs, Filter('NPI Open Questions', ProjectID = varProject.Title));
                   Set(varRow, LookUp(colReqs, ID = rowId));
                   __SET_CANREVIEW__
               )
@@ -366,6 +377,10 @@ Screens:
                             CountRows(Filter(r, Status.Value <> "Not started")) > 0,
                             "Started early",
                             "Not started"
+                        ) &
+                        With(
+                            {n: CountRows(Filter(colQs, QStatus.Value = "Open" && Gate = ThisItem.Value))},
+                            If(n = 0, "", " · " & n & If(n = 1, " open question", " open questions"))
                         )
                     )
                   Width: =Parent.TemplateWidth - 40
@@ -435,6 +450,29 @@ Screens:
             Text: =If(varGate = varCurrentGate, "Needed for current gate", "Needed for Gate " & varGate)
             Width: =230
             X: =216
+            Y: =212
+      - btnOpenQs:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =If(CountRows(Filter(colQs, QStatus.Value = "Open")) > 0, RGBA(177, 14, 30, 1), RGBA(190, 199, 212, 1))
+            BorderThickness: =1
+            Color: =If(CountRows(Filter(colQs, QStatus.Value = "Open")) > 0, RGBA(177, 14, 30, 1), RGBA(17, 24, 39, 1))
+            Fill: =If(CountRows(Filter(colQs, QStatus.Value = "Open")) > 0, RGBA(253, 236, 238, 1), Color.White)
+            FontWeight: =FontWeight.Semibold
+            Height: =34
+            OnSelect: |-
+              =Set(varQ, Blank());
+              Set(varQMode, "");
+              Set(varQFilter, "Open");
+              Set(varShowQs, true)
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =12
+            Text: ="Open questions (" & CountRows(Filter(colQs, QStatus.Value = "Open")) & ")"
+            Width: =190
+            X: =Parent.Width - 568 - 190
             Y: =212
       - lblRemaining:
           Control: Label@2.5.1
@@ -1614,3 +1652,793 @@ Screens:
                   Width: =Parent.TemplateWidth - 24
                   X: =0
                   Y: =48
+      - rectQsOverlay:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(0, 0, 0, 0.45)
+            Height: =Parent.Height
+            Visible: =varShowQs
+            Width: =Parent.Width
+            X: =0
+            Y: =0
+      - rectQsDlg:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =Color.White
+            Height: =668
+            Visible: =varShowQs
+            Width: =1100
+            X: =(Parent.Width - 1100) / 2
+            Y: =50
+      - rectQsDivider:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(228, 234, 242, 1)
+            Height: =580
+            Visible: =varShowQs
+            Width: =1
+            X: =(Parent.Width - 1100) / 2 + 616
+            Y: =114
+      - lblQsTitle:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =38
+            Size: =17
+            Text: |-
+              ="Open questions and actions (F-Q-08) · " & varProject.Title
+            Visible: =varShowQs
+            Width: =800
+            X: =(Parent.Width - 1100) / 2 + 24
+            Y: =62
+      - btnQsClose:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(17, 24, 39, 1)
+            BorderThickness: =1
+            Color: =RGBA(17, 24, 39, 1)
+            DisabledColor: =RGBA(107, 114, 128, 1)
+            DisabledFill: =RGBA(226, 231, 238, 1)
+            Fill: =Color.White
+            FontWeight: =FontWeight.Semibold
+            Height: =36
+            OnSelect: |-
+              =Set(varShowQs, false); Set(varQMode, "")
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =12
+            Text: ="Close"
+            Visible: =varShowQs
+            Width: =90
+            X: =(Parent.Width - 1100) / 2 + 990
+            Y: =64
+      - btnQFilterOpen:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(17, 24, 39, 1)
+            BorderThickness: =0
+            Color: =If(varQFilter = "Open", Color.White, RGBA(17, 24, 39, 1))
+            DisabledColor: =RGBA(107, 114, 128, 1)
+            DisabledFill: =RGBA(226, 231, 238, 1)
+            Fill: =If(varQFilter = "Open", RGBA(10, 92, 178, 1), RGBA(226, 231, 238, 1))
+            FontWeight: =FontWeight.Semibold
+            Height: =34
+            OnSelect: |-
+              =Set(varQFilter, "Open")
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =12
+            Text: ="Open"
+            Visible: =varShowQs
+            Width: =88
+            X: =(Parent.Width - 1100) / 2 + 24
+            Y: =112
+      - btnQFilterAll:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(17, 24, 39, 1)
+            BorderThickness: =0
+            Color: =If(varQFilter = "All", Color.White, RGBA(17, 24, 39, 1))
+            DisabledColor: =RGBA(107, 114, 128, 1)
+            DisabledFill: =RGBA(226, 231, 238, 1)
+            Fill: =If(varQFilter = "All", RGBA(10, 92, 178, 1), RGBA(226, 231, 238, 1))
+            FontWeight: =FontWeight.Semibold
+            Height: =34
+            OnSelect: |-
+              =Set(varQFilter, "All")
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =12
+            Text: ="All"
+            Visible: =varShowQs
+            Width: =88
+            X: =(Parent.Width - 1100) / 2 + 120
+            Y: =112
+      - btnQNew:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(17, 24, 39, 1)
+            BorderThickness: =0
+            Color: =Color.White
+            DisabledColor: =RGBA(107, 114, 128, 1)
+            DisabledFill: =RGBA(226, 231, 238, 1)
+            Fill: =RGBA(10, 92, 178, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =34
+            OnSelect: |-
+              =Set(varQMode, "new");
+              Set(varQGate, varCurrentGate);
+              Set(varQOwner, Blank());
+              Reset(txtQText);
+              Reset(txtQOwnerSearch);
+              Reset(txtQDue)
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =12
+            Text: ="New question"
+            Visible: =varShowQs
+            Width: =160
+            X: =(Parent.Width - 1100) / 2 + 444
+            Y: =112
+      - lblQEmpty:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(75, 85, 99, 1)
+            Height: =40
+            Size: =12
+            Text: |-
+              =If(varQFilter = "Open", "No open questions for this project.", "No questions logged for this project yet.")
+            Visible: =varShowQs && CountRows(galQs.AllItems) = 0
+            Width: =560
+            X: =(Parent.Width - 1100) / 2 + 24
+            Y: =160
+      - galQs:
+          Control: Gallery@2.15.0
+          Variant: Vertical
+          Properties:
+            Height: =548
+            Items: |-
+              =SortByColumns(
+                  Filter(colQs, varQFilter = "All" || QStatus.Value = "Open"),
+                  "Gate", SortOrder.Ascending, "ID", SortOrder.Ascending
+              )
+            OnSelect: |-
+              =Set(varQ, ThisItem);
+              Set(varQMode, "");
+              Set(varQMoveGate, Blank());
+              Reset(txtQResolution);
+              Reset(txtQMoveReason)
+            TemplatePadding: =0
+            TemplateSize: =74
+            Width: =580
+            X: =(Parent.Width - 1100) / 2 + 24
+            Y: =156
+            Visible: =varShowQs
+          Children:
+            - rectQRow:
+                Control: Rectangle@2.3.0
+                Properties:
+                  BorderColor: =RGBA(209, 217, 228, 1)
+                  BorderThickness: =1
+                  Fill: =If(ThisItem.ID = varQ.ID, RGBA(232, 242, 253, 1), Color.White)
+                  Height: =68
+                  OnSelect: =Select(Parent)
+                  Width: =Parent.TemplateWidth - 12
+                  X: =0
+                  Y: =0
+            - lblQRowText:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(17, 24, 39, 1)
+                  FontWeight: =FontWeight.Semibold
+                  Height: =40
+                  OnSelect: =Select(Parent)
+                  Size: =12
+                  Text: ="Gate " & ThisItem.Gate & " · " & ThisItem.Title
+                  VerticalAlign: =VerticalAlign.Top
+                  Width: =Parent.TemplateWidth - 120
+                  X: =6
+                  Y: =4
+            - lblQRowMeta:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =If(ThisItem.QStatus.Value = "Open" && !IsBlank(ThisItem.DueDate) && ThisItem.DueDate < Today(), RGBA(177, 14, 30, 1), RGBA(75, 85, 99, 1))
+                  Height: =22
+                  OnSelect: =Select(Parent)
+                  Size: =11
+                  Text: |-
+                    =Coalesce(ThisItem.Owner.DisplayName, "No owner") & " · " & If(IsBlank(ThisItem.DueDate), "No due date", "Due " & Text(ThisItem.DueDate, "mmm d"))
+                  Width: =Parent.TemplateWidth - 120
+                  X: =6
+                  Y: =44
+            - lblQRowStatus:
+                Control: Label@2.5.1
+                Properties:
+                  Align: =Align.Right
+                  Color: =If(ThisItem.QStatus.Value = "Open", RGBA(177, 14, 30, 1), RGBA(16, 124, 16, 1))
+                  FontWeight: =FontWeight.Semibold
+                  Height: =26
+                  OnSelect: =Select(Parent)
+                  Size: =12
+                  Text: =ThisItem.QStatus.Value
+                  Width: =90
+                  X: =Parent.TemplateWidth - 110
+                  Y: =6
+      - lblQPick:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(75, 85, 99, 1)
+            Height: =60
+            Size: =12
+            Text: |-
+              ="Select a question to close it or move it to another gate, or select New question."
+            Visible: =varShowQs && varQMode = "" && IsBlank(varQ)
+            Width: =430
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =120
+      - lblQNewTitle:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =30
+            Size: =14
+            Text: |-
+              ="New question or action"
+            Visible: =varShowQs && varQMode = "new"
+            Width: =430
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =112
+      - txtQText:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            Default: =""
+            Height: =70
+            HintText: ="Question or action to resolve"
+            Mode: =TextMode.MultiLine
+            Size: =12
+            Visible: =varShowQs && varQMode = "new"
+            Width: =446
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =146
+      - lblQGateCap:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =36
+            Size: =12
+            Text: |-
+              ="Gate"
+            Visible: =varShowQs && varQMode = "new"
+            Width: =80
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =226
+      - galQNewGate:
+          Control: Gallery@2.15.0
+          Variant: Horizontal
+          Properties:
+            Height: =40
+            Items: =Sequence(4)
+            ShowScrollbar: =false
+            TemplatePadding: =0
+            TemplateSize: =64
+            Visible: =varShowQs && varQMode = "new"
+            Width: =260
+            X: =(Parent.Width - 1100) / 2 + 720
+            Y: =224
+          Children:
+            - btnQNewGate:
+                Control: Classic/Button@2.2.0
+                Properties:
+                  BorderColor: =RGBA(190, 199, 212, 1)
+                  BorderThickness: =1
+                  Color: =If(varQGate = ThisItem.Value, Color.White, RGBA(17, 24, 39, 1))
+                  Fill: =If(varQGate = ThisItem.Value, RGBA(10, 92, 178, 1), RGBA(243, 244, 246, 1))
+                  Height: =34
+                  OnSelect: =Set(varQGate, ThisItem.Value)
+                  RadiusBottomLeft: =4
+                  RadiusBottomRight: =4
+                  RadiusTopLeft: =4
+                  RadiusTopRight: =4
+                  Size: =12
+                  Text: ="Gate " & ThisItem.Value
+                  Width: =60
+                  X: =0
+                  Y: =2
+      - lblQOwnerCap:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =26
+            Size: =12
+            Text: |-
+              ="Owner"
+            Visible: =varShowQs && varQMode = "new"
+            Width: =120
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =270
+      - txtQOwnerSearch:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            Default: =""
+            Height: =38
+            HintText: ="Type 2 or more letters of a name or email"
+            Size: =12
+            Visible: =varShowQs && varQMode = "new"
+            Width: =446
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =296
+      - galQOwners:
+          Control: Gallery@2.15.0
+          Variant: Vertical
+          Properties:
+            Height: =108
+            Items: |-
+              =With(
+                  {q: Lower(Trim(txtQOwnerSearch.Text))},
+                  FirstN(
+                      Filter(
+                          Choices([@'NPI Open Questions'].Owner),
+                          Len(q) >= 2 &&
+                          (StartsWith(Lower(DisplayName), q) || StartsWith(Lower(Email), q))
+                      ),
+                      15
+                  )
+              )
+            TemplateSize: =36
+            Visible: =varShowQs && varQMode = "new" && Len(Trim(txtQOwnerSearch.Text)) >= 2
+            Width: =446
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =338
+          Children:
+            - btnQOwner:
+                Control: Classic/Button@2.2.0
+                Properties:
+                  Align: =Align.Left
+                  BorderThickness: =0
+                  Color: =If(varQOwner.Email = ThisItem.Email, Color.White, RGBA(31, 41, 55, 1))
+                  Fill: =If(varQOwner.Email = ThisItem.Email, RGBA(10, 92, 178, 1), RGBA(243, 244, 246, 1))
+                  Height: =32
+                  OnSelect: =Set(varQOwner, ThisItem)
+                  Size: =11
+                  Text: =ThisItem.DisplayName & "  (" & ThisItem.Email & ")"
+                  Width: =430
+                  X: =2
+                  Y: =2
+      - lblQOwnerSel:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(55, 65, 81, 1)
+            Height: =26
+            Size: =12
+            Text: |-
+              =If(IsBlank(varQOwner), "No owner selected", "Owner: " & varQOwner.DisplayName)
+            Visible: =varShowQs && varQMode = "new"
+            Width: =446
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =448
+      - lblQDueCap:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =38
+            Size: =12
+            Text: |-
+              ="Due (optional)"
+            Visible: =varShowQs && varQMode = "new"
+            Width: =120
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =484
+      - txtQDue:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            Default: =""
+            Height: =38
+            HintText: ="mm/dd/yyyy"
+            Size: =12
+            Visible: =varShowQs && varQMode = "new"
+            Width: =160
+            X: =(Parent.Width - 1100) / 2 + 770
+            Y: =484
+      - btnQSaveNew:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(17, 24, 39, 1)
+            BorderThickness: =0
+            Color: =Color.White
+            DisabledColor: =RGBA(107, 114, 128, 1)
+            DisabledFill: =RGBA(226, 231, 238, 1)
+            DisplayMode: |-
+              =If(!IsBlank(Trim(txtQText.Text)) && !IsBlank(varQGate) && !IsBlank(varQOwner) && (IsBlank(Trim(txtQDue.Text)) || !IsError(DateValue(txtQDue.Text))), DisplayMode.Edit, DisplayMode.Disabled)
+            Fill: =RGBA(10, 92, 178, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =36
+            OnSelect: |-
+              =IfError(
+                  With(
+                      {
+                          q: Patch(
+                              'NPI Open Questions',
+                              Defaults('NPI Open Questions'),
+                              {
+                                  Title: Trim(txtQText.Text),
+                                  ProjectID: varProject.Title,
+                                  Gate: varQGate,
+                                  Owner: varQOwner,
+                                  DueDate: If(IsBlank(Trim(txtQDue.Text)), Blank(), DateValue(txtQDue.Text)),
+                                  QStatus: {Value: "Open"}
+                              }
+                          )
+                      },
+                      IfError(
+                          Patch(
+                              'NPI Activity Log',
+                              Defaults('NPI Activity Log'),
+                              {
+                                  Title: "Q-" & q.ID & ": question added",
+                                  ProjectID: varProject.Title,
+                                  RequirementID: "Q-" & q.ID,
+                                  ActionType: {Value: "Question added"},
+                                  Detail: "Gate " & q.Gate & ": " & Left(q.Title, 200),
+                                  Reason: "",
+                                  PerformedBy: varMeUser,
+                                  PerformedDate: Now()
+                              }
+                          ),
+                          Notify("Saved. The Activity Log entry failed: add the question choices to ActionType in NPI Activity Log.", NotificationType.Warning)
+                      );
+                      Refresh('NPI Open Questions');
+                      ClearCollect(colQs, Filter('NPI Open Questions', ProjectID = varProject.Title));
+                      Set(varQ, LookUp(colQs, ID = q.ID));
+                      Set(varQMode, "");
+                      Notify("Question added", NotificationType.Success)
+                  ),
+                  Notify("Save failed: " & FirstError.Message, NotificationType.Error)
+              )
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =12
+            Text: ="Add question"
+            Visible: =varShowQs && varQMode = "new"
+            Width: =180
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =540
+      - btnQCancelNew:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(17, 24, 39, 1)
+            BorderThickness: =1
+            Color: =RGBA(17, 24, 39, 1)
+            DisabledColor: =RGBA(107, 114, 128, 1)
+            DisabledFill: =RGBA(226, 231, 238, 1)
+            Fill: =Color.White
+            FontWeight: =FontWeight.Semibold
+            Height: =36
+            OnSelect: |-
+              =Set(varQMode, "")
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =12
+            Text: ="Cancel"
+            Visible: =varShowQs && varQMode = "new"
+            Width: =120
+            X: =(Parent.Width - 1100) / 2 + 836
+            Y: =540
+      - lblQViewTitle:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =30
+            Size: =14
+            Text: |-
+              ="Q-" & varQ.ID & " · Gate " & varQ.Gate
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ)
+            Width: =300
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =112
+      - lblQViewStatus:
+          Control: Label@2.5.1
+          Properties:
+            Color: =If(varQ.QStatus.Value = "Open", RGBA(177, 14, 30, 1), RGBA(16, 124, 16, 1))
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            Size: =12
+            Text: |-
+              =varQ.QStatus.Value
+            Align: =Align.Center
+            Fill: =If(varQ.QStatus.Value = "Open", RGBA(253, 231, 233, 1), RGBA(223, 246, 221, 1))
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ)
+            Width: =90
+            X: =(Parent.Width - 1100) / 2 + 980
+            Y: =114
+      - lblQViewText:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            Height: =70
+            Size: =13
+            Text: |-
+              =varQ.Title
+            VerticalAlign: =VerticalAlign.Top
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ)
+            Width: =446
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =146
+      - lblQViewMeta:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(55, 65, 81, 1)
+            Height: =96
+            Size: =12
+            Text: |-
+              ="Owner: " & Coalesce(varQ.Owner.DisplayName, "-") & Char(10) &
+              "Due: " & If(IsBlank(varQ.DueDate), "Not set", Text(varQ.DueDate, "mmm d, yyyy")) & Char(10) &
+              "Logged: " & Text(varQ.Created, "mmm d, yyyy") & Char(10) &
+              If(IsBlank(varQ.Resolution), "", "Resolution: " & varQ.Resolution & Char(10)) &
+              If(IsBlank(varQ.GateMoveReason), "", "Last gate move: " & varQ.GateMoveReason)
+            VerticalAlign: =VerticalAlign.Top
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ)
+            Width: =446
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =220
+      - lblQCloseCap:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =26
+            Size: =12
+            Text: |-
+              ="Close with a resolution"
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ) && varQ.QStatus.Value = "Open"
+            Width: =300
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =322
+      - txtQResolution:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            Default: =""
+            Height: =56
+            HintText: ="How was it resolved?"
+            Mode: =TextMode.MultiLine
+            Size: =12
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ) && varQ.QStatus.Value = "Open"
+            Width: =446
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =348
+      - btnQClose:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(17, 24, 39, 1)
+            BorderThickness: =0
+            Color: =Color.White
+            DisabledColor: =RGBA(107, 114, 128, 1)
+            DisabledFill: =RGBA(226, 231, 238, 1)
+            DisplayMode: |-
+              =If(IsBlank(Trim(txtQResolution.Text)), DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =RGBA(16, 124, 16, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =36
+            OnSelect: |-
+              =With(
+                  {qid: varQ.ID},
+                  IfError(
+                      Patch('NPI Open Questions', LookUp('NPI Open Questions', ID = qid), {QStatus: {Value: "Closed"}, Resolution: Trim(txtQResolution.Text)});
+                      IfError(
+                          Patch(
+                              'NPI Activity Log',
+                              Defaults('NPI Activity Log'),
+                              {
+                                  Title: "Q-" & qid & ": question closed",
+                                  ProjectID: varProject.Title,
+                                  RequirementID: "Q-" & qid,
+                                  ActionType: {Value: "Question closed"},
+                                  Detail: "Closed",
+                                  Reason: Trim(txtQResolution.Text),
+                                  PerformedBy: varMeUser,
+                                  PerformedDate: Now()
+                              }
+                          ),
+                          Notify("Saved. The Activity Log entry failed: add the question choices to ActionType in NPI Activity Log.", NotificationType.Warning)
+                      );
+                      Refresh('NPI Open Questions');
+                      ClearCollect(colQs, Filter('NPI Open Questions', ProjectID = varProject.Title));
+                      Set(varQ, LookUp(colQs, ID = qid));
+                      Reset(txtQResolution);
+                      Notify("Question closed", NotificationType.Success),
+                      Notify("Save failed: " & FirstError.Message, NotificationType.Error)
+                  )
+              )
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =12
+            Text: ="Close question"
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ) && varQ.QStatus.Value = "Open"
+            Width: =170
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =410
+      - lblQMoveCap:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =26
+            Size: =12
+            Text: |-
+              ="Move to another gate (reason required)"
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ) && varQ.QStatus.Value = "Open"
+            Width: =400
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =462
+      - galQMoveGate:
+          Control: Gallery@2.15.0
+          Variant: Horizontal
+          Properties:
+            Height: =40
+            Items: =Sequence(4)
+            ShowScrollbar: =false
+            TemplatePadding: =0
+            TemplateSize: =64
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ) && varQ.QStatus.Value = "Open"
+            Width: =260
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =488
+          Children:
+            - btnQMoveGate:
+                Control: Classic/Button@2.2.0
+                Properties:
+                  BorderColor: =RGBA(190, 199, 212, 1)
+                  BorderThickness: =1
+                  Color: =If(varQMoveGate = ThisItem.Value, Color.White, RGBA(17, 24, 39, 1))
+                  Fill: =If(varQMoveGate = ThisItem.Value, RGBA(10, 92, 178, 1), RGBA(243, 244, 246, 1))
+                  Height: =34
+                  OnSelect: =Set(varQMoveGate, ThisItem.Value)
+                  RadiusBottomLeft: =4
+                  RadiusBottomRight: =4
+                  RadiusTopLeft: =4
+                  RadiusTopRight: =4
+                  Size: =12
+                  Text: ="Gate " & ThisItem.Value
+                  Width: =60
+                  X: =0
+                  Y: =2
+      - txtQMoveReason:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            Default: =""
+            Height: =50
+            HintText: ="Why is the gate changing?"
+            Mode: =TextMode.MultiLine
+            Size: =12
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ) && varQ.QStatus.Value = "Open"
+            Width: =446
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =532
+      - btnQMove:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(17, 24, 39, 1)
+            BorderThickness: =0
+            Color: =Color.White
+            DisabledColor: =RGBA(107, 114, 128, 1)
+            DisabledFill: =RGBA(226, 231, 238, 1)
+            DisplayMode: |-
+              =If(IsBlank(varQMoveGate) || varQMoveGate = varQ.Gate || IsBlank(Trim(txtQMoveReason.Text)), DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =RGBA(10, 92, 178, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =36
+            OnSelect: |-
+              =With(
+                  {qid: varQ.ID, oldG: varQ.Gate, newG: varQMoveGate, why: Trim(txtQMoveReason.Text)},
+                  IfError(
+                      Patch('NPI Open Questions', LookUp('NPI Open Questions', ID = qid), {Gate: newG, GateMoveReason: "Gate " & oldG & " -> " & newG & ": " & why});
+                      IfError(
+                          Patch(
+                              'NPI Activity Log',
+                              Defaults('NPI Activity Log'),
+                              {
+                                  Title: "Q-" & qid & ": question moved",
+                                  ProjectID: varProject.Title,
+                                  RequirementID: "Q-" & qid,
+                                  ActionType: {Value: "Question moved"},
+                                  Detail: "Gate " & oldG & " -> " & newG,
+                                  Reason: why,
+                                  PerformedBy: varMeUser,
+                                  PerformedDate: Now()
+                              }
+                          ),
+                          Notify("Saved. The Activity Log entry failed: add the question choices to ActionType in NPI Activity Log.", NotificationType.Warning)
+                      );
+                      Refresh('NPI Open Questions');
+                      ClearCollect(colQs, Filter('NPI Open Questions', ProjectID = varProject.Title));
+                      Set(varQ, LookUp(colQs, ID = qid));
+                      Set(varQMoveGate, Blank());
+                      Reset(txtQMoveReason);
+                      Notify("Question moved to Gate " & newG, NotificationType.Success),
+                      Notify("Save failed: " & FirstError.Message, NotificationType.Error)
+                  )
+              )
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =12
+            Text: ="Move question"
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ) && varQ.QStatus.Value = "Open"
+            Width: =170
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =590
+      - btnQReopen:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(17, 24, 39, 1)
+            BorderThickness: =1
+            Color: =RGBA(17, 24, 39, 1)
+            DisabledColor: =RGBA(107, 114, 128, 1)
+            DisabledFill: =RGBA(226, 231, 238, 1)
+            Fill: =Color.White
+            FontWeight: =FontWeight.Semibold
+            Height: =36
+            OnSelect: |-
+              =With(
+                  {qid: varQ.ID},
+                  IfError(
+                      Patch('NPI Open Questions', LookUp('NPI Open Questions', ID = qid), {QStatus: {Value: "Open"}});
+                      IfError(
+                          Patch(
+                              'NPI Activity Log',
+                              Defaults('NPI Activity Log'),
+                              {
+                                  Title: "Q-" & qid & ": question added",
+                                  ProjectID: varProject.Title,
+                                  RequirementID: "Q-" & qid,
+                                  ActionType: {Value: "Question added"},
+                                  Detail: "Reopened",
+                                  Reason: "",
+                                  PerformedBy: varMeUser,
+                                  PerformedDate: Now()
+                              }
+                          ),
+                          Notify("Saved. The Activity Log entry failed: add the question choices to ActionType in NPI Activity Log.", NotificationType.Warning)
+                      );
+                      Refresh('NPI Open Questions');
+                      ClearCollect(colQs, Filter('NPI Open Questions', ProjectID = varProject.Title));
+                      Set(varQ, LookUp(colQs, ID = qid));
+                      Notify("Question reopened", NotificationType.Success),
+                      Notify("Save failed: " & FirstError.Message, NotificationType.Error)
+                  )
+              )
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =12
+            Text: ="Reopen question"
+            Visible: =varShowQs && varQMode = "" && !IsBlank(varQ) && varQ.QStatus.Value = "Closed"
+            Width: =170
+            X: =(Parent.Width - 1100) / 2 + 640
+            Y: =326
