@@ -1,0 +1,19 @@
+# Power Apps canvas source for NPI Tracker 1.2.0.0 (Overview + Project details redesign).
+App:
+  Properties:
+    BackEnabled: =true
+    ConfirmExit: =varBusy
+    ConfirmExitMessage: ="Project creation is still running."
+    OnStart: |-
+      =Set(varBusy, false);
+      Set(varShowNew, false);
+      Set(varNewError, "");
+      Set(varLastMessage, "");
+      Set(varProjectFilter, "Open");
+      Set(varDocFilter, "Needed");
+      Set(varPdfRequired, false);
+      Set(varUpcomingDays, 14);
+      Set(varSiteUrl, "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning");
+      Set(varProjectLibrary, "NPIProjectFiles");
+      Set(varTemplateLibrary, "NPIFormTemplates")
+    StartScreen: =scrProjects

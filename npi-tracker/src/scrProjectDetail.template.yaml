@@ -45,16 +45,23 @@ Screens:
         Set(varSelectedAssignee, Blank());
         Set(varRow, Blank());
         ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
-        Set(
-            varRow,
-            First(
-                SortByColumns(
-                    Filter(colReqs, Gate = varGate && !(Status.Value in ["Reviewed", "N/A"])),
-                    "SortOrder",
-                    SortOrder.Ascending
+        If(
+            !IsBlank(varJumpRowId) && !IsBlank(LookUp(colReqs, ID = varJumpRowId)),
+            Set(varRow, LookUp(colReqs, ID = varJumpRowId));
+            Set(varGate, varRow.Gate);
+            Set(varDocFilter, "All"),
+            Set(
+                varRow,
+                First(
+                    SortByColumns(
+                        Filter(colReqs, Gate = varGate && !(Status.Value in ["Reviewed", "N/A"])),
+                        "SortOrder",
+                        SortOrder.Ascending
+                    )
                 )
             )
         );
+        Set(varJumpRowId, Blank());
         __SET_CANREVIEW__;
         Reset(txtNote)
     Children:

@@ -1,0 +1,967 @@
+# Power Apps canvas source for NPI Tracker 1.2.0.0 - Overview screen.
+# The Increment 1 create-project modal and flow call are kept unchanged.
+Screens:
+  scrProjects:
+    Properties:
+      Fill: =RGBA(244, 247, 251, 1)
+      OnVisible: |-
+        =Set(varProjectFilter, Coalesce(varProjectFilter, "Open"));
+        Refresh('NPI Projects');
+        Refresh('Project Requirements');
+        ClearCollect(colProjects, 'NPI Projects');
+        ClearCollect(colAllReqs, 'Project Requirements');
+        Set(varOpenIds, Filter(colProjects, ProjectStatus.Value = "Open").Title)
+    Children:
+      - rectHeader:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(10, 92, 178, 1)
+            Height: =64
+            Width: =Parent.Width
+            X: =0
+            Y: =0
+      - lblTitle:
+          Control: Label@2.5.1
+          Properties:
+            Color: =Color.White
+            FontWeight: =FontWeight.Bold
+            Height: =48
+            Size: =24
+            Text: ="NPI Tracker"
+            Width: =360
+            X: =24
+            Y: =8
+      - btnNewProject:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: =0
+            Color: =Color.White
+            DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =RGBA(0, 120, 212, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            HoverFill: =ColorFade(Self.Fill, -12%)
+            OnSelect: |-
+              =Set(varShowNew, true);
+              Set(varNewError, "");
+              Reset(txtPartNumber);
+              Reset(txtRevision);
+              Reset(txtCustomer);
+              Reset(txtProjectType);
+              Reset(txtQEEmail);
+              Reset(txtPreviousProjectId)
+            PressedFill: =ColorFade(Self.Fill, -25%)
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =14
+            Text: ="New Project"
+            Width: =160
+            X: =Parent.Width - 184
+            Y: =12
+      - lblStatus:
+          Control: Label@2.5.1
+          Properties:
+            Color: =If(IsBlank(varNewError), RGBA(16, 124, 16, 1), RGBA(177, 14, 30, 1))
+            Height: =26
+            Size: =11
+            Text: =If(IsBlank(varNewError), varLastMessage, varNewError)
+            Width: =Parent.Width - 56
+            X: =24
+            Y: =68
+      - rectTileOpen:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(209, 217, 228, 1)
+            BorderThickness: =1
+            Fill: =Color.White
+            Height: =72
+            Width: =(Parent.Width - 48 - 48) / 3
+            X: =24
+            Y: =96
+      - lblTileOpenTitle:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =26
+            Size: =12
+            Text: ="Open projects"
+            Width: =220
+            X: =40
+            Y: =102
+      - lblTileOpenValue:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Bold
+            Height: =40
+            Size: =22
+            Text: =CountRows(varOpenIds)
+            Width: =200
+            X: =40
+            Y: =126
+      - rectTileUpcoming:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(209, 217, 228, 1)
+            BorderThickness: =1
+            Fill: =Color.White
+            Height: =72
+            Width: =(Parent.Width - 48 - 48) / 3
+            X: =24 + (Parent.Width - 48 - 48) / 3 + 24
+            Y: =96
+      - lblTileUpcomingTitle:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =26
+            Size: =12
+            Text: ="Upcoming items"
+            Width: =220
+            X: =24 + (Parent.Width - 48 - 48) / 3 + 40
+            Y: =102
+      - lblTileUpcomingValue:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Bold
+            Height: =40
+            Size: =22
+            Text: |-
+              =CountRows(
+                  Filter(
+                      colAllReqs,
+                      ProjectID in varOpenIds &&
+                      !(Status.Value in ["Reviewed", "N/A"]) &&
+                      !IsBlank(DueDate) &&
+                      DueDate >= Today() &&
+                      DueDate < DateAdd(Today(), varUpcomingDays + 1, TimeUnit.Days)
+                  )
+              )
+            Width: =120
+            X: =24 + (Parent.Width - 48 - 48) / 3 + 40
+            Y: =126
+      - lblTileUpcomingNote:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Right
+            Color: =RGBA(107, 114, 128, 1)
+            Height: =26
+            Size: =10
+            Text: ="Due in the next " & varUpcomingDays & " days"
+            Width: =200
+            X: =24 + 2 * (Parent.Width - 48 - 48) / 3 + 24 - 216
+            Y: =134
+      - rectTileReview:
+          Control: Rectangle@2.3.0
+          Properties:
+            BorderColor: =RGBA(209, 217, 228, 1)
+            BorderThickness: =1
+            Fill: =Color.White
+            Height: =72
+            Width: =(Parent.Width - 48 - 48) / 3
+            X: =24 + 2 * ((Parent.Width - 48 - 48) / 3 + 24)
+            Y: =96
+      - lblTileReviewTitle:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =26
+            Size: =12
+            Text: ="Awaiting review"
+            Width: =220
+            X: =24 + 2 * ((Parent.Width - 48 - 48) / 3 + 24) + 16
+            Y: =102
+      - lblTileReviewValue:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Bold
+            Height: =40
+            Size: =22
+            Text: =CountRows(Filter(colAllReqs, ProjectID in varOpenIds && Status.Value = "Done"))
+            Width: =120
+            X: =24 + 2 * ((Parent.Width - 48 - 48) / 3 + 24) + 16
+            Y: =126
+      - lblTileReviewNote:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Right
+            Color: =RGBA(107, 114, 128, 1)
+            Height: =26
+            Size: =10
+            Text: ="Marked Done, not yet reviewed"
+            Width: =220
+            X: =Parent.Width - 24 - 236
+            Y: =134
+      - txtProjectSearch:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            Default: =""
+            Height: =40
+            HintText: =If(varProjectFilter in ["My tasks", "Overdue"], "Search project or form", "Search project, part, or customer")
+            Size: =13
+            Width: =420
+            X: =24
+            Y: =184
+      - btnFilterOpen:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: =0
+            Color: =If(varProjectFilter = "Open", Color.White, RGBA(17, 24, 39, 1))
+            Fill: =If(varProjectFilter = "Open", RGBA(10, 92, 178, 1), RGBA(226, 231, 238, 1))
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            OnSelect: =Set(varProjectFilter, "Open")
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =13
+            Text: ="Open"
+            Width: =92
+            X: =460
+            Y: =184
+      - btnFilterAll:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: =0
+            Color: =If(varProjectFilter = "All", Color.White, RGBA(17, 24, 39, 1))
+            Fill: =If(varProjectFilter = "All", RGBA(10, 92, 178, 1), RGBA(226, 231, 238, 1))
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            OnSelect: =Set(varProjectFilter, "All")
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =13
+            Text: ="All"
+            Width: =92
+            X: =558
+            Y: =184
+      - btnFilterClosed:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: =0
+            Color: =If(varProjectFilter = "Closed", Color.White, RGBA(17, 24, 39, 1))
+            Fill: =If(varProjectFilter = "Closed", RGBA(10, 92, 178, 1), RGBA(226, 231, 238, 1))
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            OnSelect: =Set(varProjectFilter, "Closed")
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =13
+            Text: ="Closed"
+            Width: =92
+            X: =656
+            Y: =184
+      - btnFilterMine:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: =0
+            Color: =If(varProjectFilter = "My tasks", Color.White, RGBA(17, 24, 39, 1))
+            Fill: =If(varProjectFilter = "My tasks", RGBA(10, 92, 178, 1), RGBA(226, 231, 238, 1))
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            OnSelect: =Set(varProjectFilter, "My tasks")
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =13
+            Text: ="My tasks"
+            Width: =112
+            X: =762
+            Y: =184
+      - btnFilterOverdue:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: =0
+            Color: =If(varProjectFilter = "Overdue", Color.White, RGBA(17, 24, 39, 1))
+            Fill: =If(varProjectFilter = "Overdue", RGBA(10, 92, 178, 1), RGBA(226, 231, 238, 1))
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            OnSelect: =Set(varProjectFilter, "Overdue")
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =13
+            Text: ="Overdue"
+            Width: =104
+            X: =880
+            Y: =184
+      - btnRefreshProjects:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            BorderThickness: =1
+            Color: =RGBA(17, 24, 39, 1)
+            Fill: =Color.White
+            Height: =40
+            OnSelect: |-
+              =Refresh('NPI Projects');
+              Refresh('Project Requirements');
+              ClearCollect(colProjects, 'NPI Projects');
+              ClearCollect(colAllReqs, 'Project Requirements');
+              Set(varOpenIds, Filter(colProjects, ProjectStatus.Value = "Open").Title)
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =13
+            Text: ="Refresh"
+            Width: =110
+            X: =Parent.Width - 134
+            Y: =184
+      - rectTableHeader:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(228, 234, 242, 1)
+            Height: =40
+            Width: =Parent.Width - 48
+            X: =24
+            Y: =240
+      - lblCol1:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Left
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            Size: =13
+            Text: =If(varProjectFilter in ["My tasks", "Overdue"], "Project", "Project")
+            Width: =(Parent.Width - 48) * 0.11
+            X: =24 + (Parent.Width - 48) * 0.008
+            Y: =240
+      - lblCol2:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Left
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            Size: =13
+            Text: =If(varProjectFilter in ["My tasks", "Overdue"], "Document", "Customer")
+            Width: =(Parent.Width - 48) * 0.13
+            X: =24 + (Parent.Width - 48) * 0.12
+            Y: =240
+      - lblCol3:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Left
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            Size: =13
+            Text: =If(varProjectFilter in ["My tasks", "Overdue"], "Gate", "Part number / Revision")
+            Width: =(Parent.Width - 48) * 0.16
+            X: =24 + (Parent.Width - 48) * If(varProjectFilter in ["My tasks", "Overdue"], 0.42, 0.25)
+            Y: =240
+      - lblCol4:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Left
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            Size: =13
+            Text: =If(varProjectFilter in ["My tasks", "Overdue"], "Assigned to", "QE")
+            Width: =(Parent.Width - 48) * 0.13
+            X: =24 + (Parent.Width - 48) * If(varProjectFilter in ["My tasks", "Overdue"], 0.49, 0.41)
+            Y: =240
+      - lblCol5:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Left
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            Size: =13
+            Text: =If(varProjectFilter in ["My tasks", "Overdue"], "Status", "Progress")
+            Width: =(Parent.Width - 48) * 0.2
+            X: =24 + (Parent.Width - 48) * If(varProjectFilter in ["My tasks", "Overdue"], 0.66, 0.55)
+            Y: =240
+      - lblCol6:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Left
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            Size: =13
+            Text: =If(varProjectFilter in ["My tasks", "Overdue"], "Due", "Next due")
+            Width: =(Parent.Width - 48) * 0.08
+            X: =24 + (Parent.Width - 48) * 0.8
+            Y: =240
+      - lblCol7:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Center
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =40
+            Size: =13
+            Text: =If(varProjectFilter in ["My tasks", "Overdue"], "", "Overdue")
+            Width: =(Parent.Width - 48) * 0.06
+            X: =24 + (Parent.Width - 48) * 0.88
+            Y: =240
+      - lblEmpty:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(75, 85, 99, 1)
+            Height: =50
+            Size: =13
+            Text: |-
+              =Switch(
+                  varProjectFilter,
+                  "My tasks", "Nothing open is assigned to you in open projects.",
+                  "Overdue", "No overdue items in open projects.",
+                  "No projects match the current search and filter. Select Refresh if the list was just changed."
+              )
+            Visible: =If(varProjectFilter in ["My tasks", "Overdue"], CountRows(galTasks.AllItems) = 0, CountRows(galProjects.AllItems) = 0)
+            Width: =900
+            X: =40
+            Y: =290
+      - galProjects:
+          Control: Gallery@2.15.0
+          Variant: Vertical
+          Properties:
+            Height: =Parent.Height - 296
+            Items: |-
+              =SortByColumns(
+                  Search(
+                      Filter(
+                          colProjects,
+                          varProjectFilter = "All" || ProjectStatus.Value = varProjectFilter
+                      ),
+                      Trim(txtProjectSearch.Text),
+                      Title,
+                      PartNumber,
+                      Revision,
+                      Customer
+                  ),
+                  "Created",
+                  SortOrder.Descending
+              )
+            OnSelect: |-
+              =Set(varJumpRowId, Blank());
+              Set(varProject, ThisItem);
+              Navigate(scrProjectDetail)
+            TemplateSize: =48
+            Visible: =!(varProjectFilter in ["My tasks", "Overdue"])
+            Width: =Parent.Width - 48
+            X: =24
+            Y: =280
+          Children:
+            - rectProjectRow:
+                Control: Rectangle@2.3.0
+                Properties:
+                  Fill: =If(ThisItem.IsSelected, RGBA(232, 242, 253, 1), Color.White)
+                  Height: =47
+                  OnSelect: =Select(Parent)
+                  Width: =Parent.TemplateWidth
+                  X: =0
+                  Y: =0
+            - rectProjectDivider:
+                Control: Rectangle@2.3.0
+                Properties:
+                  Fill: =RGBA(228, 234, 242, 1)
+                  Height: =1
+                  Width: =Parent.TemplateWidth
+                  X: =0
+                  Y: =47
+            - lblProjectId:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(10, 92, 178, 1)
+                  FontWeight: =FontWeight.Semibold
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =13
+                  Text: =ThisItem.Title
+                  Width: =Parent.TemplateWidth * 0.11
+                  X: =10
+                  Y: =0
+            - lblProjectCustomer:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(31, 41, 55, 1)
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =13
+                  Text: =ThisItem.Customer
+                  Width: =Parent.TemplateWidth * 0.13
+                  X: =Parent.TemplateWidth * 0.12
+                  Y: =0
+            - lblPartRev:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(31, 41, 55, 1)
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =13
+                  Text: =ThisItem.PartNumber & " / Rev " & ThisItem.Revision
+                  Width: =Parent.TemplateWidth * 0.16
+                  X: =Parent.TemplateWidth * 0.25
+                  Y: =0
+            - lblProjectQE:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(31, 41, 55, 1)
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =12
+                  Text: =Coalesce(ThisItem.QE.DisplayName, "-")
+                  Width: =Parent.TemplateWidth * 0.13
+                  X: =Parent.TemplateWidth * 0.41
+                  Y: =0
+            - rectProgressTrack:
+                Control: Rectangle@2.3.0
+                Properties:
+                  Fill: =RGBA(226, 231, 238, 1)
+                  Height: =8
+                  OnSelect: =Select(Parent)
+                  Width: =Parent.TemplateWidth * 0.10
+                  X: =Parent.TemplateWidth * 0.55
+                  Y: =20
+            - rectProgressFill:
+                Control: Rectangle@2.3.0
+                Properties:
+                  Fill: =RGBA(10, 92, 178, 1)
+                  Height: =8
+                  OnSelect: =Select(Parent)
+                  Visible: =Self.Width > 0
+                  Width: |-
+                    =With(
+                        {g: Max(1, Min(4, Coalesce(ThisItem.CurrentGate, 1))), pid: ThisItem.Title},
+                        With(
+                            {r: Filter(colAllReqs, ProjectID = pid && Gate = g)},
+                            If(
+                                CountRows(r) = 0,
+                                0,
+                                Parent.TemplateWidth * 0.10 * CountRows(Filter(r, Status.Value in ["Reviewed", "N/A"])) / CountRows(r)
+                            )
+                        )
+                    )
+                  X: =Parent.TemplateWidth * 0.55
+                  Y: =20
+            - lblProgress:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(31, 41, 55, 1)
+                  Height: =26
+                  OnSelect: =Select(Parent)
+                  Size: =12
+                  Text: |-
+                    =With(
+                        {g: Max(1, Min(4, Coalesce(ThisItem.CurrentGate, 1))), pid: ThisItem.Title},
+                        With(
+                            {r: Filter(colAllReqs, ProjectID = pid && Gate = g)},
+                            If(
+                                ThisItem.ProjectStatus.Value = "Closed",
+                                "Closed",
+                                "Gate " & g & " · " &
+                                If(
+                                    CountRows(r) = 0,
+                                    "0%",
+                                    Text(100 * CountRows(Filter(r, Status.Value in ["Reviewed", "N/A"])) / CountRows(r), "0") & "%"
+                                )
+                            )
+                        )
+                    )
+                  Width: =Parent.TemplateWidth * 0.13
+                  X: =Parent.TemplateWidth * 0.66
+                  Y: =2
+            - lblOverall:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(107, 114, 128, 1)
+                  Height: =20
+                  OnSelect: =Select(Parent)
+                  Size: =10
+                  Text: |-
+                    =With(
+                        {r: Filter(colAllReqs, ProjectID = ThisItem.Title)},
+                        If(CountRows(r) = 0, "0", Text(100 * CountRows(Filter(r, Status.Value in ["Reviewed", "N/A"])) / CountRows(r), "0")) & "% overall"
+                    )
+                  Width: =Parent.TemplateWidth * 0.13
+                  X: =Parent.TemplateWidth * 0.66
+                  Y: =24
+            - lblNextDue:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(31, 41, 55, 1)
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =12
+                  Text: |-
+                    =With(
+                        {r: Filter(colAllReqs, ProjectID = ThisItem.Title && !(Status.Value in ["Reviewed", "N/A"]) && !IsBlank(DueDate))},
+                        If(CountRows(r) = 0, "-", Text(Min(r, DueDate), "mmm d"))
+                    )
+                  Width: =Parent.TemplateWidth * 0.08
+                  X: =Parent.TemplateWidth * 0.80
+                  Y: =0
+            - lblOverdueCount:
+                Control: Label@2.5.1
+                Properties:
+                  Align: =Align.Center
+                  Color: =If(Value(Self.Text) > 0, RGBA(177, 14, 30, 1), RGBA(107, 114, 128, 1))
+                  FontWeight: =If(Value(Self.Text) > 0, FontWeight.Semibold, FontWeight.Normal)
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =12
+                  Text: |-
+                    =CountRows(Filter(colAllReqs, ProjectID = ThisItem.Title && !(Status.Value in ["Reviewed", "N/A"]) && !IsBlank(DueDate) && DueDate < Today()))
+                  Width: =Parent.TemplateWidth * 0.06
+                  X: =Parent.TemplateWidth * 0.88
+                  Y: =0
+            - lblChevron:
+                Control: Label@2.5.1
+                Properties:
+                  Align: =Align.Center
+                  Color: =RGBA(31, 41, 55, 1)
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =18
+                  Text: =">"
+                  Width: =36
+                  X: =Parent.TemplateWidth - 44
+                  Y: =0
+      - galTasks:
+          Control: Gallery@2.15.0
+          Variant: Vertical
+          Properties:
+            Height: =Parent.Height - 296
+            Items: |-
+              =SortByColumns(
+                  Search(
+                      Filter(
+                          colAllReqs,
+                          ProjectID in varOpenIds &&
+                          !(Status.Value in ["Reviewed", "N/A"]) &&
+                          If(
+                              varProjectFilter = "Overdue",
+                              !IsBlank(DueDate) && DueDate < Today(),
+                              Lower(Coalesce(Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(Assignee.Claims, "")), "|" & varMe)
+                          )
+                      ),
+                      Trim(txtProjectSearch.Text),
+                      ProjectID,
+                      Form,
+                      Title
+                  ),
+                  "DueDate",
+                  SortOrder.Ascending,
+                  "ProjectID",
+                  SortOrder.Ascending,
+                  "SortOrder",
+                  SortOrder.Ascending
+              )
+            OnSelect: |-
+              =Set(varJumpRowId, ThisItem.ID);
+              Set(varProject, LookUp(colProjects, Title = ThisItem.ProjectID));
+              Navigate(scrProjectDetail)
+            TemplateSize: =48
+            Visible: =varProjectFilter in ["My tasks", "Overdue"]
+            Width: =Parent.Width - 48
+            X: =24
+            Y: =280
+          Children:
+            - rectTaskRow:
+                Control: Rectangle@2.3.0
+                Properties:
+                  Fill: =If(ThisItem.IsSelected, RGBA(232, 242, 253, 1), Color.White)
+                  Height: =47
+                  OnSelect: =Select(Parent)
+                  Width: =Parent.TemplateWidth
+                  X: =0
+                  Y: =0
+            - rectTaskDivider:
+                Control: Rectangle@2.3.0
+                Properties:
+                  Fill: =RGBA(228, 234, 242, 1)
+                  Height: =1
+                  Width: =Parent.TemplateWidth
+                  X: =0
+                  Y: =47
+            - lblTaskProject:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(10, 92, 178, 1)
+                  FontWeight: =FontWeight.Semibold
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =13
+                  Text: =ThisItem.ProjectID
+                  Width: =Parent.TemplateWidth * 0.11
+                  X: =10
+                  Y: =0
+            - lblTaskDoc:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(17, 24, 39, 1)
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =13
+                  Text: |-
+                    =ThisItem.Form & If(!IsBlank(ThisItem.Section), " " & ThisItem.Section) & " — " &
+                    Switch(
+                        ThisItem.RequirementType.Value,
+                        "Signed (entire doc)", "Signed document",
+                        "If required (N/A + reason)", "If required",
+                        ThisItem.RequirementType.Value
+                    )
+                  Width: =Parent.TemplateWidth * 0.29
+                  X: =Parent.TemplateWidth * 0.12
+                  Y: =0
+            - lblTaskGate:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(31, 41, 55, 1)
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =12
+                  Text: ="Gate " & ThisItem.Gate
+                  Width: =Parent.TemplateWidth * 0.07
+                  X: =Parent.TemplateWidth * 0.42
+                  Y: =0
+            - lblTaskAssignee:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(31, 41, 55, 1)
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =12
+                  Text: =Coalesce(ThisItem.Assignee.DisplayName, "Unassigned")
+                  Width: =Parent.TemplateWidth * 0.16
+                  X: =Parent.TemplateWidth * 0.49
+                  Y: =0
+            - lblTaskStatus:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =If(ThisItem.Status.Value = "Done", RGBA(160, 90, 0, 1), RGBA(10, 92, 178, 1))
+                  FontWeight: =FontWeight.Semibold
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =12
+                  Text: =If(ThisItem.Status.Value = "Done", "Ready for review", ThisItem.Status.Value)
+                  Width: =Parent.TemplateWidth * 0.13
+                  X: =Parent.TemplateWidth * 0.66
+                  Y: =0
+            - lblTaskDue:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =If(!IsBlank(ThisItem.DueDate) && ThisItem.DueDate < Today(), RGBA(177, 14, 30, 1), RGBA(31, 41, 55, 1))
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =12
+                  Text: |-
+                    =If(IsBlank(ThisItem.DueDate), "No due date", Text(ThisItem.DueDate, "mmm d, yyyy") & If(ThisItem.DueDate < Today(), " · Overdue", ""))
+                  Width: =Parent.TemplateWidth * 0.15
+                  X: =Parent.TemplateWidth * 0.80
+                  Y: =0
+            - lblTaskChevron:
+                Control: Label@2.5.1
+                Properties:
+                  Align: =Align.Center
+                  Color: =RGBA(31, 41, 55, 1)
+                  Height: =48
+                  OnSelect: =Select(Parent)
+                  Size: =18
+                  Text: =">"
+                  Width: =36
+                  X: =Parent.TemplateWidth - 44
+                  Y: =0
+      - rectOverlay:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(0, 0, 0, 0.45)
+            Height: =Parent.Height
+            Visible: =varShowNew
+            Width: =Parent.Width
+            X: =0
+            Y: =0
+      - rectModal:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =Color.White
+            Height: =560
+            Visible: =varShowNew
+            Width: =620
+            X: =(Parent.Width - Self.Width) / 2
+            Y: =100
+      - lblModalTitle:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(31, 41, 55, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =44
+            Size: =22
+            Text: ="Create NPI project"
+            Visible: =varShowNew
+            Width: =420
+            X: =(Parent.Width - 620) / 2 + 28
+            Y: =118
+      - lblModalHelp:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(75, 85, 99, 1)
+            Height: =42
+            Size: =12
+            Text: ="Project type must be New Part or Revision. QE must be a valid Microsoft 365 email address."
+            Visible: =varShowNew
+            Width: =560
+            X: =(Parent.Width - 620) / 2 + 28
+            Y: =160
+      - txtPartNumber:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            Default: =""
+            Height: =42
+            HintText: ="Part number"
+            Visible: =varShowNew
+            Width: =270
+            X: =(Parent.Width - 620) / 2 + 28
+            Y: =218
+      - txtRevision:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            Default: =""
+            Height: =42
+            HintText: ="Revision"
+            Visible: =varShowNew
+            Width: =270
+            X: =(Parent.Width - 620) / 2 + 322
+            Y: =218
+      - txtCustomer:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            Default: =""
+            Height: =42
+            HintText: ="Customer"
+            Visible: =varShowNew
+            Width: =564
+            X: =(Parent.Width - 620) / 2 + 28
+            Y: =276
+      - txtProjectType:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            Default: ="New Part"
+            Height: =42
+            HintText: ="New Part or Revision"
+            Visible: =varShowNew
+            Width: =270
+            X: =(Parent.Width - 620) / 2 + 28
+            Y: =334
+      - txtQEEmail:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            Default: =User().Email
+            Height: =42
+            HintText: ="QE email"
+            Visible: =varShowNew
+            Width: =270
+            X: =(Parent.Width - 620) / 2 + 322
+            Y: =334
+      - txtPreviousProjectId:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            Default: =""
+            Height: =42
+            HintText: ="Previous project numeric SharePoint ID (Revision only)"
+            Visible: =varShowNew
+            Width: =564
+            X: =(Parent.Width - 620) / 2 + 28
+            Y: =392
+      - lblNewError:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(177, 14, 30, 1)
+            Height: =62
+            Size: =12
+            Text: =varNewError
+            Visible: =varShowNew && !IsBlank(varNewError)
+            Width: =564
+            X: =(Parent.Width - 620) / 2 + 28
+            Y: =444
+      - btnCancelNew:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: =1
+            Color: =RGBA(31, 41, 55, 1)
+            DisplayMode: =If(varBusy, DisplayMode.Disabled, DisplayMode.Edit)
+            Fill: =RGBA(243, 244, 246, 1)
+            Height: =44
+            OnSelect: =Set(varShowNew, false)
+            Size: =14
+            Text: ="Cancel"
+            Visible: =varShowNew
+            Width: =130
+            X: =(Parent.Width - 620) / 2 + 318
+            Y: =590
+      - btnCreate:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: =0
+            Color: =Color.White
+            DisplayMode: |-
+              =If(
+                  varBusy || IsBlank(Trim(txtPartNumber.Text)) || IsBlank(Trim(txtRevision.Text)) ||
+                  IsBlank(Trim(txtCustomer.Text)) || IsBlank(Trim(txtProjectType.Text)) ||
+                  IsBlank(Trim(txtQEEmail.Text)),
+                  DisplayMode.Disabled,
+                  DisplayMode.Edit
+              )
+            Fill: =RGBA(0, 120, 212, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =44
+            HoverFill: =ColorFade(Self.Fill, -12%)
+            OnSelect: |-
+              =Set(varBusy, true);
+              Set(varNewError, "");
+              Set(
+                  varResult,
+                  IfError(
+                      NPICreateProject.Run(
+                          Trim(txtPartNumber.Text),
+                          Trim(txtRevision.Text),
+                          Trim(txtCustomer.Text),
+                          Trim(txtProjectType.Text),
+                          Lower(Trim(txtQEEmail.Text)),
+                          Trim(txtPreviousProjectId.Text),
+                          varSiteUrl,
+                          varProjectLibrary,
+                          varTemplateLibrary
+                      ),
+                      {success:false, message:"The NPICreateProject flow could not be reached. Check the first red action in flow run history, and confirm the flow is added to this app.", projectid:"", folderurl:"", reqcount:0}
+                  )
+              );
+              Set(varBusy, false);
+              If(
+                  varResult.success,
+                  Refresh('NPI Projects');
+                  Refresh('Project Requirements');
+                  ClearCollect(colProjects, 'NPI Projects');
+                  ClearCollect(colAllReqs, 'Project Requirements');
+                  Set(varOpenIds, Filter(colProjects, ProjectStatus.Value = "Open").Title);
+                  Set(varShowNew, false);
+                  Set(varLastMessage, varResult.projectid & " created with " & Text(varResult.reqcount) & " requirements."),
+                  Set(varNewError, varResult.message)
+              )
+            PressedFill: =ColorFade(Self.Fill, -25%)
+            Size: =14
+            Text: =If(varBusy, "Creating...", "Create")
+            Visible: =varShowNew
+            Width: =130
+            X: =(Parent.Width - 620) / 2 + 462
+            Y: =590

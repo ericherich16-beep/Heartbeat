@@ -1,0 +1,7 @@
+version: 1.3.0.0
+title: Increment 5 overview (My tasks, Overdue, project columns)
+base: base/tenant_export_1_2_0_1.zip
+summary: |
+  Overview filters Open / All / Closed / My tasks / Overdue. My tasks and Overdue list requirement rows
+  across open projects; selecting one opens the project with that row selected. Project table adds QE,
+  overall % done, next due date and overdue count.
