@@ -34,7 +34,7 @@ Screens:
             EndsWith(Lower(Coalesce(varProject.QE.Claims, "")), "|" & varMe)
         );
         Set(varIsQEorQM, varIsQE || varIsQM);
-        Set(varCurrentGate, Max(1, Min(4, Coalesce(varProject.CurrentGate, 1))));
+        Set(varCurrentGate, If(IsBlank(varProject.Gate1SignedDate), 1, IsBlank(varProject.Gate2SignedDate), 2, IsBlank(varProject.Gate3SignedDate), 3, 4));
         Set(varGate, varCurrentGate);
         Set(varDocFilter, "Needed");
         Set(varShowDetails, false);
@@ -48,6 +48,7 @@ Screens:
         Refresh('NPI Open Questions');
         ClearCollect(colQs, Filter('NPI Open Questions', ProjectID = varProject.Title));
         Set(varShowQs, false);
+        Set(varConfirmSign, false);
         Set(varQ, Blank());
         Set(varQMode, "");
         Set(varQFilter, "Open");
@@ -259,7 +260,7 @@ Screens:
                   Refresh('Project Requirements');
                   ClearCollect(colProjects, 'NPI Projects');
                   Set(varProject, LookUp(colProjects, ID = projId));
-                  Set(varCurrentGate, Max(1, Min(4, Coalesce(varProject.CurrentGate, 1))));
+                  Set(varCurrentGate, If(IsBlank(varProject.Gate1SignedDate), 1, IsBlank(varProject.Gate2SignedDate), 2, IsBlank(varProject.Gate3SignedDate), 3, 4));
                   ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
                   Refresh('NPI Open Questions');
                   ClearCollect(colQs, Filter('NPI Open Questions', ProjectID = varProject.Title));
@@ -344,7 +345,7 @@ Screens:
             - rectGateFill:
                 Control: Rectangle@2.3.0
                 Properties:
-                  Fill: =If(ThisItem.Value < varCurrentGate, RGBA(16, 124, 16, 1), RGBA(10, 92, 178, 1))
+                  Fill: =If(!IsBlank(Switch(ThisItem.Value, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)), RGBA(16, 124, 16, 1), RGBA(10, 92, 178, 1))
                   Height: =8
                   OnSelect: =Select(Parent)
                   Visible: =Self.Width > 0
@@ -370,8 +371,8 @@ Screens:
                     =With(
                         {r: Filter(colReqs, Gate = ThisItem.Value)},
                         If(
-                            varProject.ProjectStatus.Value = "Closed" || ThisItem.Value < varCurrentGate,
-                            "Signed",
+                            !IsBlank(Switch(ThisItem.Value, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)),
+                            "Signed " & Text(Switch(ThisItem.Value, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate), "mmm d") & " · " & Coalesce(Switch(ThisItem.Value, 1, varProject.Gate1SignedBy.DisplayName, 2, varProject.Gate2SignedBy.DisplayName, 3, varProject.Gate3SignedBy.DisplayName, varProject.Gate4SignedBy.DisplayName), ""),
                             ThisItem.Value = varCurrentGate,
                             "Current · Not signed",
                             CountRows(Filter(r, Status.Value <> "Not started")) > 0,
@@ -641,43 +642,156 @@ Screens:
             Color: =Color.White
             DisabledColor: =RGBA(107, 114, 128, 1)
             DisabledFill: =RGBA(226, 231, 238, 1)
-            DisplayMode: =DisplayMode.Disabled
-            Fill: =RGBA(16, 124, 16, 1)
+            DisplayMode: |-
+              =With(
+                  {
+                      r: Filter(colReqs, Gate = varCurrentGate),
+                      qs: CountRows(Filter(colQs, QStatus.Value = "Open" && Gate <= varCurrentGate)),
+                      signed: !IsBlank(Switch(varCurrentGate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate))
+                  },
+                  If(
+                      varIsQEorQM && !signed && varProject.ProjectStatus.Value <> "Closed" &&
+                      CountRows(r) > 0 &&
+                      CountRows(Filter(r, !(Status.Value in ["Reviewed", "N/A"]))) = 0 &&
+                      CountRows(Filter(r, IsGateDoc && IsBlank(FileLink))) = 0 &&
+                      qs = 0 && !varSaving,
+                      DisplayMode.Edit,
+                      DisplayMode.Disabled
+                  )
+              )
+            Fill: =If(varConfirmSign, RGBA(140, 78, 0, 1), RGBA(16, 124, 16, 1))
             FontWeight: =FontWeight.Semibold
             Height: =38
+            OnSelect: |-
+              =If(
+                  !varConfirmSign,
+                  Set(varConfirmSign, true),
+                  With(
+                      {n: varCurrentGate, pid: varProject.ID, ptitle: varProject.Title},
+                      Set(varSaving, true);
+                      IfError(
+                          Switch(
+                              n,
+                              1, Patch('NPI Projects', LookUp('NPI Projects', ID = pid), {Gate1SignedBy: varMeUser, Gate1SignedDate: Now(), CurrentGate: 2}),
+                              2, Patch('NPI Projects', LookUp('NPI Projects', ID = pid), {Gate2SignedBy: varMeUser, Gate2SignedDate: Now(), CurrentGate: 3}),
+                              3, Patch('NPI Projects', LookUp('NPI Projects', ID = pid), {Gate3SignedBy: varMeUser, Gate3SignedDate: Now(), CurrentGate: 4}),
+                              Patch(
+                                  'NPI Projects',
+                                  LookUp('NPI Projects', ID = pid),
+                                  {
+                                      Gate4SignedBy: varMeUser,
+                                      Gate4SignedDate: Now(),
+                                      ProjectStatus: {Value: "Closed"},
+                                      CloseDate: Today(),
+                                      RetentionUntil: DateAdd(Today(), 30, TimeUnit.Years)
+                                  }
+                              )
+                          );
+                          IfError(
+                              Patch(
+                                  'NPI Activity Log',
+                                  Defaults('NPI Activity Log'),
+                                  {
+                                      Title: ptitle & ": Gate " & n & " signed",
+                                      ProjectID: ptitle,
+                                      RequirementID: "Gate " & n,
+                                      ActionType: {Value: "Gate signed"},
+                                      Detail: "Gate " & n & " signed" & If(n = 4, "; project closed; retention until " & Text(DateAdd(Today(), 30, TimeUnit.Years), "mm/dd/yyyy"), ""),
+                                      PerformedBy: varMeUser,
+                                      PerformedDate: Now()
+                                  }
+                              ),
+                              Notify("Gate signed. The Activity Log entry failed: rename the ActionType choice 'Choice 8' to 'Gate signed'.", NotificationType.Warning)
+                          );
+                          Refresh('NPI Projects');
+                          ClearCollect(colProjects, 'NPI Projects');
+                          Set(varProject, LookUp(colProjects, ID = pid));
+                          Set(varCurrentGate, If(IsBlank(varProject.Gate1SignedDate), 1, IsBlank(varProject.Gate2SignedDate), 2, IsBlank(varProject.Gate3SignedDate), 3, 4));
+                          Set(varGate, varCurrentGate);
+                          Set(varConfirmSign, false);
+                          Set(varSaving, false);
+                          Notify("Gate " & n & " signed" & If(n = 4, ". Project closed.", ""), NotificationType.Success),
+                          Set(varConfirmSign, false);
+                          Set(varSaving, false);
+                          Notify("Sign-off failed: " & FirstError.Message, NotificationType.Error)
+                      )
+                  )
+              )
             RadiusBottomLeft: =4
             RadiusBottomRight: =4
             RadiusTopLeft: =4
             RadiusTopRight: =4
             Size: =13
-            Text: ="Sign Gate " & varCurrentGate
-            Width: =150
+            Text: =If(varConfirmSign, "Confirm: sign Gate " & varCurrentGate, If(!IsBlank(Switch(varCurrentGate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)), "Gate " & varCurrentGate & " signed", "Sign Gate " & varCurrentGate))
+            Width: =190
             X: =24
+            Y: =Parent.Height - 52
+      - btnSignCancel:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(17, 24, 39, 1)
+            BorderThickness: =1
+            Color: =RGBA(17, 24, 39, 1)
+            Fill: =Color.White
+            Height: =38
+            OnSelect: =Set(varConfirmSign, false)
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =12
+            Text: ="Cancel"
+            Visible: =varConfirmSign
+            Width: =80
+            X: =222
             Y: =Parent.Height - 52
       - lblSignGateHint:
           Control: Label@2.5.1
           Properties:
-            Color: =RGBA(55, 65, 81, 1)
-            Height: =38
-            Size: =12
+            Color: =If(varConfirmSign, RGBA(140, 78, 0, 1), RGBA(55, 65, 81, 1))
+            Height: =44
+            Size: =11
             Text: |-
               =If(
                   varProject.ProjectStatus.Value = "Closed",
-                  "Project is closed.",
+                  "Project closed " & Text(varProject.CloseDate, "mmm d, yyyy") & ". Records retained until " & Text(varProject.RetentionUntil, "mmm d, yyyy") & ".",
+                  varConfirmSign,
+                  "You are signing Gate " & varCurrentGate & " as " & User().FullName & If(varCurrentGate = 4, ". This closes the project and sets retention to 30 years.", ". Select Confirm to record it."),
                   With(
-                      {r: Filter(colReqs, Gate = varCurrentGate)},
-                      If(
-                          CountRows(r) > 0 &&
-                          CountRows(Filter(r, !(Status.Value in ["Reviewed", "N/A"]))) = 0 &&
-                          CountRows(Filter(r, IsGateDoc && IsBlank(FileLink))) = 0,
-                          "Gate " & varCurrentGate & " requirements are met. Gate sign-off is added in Increment 4.",
-                          "Available when gate requirements are met"
+                      {
+                      r: Filter(colReqs, Gate = varCurrentGate),
+                      qs: CountRows(Filter(colQs, QStatus.Value = "Open" && Gate <= varCurrentGate)),
+                      signed: !IsBlank(Switch(varCurrentGate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate))
+                  },
+                      With(
+                          {
+                              notDone: CountRows(Filter(r, !(Status.Value in ["Reviewed", "N/A"]))),
+                              noDoc: CountRows(Filter(r, IsGateDoc && IsBlank(FileLink)))
+                          },
+                          If(
+                              notDone = 0 && noDoc = 0 && qs = 0 && CountRows(r) > 0,
+                              If(varIsQEorQM, "Gate " & varCurrentGate & " is ready to sign.", "Gate " & varCurrentGate & " is ready. Only the project QE or the QM can sign it."),
+                              "Gate " & varCurrentGate & " blocked: " &
+                              Concat(
+                                  Filter(
+                                      Table(
+                                          {t: If(notDone > 0, notDone & If(notDone = 1, " requirement is", " requirements are") & " not Reviewed or N/A", "")},
+                                          {t: If(qs > 0, qs & If(qs = 1, " open question", " open questions") & " at this gate or earlier", "")},
+                                          {t: If(noDoc > 0, "the signed gate document is not uploaded", "")},
+                                          {t: If(CountRows(r) = 0, "no requirement rows for this gate", "")}
+                                      ),
+                                      !IsBlank(t)
+                                  ),
+                                  t,
+                                  "; "
+                              ) & "."
+                          )
                       )
                   )
               )
-            Width: =Parent.Width - 568 - 170
-            X: =190
-            Y: =Parent.Height - 52
+            Width: =Parent.Width - 568 - 290
+            X: =310
+            Y: =Parent.Height - 56
       - rectPanel:
           Control: Rectangle@2.3.0
           Properties:
@@ -830,7 +944,7 @@ Screens:
             RadiusTopRight: =4
             Size: =11
             Text: ="Reassign"
-            Visible: =!IsBlank(varRow) && varIsQEorQM
+            Visible: =!IsBlank(varRow) && varIsQEorQM && IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate))
             Width: =96
             X: =Parent.Width - 148
             Y: =280
@@ -886,7 +1000,7 @@ Screens:
             RadiusTopRight: =4
             Size: =11
             Text: ="Change date"
-            Visible: =!IsBlank(varRow) && varIsQEorQM
+            Visible: =!IsBlank(varRow) && varIsQEorQM && IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate))
             Width: =96
             X: =Parent.Width - 148
             Y: =316
@@ -1010,7 +1124,7 @@ Screens:
               =With(
                   {t: __PRIMARY_TARGET__},
                   If(
-                      IsBlank(t) || varSaving ||
+                      IsBlank(t) || varSaving || !IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)) ||
                       (t = "Done" && varRow.Status.Value in ["Not started", "Draft"] && varPdfRequired && IsBlank(varRow.FileLink)),
                       DisplayMode.Disabled,
                       DisplayMode.Edit
@@ -1048,7 +1162,7 @@ Screens:
             DisabledBorderColor: =RGBA(190, 199, 212, 1)
             DisabledColor: =RGBA(150, 156, 166, 1)
             DisabledFill: =Color.White
-            DisplayMode: =If(varSaving || (varRow.Status.Value = "Draft" && IsBlank(Trim(txtNote.Text))), DisplayMode.Disabled, DisplayMode.Edit)
+            DisplayMode: =If(varSaving || !IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)) || (varRow.Status.Value = "Draft" && IsBlank(Trim(txtNote.Text))), DisplayMode.Disabled, DisplayMode.Edit)
             Fill: =Color.White
             FontWeight: =FontWeight.Semibold
             Height: =38
@@ -1073,7 +1187,7 @@ Screens:
             Height: =40
             Size: =11
             Text: |-
-              =Switch(
+              =If(!IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)), "Gate " & varRow.Gate & " is signed, so this item is locked.", Switch(
                   varRow.Status.Value,
                   "Not started", If(varPdfRequired, "PDF required before submitting.", "Submit for review first. The QE or QM can then mark it reviewed."),
                   "Draft", If(varPdfRequired, "PDF required before submitting.", "Submit for review first. The QE or QM can then mark it reviewed."),
@@ -1085,7 +1199,7 @@ Screens:
                       "Only the project QE (" & Coalesce(varProject.QE.Email, "none set") & ") or the QM can review. You are signed in as " & varMe & "."
                   ),
                   ""
-              )
+              ))
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =456
             X: =Parent.Width - 500
@@ -1149,7 +1263,7 @@ Screens:
               Set(varEdit, "na")
             Size: =13
             Text: ="Mark N/A"
-            Visible: =!IsBlank(varRow) && IsBlank(varEdit) && varIsQEorQM && varRow.ReqLevel.Value = "If required" && varRow.Status.Value in ["Not started", "Draft"]
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit) && varIsQEorQM && IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)) && varRow.ReqLevel.Value = "If required" && varRow.Status.Value in ["Not started", "Draft"]
             Width: =120
             X: =Parent.Width - 164
             Y: =626

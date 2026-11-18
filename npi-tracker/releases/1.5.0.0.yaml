@@ -1,0 +1,7 @@
+version: 1.5.0.0
+title: Increment 4 gate sign-off, Gate 4 close and retention
+base: base/tenant_export_1_2_0_1.zip
+summary: |
+  Sign Gate N with the release rule (all rows Reviewed or N/A, no open questions at gate N or earlier,
+  signed gate document linked, QE or QM only, gates in order), two-step confirm, plain-language blocked
+  message, signed gates locked, Gate 4 closes the project and sets Close Date and Retention Until (+30 years).

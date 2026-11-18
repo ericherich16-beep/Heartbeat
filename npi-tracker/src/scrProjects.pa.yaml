@@ -558,7 +558,7 @@ Screens:
                   Visible: =Self.Width > 0
                   Width: |-
                     =With(
-                        {g: Max(1, Min(4, Coalesce(ThisItem.CurrentGate, 1))), pid: ThisItem.Title},
+                        {g: If(IsBlank(ThisItem.Gate1SignedDate), 1, IsBlank(ThisItem.Gate2SignedDate), 2, IsBlank(ThisItem.Gate3SignedDate), 3, 4), pid: ThisItem.Title},
                         With(
                             {r: Filter(colAllReqs, ProjectID = pid && Gate = g)},
                             If(
@@ -579,7 +579,7 @@ Screens:
                   Size: =12
                   Text: |-
                     =With(
-                        {g: Max(1, Min(4, Coalesce(ThisItem.CurrentGate, 1))), pid: ThisItem.Title},
+                        {g: If(IsBlank(ThisItem.Gate1SignedDate), 1, IsBlank(ThisItem.Gate2SignedDate), 2, IsBlank(ThisItem.Gate3SignedDate), 3, 4), pid: ThisItem.Title},
                         With(
                             {r: Filter(colAllReqs, ProjectID = pid && Gate = g)},
                             If(

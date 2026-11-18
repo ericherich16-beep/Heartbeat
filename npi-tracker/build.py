@@ -96,6 +96,19 @@ def indent_block(text, line):
     return "\n".join(pad + l for l in text.split("\n"))
 
 
+def yaml_safe(text):
+    """Turn one-line formulas that YAML would misread (': ', ' #', trailing ':') into |- blocks."""
+    out = []
+    for l in text.split("\n"):
+        m = re.match(r"^(\s*)(\w+): (=.*)$", l)
+        if m and (": " in m.group(3) or " #" in m.group(3) or m.group(3).rstrip().endswith(":")):
+            out.append(f"{m.group(1)}{m.group(2)}: |-")
+            out.append(f"{m.group(1)}  {m.group(3)}")
+        else:
+            out.append(l)
+    return "\n".join(out)
+
+
 def render_template(path):
     t = Path(path).read_text()
     out = []
@@ -520,7 +533,8 @@ def main(release_path):
     for name in ("scrProjects", "scrProjectDetail"):
         t = SRC / f"{name}.template.yaml"
         screens[f"Src\\{name}.pa.yaml"] = render_template(t) if t.exists() else (SRC / f"{name}.pa.yaml").read_text()
-    app_yaml = (SRC / "App.pa.yaml").read_text()
+    screens = {k: yaml_safe(v) for k, v in screens.items()}
+    app_yaml = yaml_safe((SRC / "App.pa.yaml").read_text())
     errs, count = validate(app_yaml, screens)
     if errs:
         print("VALIDATION FAILED")
