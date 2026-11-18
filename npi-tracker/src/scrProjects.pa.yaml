@@ -478,7 +478,7 @@ Screens:
                                 If(
                                     CountRows(r) = 0,
                                     "0%",
-                                    Text(CountRows(Filter(r, Status.Value in ["Reviewed", "N/A"])) / CountRows(r), "0%")
+                                    Text(100 * CountRows(Filter(r, Status.Value in ["Reviewed", "N/A"])) / CountRows(r), "0") & "%"
                                 )
                             )
                         )
