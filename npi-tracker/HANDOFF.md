@@ -60,3 +60,9 @@ python3 -I build_uploadtest.py
 ```
 - Sources: `src/` (screens; `*.template.yaml` has placeholders filled in by `build.py`), `schema.yaml` (SharePoint lists and columns, with `since` versions), `flows/NPIUploadFile/`, `releases/*.yaml`.
 - Older versions: check out the commit for that version. Its zip is also kept in `history/`.
+
+## Tenant results (2026-11-18 morning)
+- 1.6.0.0 **opened**. `Attachments@2.3.0` is confirmed working in the tenant.
+- Upload failed with no flow run: the app→flow binding (guessed workflowName) doesn't resolve. Fix: in Studio, remove and re-add NPIUploadFile in the Power Automate pane. **Next build must start from the user's export taken after this fix**, so the real binding is kept.
+- Activity gallery "Detail isn't recognized": source now binds galActivity directly to NPI Activity Log (hand fix given).
+- Source change: the upload/remove failure message now includes FirstError.Message.

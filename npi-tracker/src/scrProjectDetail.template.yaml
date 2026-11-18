@@ -1107,7 +1107,7 @@ Screens:
                                   varMe,
                                   Coalesce(varRow.FileName, "")
                               ),
-                              {success: false, message: "The NPIUploadFile flow could not be reached. Check that the flow is on and added to this app, then read the first red action in its run history.", fileurl: "", filename: "", itemid: 0, stamped: false}
+                              {success: false, message: "The NPIUploadFile flow call failed: " & FirstError.Message & " (if the flow has no run, remove and re-add NPIUploadFile in Studio > Power Automate)", fileurl: "", filename: "", itemid: 0, stamped: false}
                           )
                       );
                       IfError(
@@ -1641,7 +1641,7 @@ Screens:
                                       varMe,
                                       varRow.FileName
                                   ),
-                                  {success: false, message: "The NPIUploadFile flow could not be reached. Check that the flow is on and added to this app, then read the first red action in its run history.", fileurl: "", filename: "", itemid: 0, stamped: false}
+                                  {success: false, message: "The NPIUploadFile flow call failed: " & FirstError.Message & " (if the flow has no run, remove and re-add NPIUploadFile in Studio > Power Automate)", fileurl: "", filename: "", itemid: 0, stamped: false}
                               )
                           );
                           If(!varUp.success, Error({Kind: ErrorKind.Custom, Message: varUp.message}));
