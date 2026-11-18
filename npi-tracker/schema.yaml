@@ -1,0 +1,96 @@
+# SharePoint schema the app expects, by release.
+# Column names are INTERNAL names: create each column with exactly this name (no spaces) first,
+# then rename the display name if you want. 'since' = release that first needs the column/list.
+# Columns without 'since' already exist in the tenant (from 1.1.0.3).
+site: https://cartech365.sharepoint.com/sites/MTCExpansionPlanning
+
+lists:
+  NPI Projects:
+    columns:
+      ID: {type: id}
+      Title: {type: text}
+      PartNumber: {type: text}
+      Revision: {type: text}
+      PartRevKey: {type: text}
+      Customer: {type: text}
+      ProjectType: {type: choice, choices: [New Part, Revision]}
+      QE: {type: person}
+      CurrentGate: {type: number}
+      ProjectFolderUrl: {type: text}
+      ProjectStatus: {type: choice, choices: [Open, Closed]}
+      Created: {type: datetime}
+      Modified: {type: datetime}
+      Gate1SignedBy: {type: person, since: 1.5.0.0}
+      Gate1SignedDate: {type: datetime, since: 1.5.0.0}
+      Gate2SignedBy: {type: person, since: 1.5.0.0}
+      Gate2SignedDate: {type: datetime, since: 1.5.0.0}
+      Gate3SignedBy: {type: person, since: 1.5.0.0}
+      Gate3SignedDate: {type: datetime, since: 1.5.0.0}
+      Gate4SignedBy: {type: person, since: 1.5.0.0}
+      Gate4SignedDate: {type: datetime, since: 1.5.0.0}
+      CloseDate: {type: datetime, since: 1.5.0.0}
+      RetentionUntil: {type: datetime, since: 1.5.0.0}
+
+  Project Requirements:
+    columns:
+      ID: {type: id}
+      Title: {type: text}
+      ProjectID: {type: text}
+      Gate: {type: number}
+      SortOrder: {type: number}
+      Form: {type: text}
+      Section: {type: text}
+      RequirementType: {type: choice, choices: [Draft uploaded, Section complete, Signed (entire doc), Sent to customer, Customer signed, If required (N/A + reason)]}
+      Role: {type: choice, choices: [QE, QM, Tech, Quality, Metrology, PM]}
+      ReqLevel: {type: choice, choices: [Required, If required]}
+      IndependentReview: {type: boolean}
+      IsGateDoc: {type: boolean}
+      Assignee: {type: person}
+      DueDate: {type: datetime}
+      Status: {type: choice, choices: [Not started, Draft, Done, Reviewed, N/A]}
+      NAReason: {type: text}
+      ReviewedBy: {type: person}
+      UploadedBy: {type: person}
+      ReviewedDate: {type: datetime}
+      UploadedDate: {type: datetime}
+      FileLink: {type: text}
+      FileItemId: {type: number}
+      FileName: {type: text}
+
+  NPI Activity Log:
+    columns:
+      ID: {type: id}
+      Title: {type: text}
+      ProjectID: {type: text}
+      RequirementID: {type: text}
+      ActionType:
+        type: choice
+        # 1.4.0.0+: rename "Choice 8" to "Gate signed" and add the three question choices.
+        choices: [Upload, Replace, Remove, Status change, N/A, Reassign, Due date, Gate signed, Question added, Question closed, Question moved]
+        choices_since: {Gate signed: 1.5.0.0, Question added: 1.4.0.0, Question closed: 1.4.0.0, Question moved: 1.4.0.0}
+      Detail: {type: text}
+      Reason: {type: text}
+      FileName: {type: text}
+      PerformedBy: {type: person}
+      PerformedDate: {type: datetime}
+
+  NPI Role Defaults:
+    columns:
+      ID: {type: id}
+      Title: {type: text}
+      Role: {type: choice, choices: [QE, QM, Tech, Quality, Metrology, PM]}
+      DefaultAssignee: {type: person}
+
+  NPI Open Questions:
+    since: 1.4.0.0
+    columns:
+      ID: {type: id}
+      Title: {type: text}            # the question or action (F-Q-08 item)
+      ProjectID: {type: text}
+      Gate: {type: number}           # 1-4, required
+      Owner: {type: person}
+      DueDate: {type: datetime}
+      QStatus: {type: choice, choices: [Open, Closed]}
+      Resolution: {type: text}       # multiple lines of text, plain
+      GateMoveReason: {type: text}   # multiple lines of text, plain; last reason the gate was changed
+      Created: {type: datetime}

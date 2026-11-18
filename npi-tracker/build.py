@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Build the NPI Tracker importable solution from the working 1.1.0.3 package.
+"""Build an NPI Tracker importable solution for one release.
 
-Usage: python3 -I build.py <base-solution.zip> <output-dir>
+Usage: python3 -I build.py releases/<version>.yaml
 
-Rules this build follows (from the 1.1.0.0-1.1.0.3 failures):
-  * Start from the last package that imported and opened in the tenant.
-  * Change only Src/*.pa.yaml plus version/description metadata.
-    The msapp loads from YAML (packed.json LoadFromYaml=true); Controls/*.json are placeholders.
-  * No new connectors or data sources. Same four SharePoint lists and the NPICreateProject flow.
-  * Only control types/versions that already opened in 1.1.0.3, and only known properties.
-  * Keep the msapp entry names (literal backslashes) and entry order exactly as they were.
-  * The NPICreateProject flow JSON is copied byte-for-byte.
+Rules (learned from 1.1.0.0-1.1.0.3):
+  * Start from the latest tenant export (release 'base'). The tenant is the source of truth.
+  * The msapp loads from YAML (packed.json LoadFromYaml=true). Only Src/*.pa.yaml, data source
+    metadata and version/description metadata change. Controls/*.json are placeholders.
+  * Only control types proven to open in the tenant, plus any listed under 'extra_controls'
+    for a release that is explicitly marked as carrying an unproven control.
+  * No Office 365 Users. New SharePoint lists/columns come from schema.yaml ('since' = release).
+  * Keep msapp entry names (literal backslashes) and order. Existing flow JSON copied byte-for-byte.
+  * Every formula: YAML-safe, balanced, known data sources, known columns for Patch/varRow/varProject.
 """
 import datetime
 import json
@@ -22,8 +23,6 @@ from pathlib import Path
 
 import yaml
 
-VERSION = "1.2.0.2"
-LABEL = "NPI Tracker 1.2.0.2 - Overview and Project details redesign"
 HERE = Path(__file__).resolve().parent
 SRC = HERE / "src"
 
@@ -97,8 +96,8 @@ def indent_block(text, line):
     return "\n".join(pad + l for l in text.split("\n"))
 
 
-def render_detail():
-    t = (SRC / "scrProjectDetail.template.yaml").read_text()
+def render_template(path):
+    t = Path(path).read_text()
     out = []
     for line in t.split("\n"):
         if line.strip() == "__SAVE_PRIMARY__":
@@ -109,7 +108,7 @@ def render_detail():
             out.append(line)
     t = "\n".join(out)
     t = t.replace("__PRIMARY_TARGET__", PRIMARY_TARGET).replace("__SET_CANREVIEW__", CANREVIEW)
-    assert "__" not in t.replace("'@odata.type'", ""), "unreplaced placeholder"
+    assert "__" not in t.replace("'@odata.type'", ""), f"unreplaced placeholder in {path}"
     return t
 
 
@@ -137,7 +136,10 @@ ALLOWED = {
     "Classic/TextInput@2.3.2": TEXT_PROPS,
 }
 SCREEN_PROPS = {"Fill", "OnVisible"}
-DATA_SOURCES = {"'NPI Projects'", "'Project Requirements'", "'NPI Activity Log'", "'NPI Role Defaults'"}
+DATA_SOURCES = set()      # filled from the release schema
+COLUMNS = {}              # list name -> set of column names
+FLOWS = set()
+RECORD_VARS = {"varRow": "Project Requirements", "varProject": "NPI Projects", "varQ": "NPI Open Questions"}
 
 
 def check_formula(where, f):
@@ -162,7 +164,7 @@ def check_formula(where, f):
     if stack:
         errs.append(f"{where}: unclosed {''.join(stack)}")
     for q in re.findall(r"'[^']*'", stripped):
-        if q not in DATA_SOURCES and q != "'@odata.type'":
+        if q not in DATA_SOURCES and q != "'@odata.type'" and q.strip("'") not in FLOWS:
             errs.append(f"{where}: unknown quoted name {q}")
     return errs
 
@@ -175,7 +177,7 @@ def walk(children, screen, names, errs, controls):
         names.add(name)
         ctype = spec.get("Control")
         if ctype not in ALLOWED:
-            errs.append(f"{name}: control type {ctype} not proven in 1.1.0.3")
+            errs.append(f"{name}: control type {ctype} not proven in the tenant")
             continue
         if ctype == "Gallery@2.15.0" and spec.get("Variant") not in ("Vertical", "Horizontal"):
             errs.append(f"{name}: gallery variant missing")
@@ -220,127 +222,451 @@ def validate(app_yaml, screens):
                     errs.append(f"{name}.{prop}: reference to unknown control {r}")
                 elif controls[r][0] != screen:
                     errs.append(f"{name}.{prop}: cross-screen reference to {r}")
+    # column checks
+    for name, (screen, ctype, spec) in controls.items():
+        for prop, val in (spec.get("Properties") or {}).items():
+            errs += check_columns(f"{name}.{prop}", val)
+    for fname, text in screens.items():
+        doc = yaml.safe_load(text)
+        (sname, sspec), = doc["Screens"].items()
+        for prop, val in sspec["Properties"].items():
+            errs += check_columns(f"{sname}.{prop}", val)
     return errs, len(controls)
 
 
-# ---------------------------------------------------------------- packaging
-def main(base_zip, out_dir):
-    out_dir = Path(out_dir)
-    work = out_dir / "work"
-    if work.exists():
-        shutil.rmtree(work)
-    work.mkdir(parents=True)
+def _args(body, start):
+    """Split the call starting at body[start] == '(' into top-level args; return (args, end)."""
+    depth, cur, args, i, instr = 0, "", [], start, False
+    while i < len(body):
+        ch = body[i]
+        if ch == '"':
+            instr = not instr
+        if not instr:
+            if ch in "([{":
+                depth += 1
+                if depth == 1:
+                    i += 1
+                    continue
+            elif ch in ")]}":
+                depth -= 1
+                if depth == 0:
+                    args.append(cur)
+                    return args, i
+            elif ch == "," and depth == 1:
+                args.append(cur)
+                cur = ""
+                i += 1
+                continue
+        cur += ch
+        i += 1
+    return args, i
 
-    screens = {
-        "Src\\scrProjects.pa.yaml": (SRC / "scrProjects.pa.yaml").read_text(),
-        "Src\\scrProjectDetail.pa.yaml": render_detail(),
-    }
+
+def _top_keys(rec):
+    rec = rec.strip()
+    if not rec.startswith("{"):
+        return []
+    keys, depth, instr, token = [], 0, False, ""
+    for ch in rec:
+        if ch == '"':
+            instr = not instr
+        if instr:
+            continue
+        if ch in "([{":
+            depth += 1
+            token = ""
+            continue
+        if ch in ")]}":
+            depth -= 1
+            continue
+        if depth == 1:
+            if ch == ":":
+                t = token.strip().strip("'")
+                if re.fullmatch(r"[\w@.]+", t):
+                    keys.append(t)
+                token = ""
+            elif ch == ",":
+                token = ""
+            else:
+                token += ch
+    return keys
+
+
+def check_columns(where, f):
+    errs = []
+    body = f[1:] if isinstance(f, str) else ""
+    for m in re.finditer(r"\bPatch\(\s*'([^']+)'", body):
+        lst = m.group(1)
+        args, _ = _args(body, m.start() + len("Patch"))
+        if lst not in COLUMNS:
+            errs.append(f"{where}: Patch to unknown list {lst}")
+            continue
+        for a in args[2:]:
+            for k in _top_keys(a):
+                if k not in COLUMNS[lst]:
+                    errs.append(f"{where}: Patch('{lst}') sets unknown column {k}")
+    for var, lst in RECORD_VARS.items():
+        if lst not in COLUMNS:
+            if re.search(rf"\b{var}\.", body):
+                errs.append(f"{where}: {var} used but list {lst} not in this release")
+            continue
+        for col in re.findall(rf"\b{var}\.(\w+)", body):
+            if col not in COLUMNS[lst]:
+                errs.append(f"{where}: {var}.{col} is not a column of {lst}")
+    return errs
+
+
+
+
+# ---------------------------------------------------------------- schema -> data sources
+def vkey(v):
+    return tuple(int(x) for x in v.split("."))
+
+
+def release_schema(schema, version):
+    """Lists/columns/choices present at this release."""
+    out = {}
+    for lname, l in schema["lists"].items():
+        if "since" in l and vkey(l["since"]) > vkey(version):
+            continue
+        cols = {}
+        for cname, c in l["columns"].items():
+            if "since" in c and vkey(c["since"]) > vkey(version):
+                continue
+            c = dict(c)
+            if c["type"] == "choice" and "choices_since" in c:
+                c["choices"] = [x for x in c["choices"]
+                                if vkey(c["choices_since"].get(x, "0.0.0.0")) <= vkey(version)]
+            cols[cname] = c
+        out[lname] = {"new": "since" in l, "columns": cols}
+    return out
+
+
+PERSON_PROPS = {
+    "@odata.type": {"type": "string"}, "Claims": {"type": "string"}, "DisplayName": {"type": "string"},
+    "Email": {"type": "string", "format": "email"}, "Picture": {"type": "string"},
+    "Department": {"type": "string"}, "JobTitle": {"type": "string"},
+}
+
+
+def col_schema(name, c):
+    t = c["type"]
+    base = {"title": name, "x-ms-permission": "read-write"}
+    if t == "id":
+        return {**base, "type": "integer", "format": "int64"}
+    if t == "text":
+        return {**base, "type": "string"}
+    if t == "number":
+        return {**base, "type": "number"}
+    if t == "boolean":
+        return {**base, "type": "boolean"}
+    if t == "datetime":
+        return {**base, "type": "string", "format": "date-time"}
+    if t == "person":
+        return {**base, "type": "object", "properties": json.loads(json.dumps(PERSON_PROPS))}
+    if t == "choice":
+        return {**base, "type": "object", "properties": {"Value": {"type": "string", "enum": list(c["choices"])}}}
+    raise ValueError(t)
+
+
+def apply_schema(datasources, rs, site):
+    """Add new columns/choices to existing SharePoint data sources and add new lists."""
+    by_name = {d["Name"]: d for d in datasources["DataSources"]}
+    template = by_name["NPI Role Defaults"]
+    for lname, l in rs.items():
+        if lname in by_name:
+            ds = by_name[lname]
+        else:
+            ds = json.loads(json.dumps(template))
+            ds["Name"] = ds["TableName"] = lname
+            m = json.loads(ds["DataEntityMetadataJson"]["NPI Role Defaults"])
+            m["name"] = m["title"] = lname
+            m["schema"]["items"]["properties"] = {}
+            ds["DataEntityMetadataJson"] = {lname: json.dumps(m)}
+            ds["ConnectedDataSourceInfoNameMapping"] = {}
+            datasources["DataSources"].append(ds)
+        m = json.loads(ds["DataEntityMetadataJson"][lname])
+        props = m["schema"]["items"]["properties"]
+        for cname, c in l["columns"].items():
+            if cname not in props:
+                props[cname] = col_schema(cname, c)
+            elif c["type"] == "choice":
+                enum = props[cname]["properties"]["Value"]["enum"]
+                enum += [x for x in c["choices"] if x not in enum]
+            ds["ConnectedDataSourceInfoNameMapping"][cname] = cname
+        ds["DataEntityMetadataJson"] = {lname: json.dumps(m)}
+        ds["DatasetName"] = site
+    return [n for n in rs]
+
+
+# ---------------------------------------------------------------- flows
+def flow_wadl(name, inputs, outputs, base_wadl):
+    """WADL for a Power Apps (V1 'manual') trigger with text inputs, modelled on the working NPICreateProject."""
+    apim = re.search(r'base="([^"]+)"', base_wadl).group(1)
+    keys = ["text"] + [f"text_{i}" for i in range(1, len(inputs))]
+    tdefs = "\n".join(f'      <string name="ManualTriggerInput_{k}_def" />' for k in keys)
+    tprops = "\n".join(f'        <property name="{k}" type="string" />' for k in keys)
+    otype = {"boolean": "boolean", "number": "number", "string": "string"}
+    odefs = "\n".join(f'      <{otype[t]} name="ResponseActionOutput_{o}_def" />' for o, t in outputs.items())
+    oprops = "\n".join(f'        <property name="{o}" type="{otype[t]}" />' for o, t in outputs.items())
+    params = "\n".join(
+        f'            <param style="plain" name="{k}" path="/{k}" type="xs:string" required="true">'
+        f'<doc title="{inp}" /></param>' for k, inp in zip(keys, inputs))
+    return f'''<application xmlns:xml="http://www.w3.org/XML/1998/namespace" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:service="{apim}" xmlns:siena="http://schemas.microsoft.com/MicrosoftProjectSiena/WADL/2014/11" siena:serviceId="{name}" xmlns="http://wadl.dev.java.net/2009/02">
+  <doc title="{name}" />
+  <grammars>
+    <jsonTypes targetNamespace="{apim}" xmlns="http://schemas.microsoft.com/MicrosoftProjectSiena/WADL/2014/11">
+{tdefs}
+      <object name="ManualTriggerInput">
+{tprops}
+      </object>
+{odefs}
+      <object name="ResponseActionOutput">
+{oprops}
+      </object>
+      <object name="Run_responses_default_def" />
+    </jsonTypes>
+  </grammars>
+  <resources siena:authenticationProviderHref="#PowerAppAuth" base="{apim}">
+    <resource path="/{{connectionId}}/triggers/manual/run">
+      <param style="template" name="connectionId" type="xs:string" required="true" />
+      <method siena:requiresAuthentication="true" name="POST" id="Run">
+        <doc title="Runs a logic flow trigger." />
+        <request>
+          <param style="query" name="api-version" type="xs:string" required="true" fixed="2015-02-01-preview"><doc title="The api version" /></param>
+          <representation mediaType="application/json">
+{params}
+          </representation>
+        </request>
+        <response><representation mediaType="application/json" element="service:ResponseActionOutput" /></response>
+      </method>
+    </resource>
+  </resources>
+  <authenticationProviders xmlns="http://schemas.microsoft.com/MicrosoftProjectSiena/WADL/2014/11">
+    <connectionProvider id="PowerAppAuth" siena:connectionProviderId="logicflows" />
+  </authenticationProviders>
+  <template xmlns="http://schemas.microsoft.com/MicrosoftProjectSiena/WADL/2014/11">
+    <variable name="connectionId"><modifyParams style="template" name="connectionId" attribute="fixed" /></variable>
+  </template>
+</application>'''
+
+
+WORKFLOW_XML = '''    <Workflow WorkflowId="{{{guid}}}" Name="{name}">
+      <JsonFileName>/Workflows/{name}-{GUID}.json</JsonFileName>
+      <Type>1</Type>
+      <Subprocess>0</Subprocess>
+      <Category>5</Category>
+      <Mode>0</Mode>
+      <Scope>4</Scope>
+      <OnDemand>0</OnDemand>
+      <TriggerOnCreate>0</TriggerOnCreate>
+      <TriggerOnDelete>0</TriggerOnDelete>
+      <AsyncAutodelete>0</AsyncAutodelete>
+      <SyncWorkflowLogOnFailure>0</SyncWorkflowLogOnFailure>
+      <StateCode>1</StateCode>
+      <StatusCode>2</StatusCode>
+      <RunAs>1</RunAs>
+      <IsTransacted>1</IsTransacted>
+      <IntroducedVersion>{version}</IntroducedVersion>
+      <IsCustomizable>1</IsCustomizable>
+      <IsCustomProcessingStepAllowedForOtherPublishers>1</IsCustomProcessingStepAllowedForOtherPublishers>
+      <ModernFlowType>0</ModernFlowType>
+      <PrimaryEntity>none</PrimaryEntity>
+      <LocalizedNames>
+        <LocalizedName languagecode="1033" description="{name}" />
+      </LocalizedNames>
+    </Workflow>
+'''
+
+
+# ---------------------------------------------------------------- packaging
+def count_types(screens):
+    counts = {"screen": len(screens)}
+    for text in screens.values():
+        doc = yaml.safe_load(text)
+        (_, s), = doc["Screens"].items()
+
+        def w(ch):
+            for item in ch:
+                (_, spec), = item.items()
+                k = spec["Control"].split("/")[-1].split("@")[0]
+                k = k[0].lower() + k[1:]
+                counts[k] = counts.get(k, 0) + 1
+                w(spec.get("Children") or [])
+        w(s["Children"])
+    return counts
+
+
+def main(release_path):
+    rel = yaml.safe_load(Path(release_path).read_text())
+    version, title, summary = rel["version"], rel["title"], rel["summary"].strip()
+    base_zip = HERE / rel["base"]
+    out_dir = HERE / "history" / version
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    schema = yaml.safe_load((HERE / "schema.yaml").read_text())
+    rs = release_schema(schema, version)
+    COLUMNS.clear()
+    COLUMNS.update({l: set(v["columns"]) for l, v in rs.items()})
+    DATA_SOURCES.clear()
+    DATA_SOURCES.update(f"'{l}'" for l in rs)
+    flows = [yaml.safe_load((HERE / "flows" / f / "flow.yaml").read_text()) for f in rel.get("flows", [])]
+    FLOWS.clear()
+    FLOWS.update(f["name"] for f in flows)
+    for c in rel.get("extra_controls", []):
+        ALLOWED[c["type"]] = set(c["props"])
+
+    screens = {}
+    for name in ("scrProjects", "scrProjectDetail"):
+        t = SRC / f"{name}.template.yaml"
+        screens[f"Src\\{name}.pa.yaml"] = render_template(t) if t.exists() else (SRC / f"{name}.pa.yaml").read_text()
     app_yaml = (SRC / "App.pa.yaml").read_text()
     errs, count = validate(app_yaml, screens)
     if errs:
         print("VALIDATION FAILED")
         print("\n".join(errs))
         sys.exit(1)
-    print(f"validation passed: {count} controls")
-    (SRC / "generated").mkdir(exist_ok=True)
-    (SRC / "generated" / "scrProjectDetail.pa.yaml").write_text(screens["Src\\scrProjectDetail.pa.yaml"])
+    print(f"{version}: validation passed, {count} controls, lists: {', '.join(rs)}; flows: {[f['name'] for f in flows]}")
+    gen = out_dir / "src"
+    gen.mkdir(exist_ok=True)
+    (gen / "App.pa.yaml").write_text(app_yaml)
+    for n, t in screens.items():
+        (gen / n.split("\\")[1]).write_text(t)
 
     now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
     stamp_iso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     stamp_us = now.strftime("%m/%d/%Y %H:%M:%S")
-
+    import io
     base = zipfile.ZipFile(base_zip)
-    msapp_name = "CanvasApps/ericp_npitracker_i1_DocumentUri.msapp"
-    old_msapp = zipfile.ZipFile(__import__("io").BytesIO(base.read(msapp_name)))
+    msapp_name = next(n for n in base.namelist() if n.endswith("_DocumentUri.msapp"))
+    old_msapp = zipfile.ZipFile(io.BytesIO(base.read(msapp_name)))
+    sp_lists = list(rs)
 
-    new_entries = {}
+    ds_json = json.loads(old_msapp.read("References\\DataSources.json"))
+    apply_schema(ds_json, rs, schema["site"])
+    base_wadl = next(d for d in ds_json["DataSources"] if d["Name"] == "NPICreateProject")["WadlMetadata"]["WadlXml"]
+    for f in flows:
+        if any(d["Name"] == f["name"] for d in ds_json["DataSources"]):
+            continue
+        ds_json["DataSources"].append({
+            "ApiId": "/providers/microsoft.powerapps/apis/shared_logicflows",
+            "FlowNameId": f["guid"], "Name": f["name"], "ServiceKind": "ConnectedWadl", "Type": "ServiceInfo",
+            "WadlMetadata": {"WadlXml": flow_wadl(f["name"], f["inputs"], f["outputs"], base_wadl)},
+            "WorkflowEntityId": f["guid"],
+        })
+
+    entries = []
     for info in old_msapp.infolist():
-        data = old_msapp.read(info.filename)
-        n = info.filename
+        n, data = info.filename, old_msapp.read(info.filename)
         if n == "Src\\App.pa.yaml":
-            data = app_yaml.encode("utf-8")
+            data = app_yaml.encode()
         elif n in screens:
-            data = screens[n].encode("utf-8")
+            data = screens[n].encode()
+        elif n == "References\\DataSources.json":
+            data = json.dumps(ds_json, indent=2).encode()
         elif n == "Header.json":
             h = json.loads(data)
             h["LastSavedDateTimeUTC"] = stamp_us
-            data = json.dumps(h, indent=2).encode("utf-8")
+            data = json.dumps(h, indent=2).encode()
         elif n == "packed.json":
             p = json.loads(data)
             p["LastPackedDateTimeUtc"] = stamp_iso
-            p["PackingClient"]["Version"] = VERSION
-            data = json.dumps(p, indent=2).encode("utf-8")
+            p["PackingClient"]["Version"] = version
+            data = json.dumps(p, indent=2).encode()
         elif n == "Properties.json":
             p = json.loads(data)
-            p["AppDescription"] = (
-                "NPI Tracker 1.2.0.2: overview with highlights and gate progress; project details with gate strip, "
-                "document list, action panel, details and activity views. Built on 1.1.0.3."
-            )
+            p["AppDescription"] = f"NPI Tracker {version}: {title}."
             p["DefaultConnectedDataSourceMaxGetRowsCount"] = 2000
             p["ControlCount"] = count_types(screens)
-            data = json.dumps(p, indent=2).encode("utf-8")
-        new_entries[n] = (info, data)
-
-    msapp_path = work / "app.msapp"
-    with zipfile.ZipFile(msapp_path, "w", zipfile.ZIP_DEFLATED) as z:
-        for n, (info, data) in new_entries.items():
+            lcr = json.loads(p["LocalConnectionReferences"])
+            for k, v in lcr.items():
+                if "sharepointonline" in v["connectionRef"]["id"]:
+                    v["dataSources"] = sp_lists
+                    v["datasets"][schema["site"]]["dataSources"] = {l: {"tableName": l} for l in sp_lists}
+            p["LocalConnectionReferences"] = json.dumps(lcr)
+            data = json.dumps(p, indent=2).encode()
+        entries.append((n, data))
+    mbuf = io.BytesIO()
+    with zipfile.ZipFile(mbuf, "w", zipfile.ZIP_DEFLATED) as z:
+        for n, data in entries:
             zi = zipfile.ZipInfo(n, date_time=now.timetuple()[:6])
             zi.compress_type = zipfile.ZIP_DEFLATED
             z.writestr(zi, data)
 
-    sol_name = f"EricP_NPITrackerIncrement1_{VERSION.replace('.', '_')}.zip"
-    sol_path = out_dir / sol_name
+    sol_path = out_dir / f"EricP_NPITrackerIncrement1_{version.replace('.', '_')}.zip"
+    desc = f"NPI Tracker {version}: {title}"
     with zipfile.ZipFile(sol_path, "w", zipfile.ZIP_DEFLATED) as z:
+        def put(n, data, stamp=True, orig=None):
+            zi = zipfile.ZipInfo(n, date_time=now.timetuple()[:6] if stamp else orig.date_time)
+            zi.compress_type = zipfile.ZIP_DEFLATED
+            z.writestr(zi, data)
         for info in base.infolist():
-            n = info.filename
-            data = base.read(n)
+            n, data = info.filename, base.read(info.filename)
             if n == msapp_name:
-                data = msapp_path.read_bytes()
+                put(n, mbuf.getvalue())
             elif n == "solution.xml":
                 s = data.decode("utf-8")
-                s = re.sub(r"<Version>[^<]*</Version>", f"<Version>{VERSION}</Version>", s)
-                s = s.replace('description="NPI Tracker Increment 2a"', f'description="{LABEL}"')
-                s = re.sub(
-                    r'<Description description="[^"]*" languagecode="1033" />',
-                    '<Description description="NPI Tracker 1.2.0.2: Overview and Project details redesign built on '
-                    'the working 1.1.0.3 package. NPICreateProject is unchanged from the working 1.0.0.8 export." '
-                    'languagecode="1033" />',
-                    s,
-                    count=1,
-                )
-                data = s.encode("utf-8")
+                s = re.sub(r"<Version>[^<]*</Version>", f"<Version>{version}</Version>", s)
+                s = re.sub(r'(<LocalizedNames>\s*<LocalizedName description=")[^"]*(" languagecode="1033" />)',
+                           lambda m: m.group(1) + desc + m.group(2), s, count=1)
+                s = re.sub(r'(<Descriptions>\s*<Description description=")[^"]*(")',
+                           lambda m: m.group(1) + desc + m.group(2), s, count=1)
+                for f in flows:
+                    if f["guid"].lower() not in s.lower():
+                        s = s.replace("<RootComponents>", f'<RootComponents>\n      <RootComponent type="29" id="{{{f["guid"]}}}" behavior="0" />', 1)
+                put(n, s.encode("utf-8"))
             elif n == "customizations.xml":
                 s = data.decode("utf-8")
                 s = re.sub(r"<AppVersion>[^<]*</AppVersion>", f"<AppVersion>{stamp_iso}</AppVersion>", s)
-                s = re.sub(
-                    r"<Description>NPI Tracker[^<]*</Description>",
-                    "<Description>NPI Tracker 1.2.0.2: Overview and Project details redesign.</Description>",
-                    s,
-                )
-                data = s.encode("utf-8")
-            zi = zipfile.ZipInfo(n, date_time=now.timetuple()[:6] if n in (msapp_name, "solution.xml", "customizations.xml") else info.date_time)
-            zi.compress_type = zipfile.ZIP_DEFLATED
-            z.writestr(zi, data)
-    shutil.rmtree(work)
-    print(f"wrote {sol_path}")
-
-
-def count_types(screens):
-    counts = {"screen": len(screens)}
-    key = {"Label@2.5.1": "label", "Classic/Button@2.2.0": "button", "Classic/TextInput@2.3.2": "textInput",
-           "Gallery@2.15.0": "gallery", "Rectangle@2.3.0": "rectangle"}
-    def w(ch):
-        for item in ch:
-            (_, spec), = item.items()
-            k = key[spec["Control"]]
-            counts[k] = counts.get(k, 0) + 1
-            w(spec.get("Children") or [])
-    for text in screens.values():
-        doc = yaml.safe_load(text)
-        (_, s), = doc["Screens"].items()
-        w(s["Children"])
-    return counts
+                s = re.sub(r"(<CanvasApp>.*?<Description>)[^<]*(</Description>)",
+                           lambda m: m.group(1) + desc + m.group(2), s, count=1, flags=re.S)
+                # ConnectionReferences JSON on the canvas app
+                m = re.search(r"<ConnectionReferences>(.*?)</ConnectionReferences>", s, re.S)
+                cr = json.loads(m.group(1))
+                for k, v in cr.items():
+                    if v["id"].endswith("shared_sharepointonline"):
+                        v["dataSources"] = sp_lists
+                        v["dataSets"][schema["site"]]["dataSources"] = {l: {"tableName": l} for l in sp_lists}
+                cdeps = json.loads(re.search(r"<CdsDependencies>(.*?)</CdsDependencies>", s, re.S).group(1))
+                for f in flows:
+                    if not any(f["name"] in v.get("dataSources", []) for v in cr.values()):
+                        cr[f["cr_key"]] = {
+                            "id": "/providers/microsoft.powerapps/apis/shared_logicflows",
+                            "displayName": "Logic flows",
+                            "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4908/logicflows/icon.png",
+                            "dataSources": [f["name"]], "dependencies": [], "dependents": [],
+                            "parameterHints": {"workflowName": {"value": f["guid"]}, "workflowEntityId": {"value": f["guid"]}},
+                            "parameterHintsV2": {"workflowName": {"value": f["guid"]}, "workflowEntityId": {"value": f["guid"]}},
+                            "isOnPremiseConnection": False, "bypassConsent": False, "dataSets": {},
+                            "apiTier": "Standard", "actions": ["Run"]}
+                    if not any(d["dependencyid"] == f["guid"] for d in cdeps["cdsdependencies"]):
+                        cdeps["cdsdependencies"].append({"componenttype": 29, "dependencyid": f["guid"],
+                                                         "componenttypeplatformname": "Workflow"})
+                    if f["guid"].lower() not in s.lower():
+                        wx = WORKFLOW_XML.format(guid=f["guid"], GUID=f["guid"].upper(), name=f["name"], version=version)
+                        s = s.replace("</Workflows>", wx + "  </Workflows>", 1)
+                s = s.replace(m.group(1), json.dumps(cr, separators=(",", ":")).replace("&", "&amp;"))
+                s = re.sub(r"<CdsDependencies>.*?</CdsDependencies>",
+                           lambda _: "<CdsDependencies>" + json.dumps(cdeps, separators=(",", ":")) + "</CdsDependencies>", s, flags=re.S)
+                put(n, s.encode("utf-8"))
+            else:
+                put(n, data, stamp=False, orig=info)
+        for f in flows:
+            fn = f"Workflows/{f['name']}-{f['guid'].upper()}.json"
+            if fn not in base.namelist():
+                put(fn, (HERE / "flows" / f["dir"] / "flow.json").read_bytes())
+    # sanity: re-open everything
+    chk = zipfile.ZipFile(sol_path)
+    assert chk.testzip() is None
+    zipfile.ZipFile(io.BytesIO(chk.read(msapp_name))).testzip()
+    import xml.dom.minidom
+    for n in ("solution.xml", "customizations.xml", "[Content_Types].xml"):
+        xml.dom.minidom.parseString(chk.read(n))
+    for n in chk.namelist():
+        if n.endswith(".json"):
+            json.loads(chk.read(n).decode("utf-8-sig"))
+    print(f"wrote {sol_path.relative_to(HERE)}")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1])

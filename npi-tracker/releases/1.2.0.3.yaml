@@ -1,0 +1,8 @@
+version: 1.2.0.3
+title: Overview and Project details redesign (tenant export rebase)
+base: base/tenant_export_1_2_0_1.zip
+summary: |
+  Rebuilt on the user's tenant export of 1.2.0.1 (the app in it was still 1.2.0.0).
+  QE/QM matched by email or sign-in claims; role badge; percentages shown x100;
+  Independent Review blocks assignee, uploader and submitter (other rows allow self-review);
+  reassign, due date and Mark N/A on the main panel; read-only details grid.
