@@ -1,6 +1,6 @@
 ---
 name: powerapps-package-builder
-description: Build, check and hand over Power Apps canvas apps packaged as importable solution zips (pac canvas pack / pac solution pack) on SharePoint lists, with Power Automate flows. Use when generating .msapp or .pa.yaml/.fx.yaml source, a solution zip, SharePoint list setup, or flows for an app, and when diagnosing an import error, an App checker error, a blank or black app, or a flow that won't turn on. Includes the rules from earlier failed imports and a verifier script to run before delivering any package.
+description: Build, check and hand over Power Apps canvas apps packaged as importable solution zips (pac canvas pack / pac solution pack) on SharePoint lists, with Power Automate flows. Use when generating .msapp or .pa.yaml/.fx.yaml source, a solution zip, SharePoint list setup, or flows for an app, and when diagnosing an import error, an App checker error, a blank or black app, or a flow that won't turn on. Builds from an existing spec or PRD in tracer-bullet vertical slices (slicing it first if needed), with the rules from earlier failed imports and a verifier script to run before every slice is delivered.
 ---
 
 # Power Apps package builder
@@ -9,16 +9,25 @@ Every rule here comes from a real failure: an import error, a flow that wouldn't
 
 ## Workflow
 
-1. **Spec and schema first.** Write `lists.json` (format in `assets/lists.example.json`):
-   - every list or library, marked with `kind` `list` or `library`
-   - every column's internal name, equal to its display name, a plain identifier with no spaces
-   - every column's SharePoint `TypeAsString`
+This skill is the **build** stage. The spec or PRD usually comes from elsewhere (for example grill-me → write-a-prd → prd-to-plan). Build it in vertical slices. Full rules are in section F of `references/build-rules.md`.
 
-   The setup guide, the app's data source definitions and the checker all use this one file.
-2. **Generate the source from a real Studio-saved `.msapp` template** (PKG-04). Never write `Header.json`, `Properties.json` or `References/*` by hand.
-3. **Pack:** `pac canvas pack`, then add the app to the solution, then `pac solution pack`. Add `<CanvasApps>` to `Customizations.xml` yourself (PKG-02), and bump the version (PKG-03).
-4. **Verify** (below). Fix every FAIL, then run it again.
-5. **Hand over** using the template at the end.
+1. **Read the spec and get the slices.**
+   - **If it already has vertical slices** (for example a `prd-to-plan` file in `plans/`), use them in order.
+   - **If not,** propose numbered slices. For each: the user-visible behaviour, the lists/columns, screens/controls and flow steps it touches, and its acceptance test. **Stop and wait for approval.**
+   - **If anything is missing** that a slice needs, ask instead of guessing.
+2. **Slice 1 is a tracer bullet:** solution + environment variables + one list + one screen that reads and writes it (+ the flow if the app has one). It must be imported and working before any feature work.
+3. **For each slice:**
+   1. **Update `lists.json`** (format in `assets/lists.example.json`):
+      - mark every list or library with `kind` `list` or `library`
+      - every column's internal name equals its display name, a plain identifier with no spaces
+      - give every column's SharePoint `TypeAsString`
+      - add new columns only; never rename or retype earlier ones
+   2. **Generate the source** from a real Studio-saved `.msapp` template (PKG-04). Never write `Header.json`, `Properties.json` or `References/*` by hand.
+   3. **Pack:** `pac canvas pack`, then add the app to the solution, then `pac solution pack`. Add `<CanvasApps>` to `Customizations.xml` yourself (PKG-02), and bump the version (PKG-03).
+   4. **Verify** (below) until there are 0 FAIL.
+   5. **Hand over** using the template at the end, including the exact SharePoint columns to add for this slice.
+   6. **Wait** for the user's import, App checker result and acceptance test before starting the next slice. Never batch slices.
+4. **Keep a slice log** (for example `plans/<app>-slices.md`): status, version, test result, and any changes the user made in Studio, so they can be copied back into the source before the next build.
 
 ## Verify before every delivery
 
@@ -83,7 +92,9 @@ Before asking the user to rebuild SharePoint lists, prove the app itself works w
 
 ## Handover template
 
-> **Built:** `<Name>_<version>_unmanaged.zip`.
+> **Built:** slice <n> of <total>, `<Name>_<version>_unmanaged.zip`.
+> **SharePoint changes for this slice:** <columns to add: internal name, type, choices>.
+> **Acceptance test:** <steps and expected result>.
 > **Checks:** passed `verify_package.py` with 0 FAIL. WARN items: … MANUAL items confirmed: …
 > **Not tested:** not opened in Power Apps.
 > **After import:**

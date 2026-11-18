@@ -12,10 +12,11 @@ Report statuses: **FAIL** must be fixed before delivery. **WARN**: review it and
 
 ## Workflow
 
-1. **Spec first:** lists (internal names, types, list or library), screens, rules and flows. Write `lists.json`.
+1. **Spec first:** take the spec or PRD (from any source), then slice it into vertical slices or use its slices (section F). Write `lists.json`.
 2. **Generate the source,** starting from a real Studio-saved app (PKG-04).
 3. **Pack on the PC:** `pac canvas pack`, then `pac solution pack`.
 4. **Run the checker** on the zip and fix every FAIL. Run it again.
+   Steps 2–6 repeat for **each slice**.
 5. **Import** at **Solutions → Import solution**, then follow POST_IMPORT. App checker must show 0 errors.
 6. **Report problems exactly.** Copy any import message or App checker error word for word: control name + property + message.
 
@@ -241,6 +242,47 @@ Test formulas against sample data before delivery, including the edge cases: bla
 
 ### RUN-03: Honest handover
 Every handover says the package passed the checker but **wasn't opened in Power Apps**, lists the post-import steps, and asks for the exact error text if anything fails.
+
+---
+
+## F. Building from a spec in vertical slices
+
+This kit is the **build** stage. The spec or PRD can come from anywhere, for example Matt Pocock's grill-me → write-a-prd → prd-to-plan skills. The assistant builds from it one vertical slice at a time.
+
+### SLICE-01: Start from the spec, and slice it if needed
+- **If the spec already has a plan of vertical slices** (for example a `prd-to-plan` output), build them in that order. Don't re-slice it.
+- **If it doesn't,** propose the slices first: a numbered list, each with the user-visible behaviour, the lists/columns, screens/controls and flow steps it touches, and its acceptance test. **Wait for approval before building.**
+- **If the spec is missing something a slice needs** (column types, list or library, roles, the exact flow trigger), ask. Don't guess.
+
+### SLICE-02: Slice 1 is a tracer bullet through the packaging
+- **Slice 1 contains:** the solution, the environment variables, **one** list (from `lists.json`), and **one** screen that reads and writes it. Include the flow too if the app has one.
+- **The user imports it and it works** before any other features are built.
+- **Why:** this proves every packaging rule (PKG, APP-03/04/12/13, SP, FLOW-01/02/07) on a tiny app.
+- **Seen:** JQC/PWI was built in horizontal layers (all lists → environment variables → formulas → flow → 13 screens → docs). The first real import then hit the missing app (PKG-02), the flow column error (FLOW-02), `field_N` columns (SP-01), blank screens (APP-03) and black controls (APP-04), all at once. Stage 2 skipped testing between slices, and its first import failed the same way (APP-01, then PKG-04).
+
+### SLICE-03: Each slice is vertical, not horizontal
+- **A slice is one user-visible behaviour, end to end:** the list columns it needs, the screen controls, the formulas, any flow step, and its post-import steps.
+- **Wrong:** "all lists", "all screens" or "all formulas".
+- **Typical order:** tracer bullet (list + browse + add) → view/edit → status rules → file upload/flow → roles and permissions → reports/matrix → polish.
+
+### SLICE-04: Every slice ends with an import and a test
+For each slice, in order:
+1. Bump the version.
+2. Run the checker and get 0 FAIL.
+3. The user imports it and App checker shows 0 errors.
+4. The user runs the slice's acceptance test and reports back.
+
+Don't start the next slice until this one passes, and don't batch slices into one import.
+
+### SLICE-05: List changes per slice
+SharePoint lists are set up by hand, so every slice gives:
+- the exact columns to add, with internal name, type and choices
+- the updated `lists.json`
+
+Never rename or retype a column from an earlier slice. Add a new one instead.
+
+### SLICE-06: Keep a slice log
+Keep a short plan file (for example `plans/<app>-slices.md`) with each slice's status, version, test result, and any changes the user made in Studio, so they can be copied back into the source before the next build (RUN-02).
 
 ---
 

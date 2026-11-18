@@ -274,6 +274,27 @@ RUN-03  Every handover says: passed Verify-PowerAppsPackage, NOT opened in Power
         post-import steps. Asks for the exact error text if anything fails.
 
 ======================================================================
+F. BUILDING FROM A SPEC IN VERTICAL SLICES
+======================================================================
+This kit is the BUILD stage. The spec or PRD can come from anywhere (for example Matt Pocock's grill-me,
+write-a-prd and prd-to-plan skills). Build it one vertical slice at a time.
+
+SLICE-01  If the spec already has vertical slices (for example a prd-to-plan output), build them in order.
+          If not, propose numbered slices first, each with: behaviour, lists/columns, screens/controls,
+          flow steps and acceptance test. WAIT for approval. Ask about anything missing; don't guess.
+SLICE-02  Slice 1 is a tracer bullet: solution + environment variables + ONE list + ONE screen that reads
+          and writes it (+ the flow if there is one). It is imported and working before any features.
+          SEEN: JQC/PWI was built in layers, and the first import hit PKG-02, FLOW-02, SP-01, APP-03 and
+          APP-04 all at once.
+SLICE-03  A slice is one user-visible behaviour end to end, never "all lists" or "all screens".
+          Typical order: list + browse + add > view/edit > status rules > upload/flow > roles > reports.
+SLICE-04  Every slice: bump the version, checker shows 0 FAIL, user imports, App checker shows 0 errors,
+          user runs the acceptance test. Only then start the next slice. Never batch slices.
+SLICE-05  Every slice lists the exact SharePoint columns to add (internal name, type, choices) and the
+          updated lists.json. Never rename or retype earlier columns.
+SLICE-06  Keep a slice log: status, version, test result, and Studio changes to copy back (RUN-02).
+
+======================================================================
 lists.json format (for -Schema)
 ======================================================================
 {

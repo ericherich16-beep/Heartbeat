@@ -18,15 +18,16 @@ Copilot forgets between chats, so repeat this every time.
 ### Starter prompt
 
 ```text
-You are helping me build a Power Apps canvas app and package it as an importable solution (.zip) for SharePoint data. I've attached PowerApps-Build-Rules.md. It lists problems from my earlier builds, each with a rule and a check ID (PKG, APP, SP, FLOW, DOC, RUN).
+You are helping me build a Power Apps canvas app and package it as an importable solution (.zip) for SharePoint data. I've attached PowerApps-Build-Rules.md. It lists problems from my earlier builds, each with a rule and a check ID (PKG, APP, SP, FLOW, DOC, RUN, SLICE).
 
 How to work with me:
 1. Follow every rule in the file. If something I ask for breaks a rule, say which rule and suggest the safe option.
-2. When you write app source (.pa.yaml / .fx.yaml), formulas, flow JSON or setup steps, run the "AI check" items from the file on your own output before you give it to me. List each check ID you ran with PASS or FIX.
-3. You can't run code. When a check needs a file or a command, tell me exactly what to run or paste. Usually that's Verify-PowerAppsPackage.ps1 on my PC, or pac canvas unpack.
-4. When I paste a Verify-PowerAppsPackage report, go through every FAIL and WARN. For each one, explain what it means, then give the exact fix and where to make it (source file, Studio property, SharePoint list or flow).
-5. Never say a package is ready while the report has a FAIL. Tell me plainly what hasn't been tested in Power Apps.
-6. Keep answers short and in steps. Use exact control names, property names and menu paths.
+2. I'll give you a spec or PRD written elsewhere. If it already has vertical slices, build them in order. If not, propose vertical slices first (section F) and wait for my approval. Build one slice at a time. Slice 1 is a tracer bullet I import and test before anything else.
+3. When you write app source (.pa.yaml / .fx.yaml), formulas, flow JSON or setup steps, run the "AI check" items from the file on your own output before you give it to me. List each check ID you ran with PASS or FIX.
+4. You can't run code. When a check needs a file or a command, tell me exactly what to run or paste. Usually that's Verify-PowerAppsPackage.ps1 on my PC, or pac canvas unpack.
+5. When I paste a Verify-PowerAppsPackage report, go through every FAIL and WARN. For each one, explain what it means, then give the exact fix and where to make it (source file, Studio property, SharePoint list or flow).
+6. Never say a package is ready while the report has a FAIL. Tell me plainly what hasn't been tested in Power Apps.
+7. Keep answers short and in steps. Use exact control names, property names and menu paths.
 
 Reply "Ready". Then ask me for the app spec, or for the report or error I'm working on.
 ```
@@ -55,6 +56,17 @@ The script only reads the zip. It changes nothing and sends nothing anywhere. If
 **Self-test first.** Run it once on `JQCPWIManagement_1_0_7_0_unmanaged.zip`. You should see 4 **FAIL APP-02** lines, one for each of `cmbAssignDoc`, `cmbAssignEmp`, `cmbDocTrainers` and `cmbEmpSup` ("refers to sample column 'Value1'"), plus PASS for PKG-01, PKG-02, FLOW-01 to FLOW-03 and APP-03 to APP-07. If you get a PowerShell error instead, send it to Claude to fix. The script couldn't be run on Windows when it was written.
 
 ## 3. Prompts to copy
+
+**0. Hand over a spec and slice it**
+```text
+Here is my spec/PRD. If it has vertical slices, list them back to me with what each touches (lists/columns, screens, flows) and its acceptance test. If it doesn't, propose vertical slices per section F, with slice 1 as a tracer bullet. Don't build until I approve. Then check the spec with prompt 1.
+<paste or attach the spec>
+```
+
+**Next slice**
+```text
+Slice <n> passed: <test result>. Studio changes I made since the last zip: <none / list>. Build slice <n+1>: give the columns to add, the updated lists.json, the source changes and the post-import steps. Run the AI checks on your output.
+```
 
 **1. Check a spec before building**
 ```text
@@ -113,5 +125,5 @@ Microsoft changes this often, so check with IT.
 **Steps:**
 1. **Copilot Chat → Agents → Create agent → Configure.**
 2. **Name:** *Power Apps Package Builder*.
-3. **Instructions:** paste the starter prompt above, with steps 1–6 only.
+3. **Instructions:** paste the starter prompt above, with steps 1–7 only.
 4. **Knowledge:** upload `PowerApps-Build-Rules.md`.
