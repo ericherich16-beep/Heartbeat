@@ -1022,7 +1022,7 @@ Screens:
             BorderColor: =RGBA(190, 199, 212, 1)
             BorderThickness: =1
             Fill: =RGBA(250, 251, 253, 1)
-            Height: =50
+            Height: =54
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =456
             X: =Parent.Width - 500
@@ -1032,13 +1032,27 @@ Screens:
           Properties:
             Align: =Align.Center
             Color: =RGBA(55, 65, 81, 1)
-            Height: =50
+            Height: =54
             Size: =18
             Text: ="↑"
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
-            Width: =40
-            X: =Parent.Width - 494
+            Width: =36
+            X: =Parent.Width - 498
             Y: =388
+      - attPdf:
+          Control: Attachments@2.3.0
+          Properties:
+            AddAttachmentText: ="Choose a PDF"
+            BorderColor: =RGBA(250, 251, 253, 1)
+            DisplayMode: =If(!IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)) || varRow.Status.Value = "N/A" || varSaving, DisplayMode.Disabled, DisplayMode.Edit)
+            Height: =50
+            MaxAttachments: =1
+            NoAttachmentsText: =""
+            Size: =11
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
+            Width: =300
+            X: =Parent.Width - 462
+            Y: =390
       - btnAddPdf:
           Control: Classic/Button@2.2.0
           Properties:
@@ -1048,46 +1062,148 @@ Screens:
             DisabledBorderColor: =RGBA(190, 199, 212, 1)
             DisabledColor: =RGBA(150, 156, 166, 1)
             DisabledFill: =Color.White
-            DisplayMode: =DisplayMode.Disabled
+            DisplayMode: |-
+              =If(
+                  CountRows(attPdf.Attachments) = 1 &&
+                  EndsWith(Lower(First(attPdf.Attachments).Name), ".pdf") &&
+                  !(!IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate))) && varRow.Status.Value <> "N/A" && !varSaving,
+                  DisplayMode.Edit,
+                  DisplayMode.Disabled
+              )
             Fill: =Color.White
-            Height: =30
+            FontWeight: =FontWeight.Semibold
+            Height: =32
+            OnSelect: |-
+              =With(
+                  {
+                      f: First(attPdf.Attachments),
+                      rowId: varRow.ID,
+                      rowTitle: varRow.Title,
+                      oldS: varRow.Status.Value,
+                      mode: If(IsBlank(varRow.FileLink), "upload", "replace")
+                  },
+                  With(
+                      {
+                          finalName: If(
+                              mode = "replace" && !IsBlank(varRow.FileName),
+                              varRow.FileName,
+                              If(CountRows(Filter(colReqs, ID <> rowId && FileName = f.Name)) > 0, rowTitle & "_" & f.Name, f.Name)
+                          )
+                      },
+                      Set(varSaving, true);
+                      Set(
+                          varUp,
+                          IfError(
+                              NPIUploadFile.Run(
+                                  mode,
+                                  varProject.ProjectFolderUrl,
+                                  finalName,
+                                  JSON(f.Value, JSONFormat.IncludeBinaryData),
+                                  varProject.Title,
+                                  rowTitle,
+                                  Text(varRow.Gate),
+                                  varRow.Form,
+                                  Coalesce(varRow.Section, ""),
+                                  varMe,
+                                  Coalesce(varRow.FileName, "")
+                              ),
+                              {success: false, message: "The NPIUploadFile flow could not be reached. Check that the flow is on and added to this app, then read the first red action in its run history.", fileurl: "", filename: "", itemid: 0, stamped: false}
+                          )
+                      );
+                      IfError(
+                          If(!varUp.success, Error({Kind: ErrorKind.Custom, Message: varUp.message}));
+                          Patch(
+                              'Project Requirements',
+                              LookUp('Project Requirements', ID = rowId),
+                              {
+                                  FileLink: varUp.fileurl,
+                                  FileName: varUp.filename,
+                                  FileItemId: varUp.itemid,
+                                  UploadedBy: varMeUser,
+                                  UploadedDate: Now(),
+                                  Status: {Value: Switch(oldS, "Reviewed", "Done", "Not started", "Draft", oldS)}
+                              }
+                          );
+                          Patch(
+                              'NPI Activity Log',
+                              Defaults('NPI Activity Log'),
+                              {
+                                  Title: rowTitle & ": " & mode,
+                                  ProjectID: varProject.Title,
+                                  RequirementID: rowTitle,
+                                  ActionType: {Value: If(mode = "replace", "Replace", "Upload")},
+                                  FileName: varUp.filename,
+                                  Detail: If(mode = "replace", "New version of ", "Uploaded ") & varUp.filename &
+                                      Switch(oldS, "Reviewed", "; Reviewed -> Done (new file needs review again)", "Not started", "; Not started -> Draft", ""),
+                                  PerformedBy: varMeUser,
+                                  PerformedDate: Now()
+                              }
+                          );
+                          Reset(attPdf);
+                          Refresh('Project Requirements');
+                          ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
+                          Set(varRow, LookUp(colReqs, ID = rowId));
+                          __SET_CANREVIEW__;
+                          Set(varSaving, false);
+                          Notify(varUp.message, If(varUp.stamped, NotificationType.Success, NotificationType.Warning)),
+                          Set(varSaving, false);
+                          Notify("Upload failed: " & FirstError.Message, NotificationType.Error)
+                      )
+                  )
+              )
             RadiusBottomLeft: =4
             RadiusBottomRight: =4
             RadiusTopLeft: =4
             RadiusTopRight: =4
             Size: =12
-            Text: ="Add PDF"
+            Text: =If(varSaving, "Saving...", If(IsBlank(varRow.FileLink), "Upload", "Replace"))
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =96
-            X: =Parent.Width - 448
-            Y: =398
-      - rectUploadDivider:
-          Control: Rectangle@2.3.0
-          Properties:
-            Fill: =RGBA(190, 199, 212, 1)
-            Height: =26
-            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
-            Width: =1
-            X: =Parent.Width - 338
-            Y: =400
+            X: =Parent.Width - 150
+            Y: =399
       - lblUploadText:
           Control: Label@2.5.1
           Properties:
-            Color: =If(IsBlank(varRow.FileLink), RGBA(75, 85, 99, 1), RGBA(10, 92, 178, 1))
-            Height: =50
+            Color: |-
+              =If(
+                  CountRows(attPdf.Attachments) = 1 && !EndsWith(Lower(First(attPdf.Attachments).Name), ".pdf"),
+                  RGBA(177, 14, 30, 1),
+                  If(IsBlank(varRow.FileLink), RGBA(75, 85, 99, 1), RGBA(10, 92, 178, 1))
+              )
+            Height: =24
             OnSelect: =If(!IsBlank(varRow.FileLink), Launch(varRow.FileLink))
-            Size: =12
+            Size: =11
             Text: |-
               =If(
+                  CountRows(attPdf.Attachments) = 1 && !EndsWith(Lower(First(attPdf.Attachments).Name), ".pdf"),
+                  "Only PDF files can be uploaded.",
+                  !IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)),
+                  If(IsBlank(varRow.FileLink), "Gate is signed. Upload is closed.", "Signed record: " & Coalesce(varRow.FileName, "open file")),
                   IsBlank(varRow.FileLink),
-                  "No file linked yet. Upload is added in Increment 2b.",
-                  "Open file: " & Coalesce(varRow.FileName, "linked file")
+                  "No file linked yet.",
+                  "Current file: " & Coalesce(varRow.FileName, "open file") & If(CountRows(attPdf.Attachments) = 1, "  (Replace saves a new version)", "")
               )
-            Underline: =!IsBlank(varRow.FileLink)
+            Underline: =!IsBlank(varRow.FileLink) && CountRows(attPdf.Attachments) = 0
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
-            Width: =316
-            X: =Parent.Width - 330
-            Y: =388
+            Width: =350
+            X: =Parent.Width - 500
+            Y: =444
+      - lblRemoveFile:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Right
+            Color: =RGBA(177, 14, 30, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =24
+            OnSelect: |-
+              =Reset(txtRemoveReason);
+              Set(varEdit, "remove")
+            Size: =11
+            Text: ="Remove file"
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit) && !IsBlank(varRow.FileLink) && IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate))
+            Width: =100
+            X: =Parent.Width - 144
+            Y: =444
       - lblNotesCap:
           Control: Label@2.5.1
           Properties:
@@ -1099,7 +1215,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit) && !(varRow.Status.Value in ["Reviewed", "N/A"])
             Width: =200
             X: =Parent.Width - 500
-            Y: =444
+            Y: =466
       - txtNote:
           Control: Classic/TextInput@2.3.2
           Properties:
@@ -1112,7 +1228,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit) && !(varRow.Status.Value in ["Reviewed", "N/A"])
             Width: =456
             X: =Parent.Width - 500
-            Y: =472
+            Y: =494
       - btnPrimary:
           Control: Classic/Button@2.2.0
           Properties:
@@ -1152,7 +1268,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =190
             X: =Parent.Width - 500
-            Y: =540
+            Y: =562
       - btnSecondary:
           Control: Classic/Button@2.2.0
           Properties:
@@ -1179,7 +1295,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit) && varRow.Status.Value in ["Not started", "Draft", "Done"]
             Width: =150
             X: =Parent.Width - 296
-            Y: =540
+            Y: =562
       - lblActionHint:
           Control: Label@2.5.1
           Properties:
@@ -1203,7 +1319,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =456
             X: =Parent.Width - 500
-            Y: =582
+            Y: =604
       - lblViewDetails:
           Control: Label@2.5.1
           Properties:
@@ -1216,7 +1332,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =110
             X: =Parent.Width - 500
-            Y: =626
+            Y: =648
       - lblLinkSep:
           Control: Label@2.5.1
           Properties:
@@ -1228,7 +1344,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =20
             X: =Parent.Width - 388
-            Y: =626
+            Y: =648
       - lblActivity:
           Control: Label@2.5.1
           Properties:
@@ -1250,7 +1366,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =80
             X: =Parent.Width - 364
-            Y: =626
+            Y: =648
       - lblMarkNA:
           Control: Label@2.5.1
           Properties:
@@ -1266,7 +1382,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit) && varIsQEorQM && IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)) && varRow.ReqLevel.Value = "If required" && varRow.Status.Value in ["Not started", "Draft"]
             Width: =120
             X: =Parent.Width - 164
-            Y: =626
+            Y: =648
       - lblEditTitle:
           Control: Label@2.5.1
           Properties:
@@ -1275,7 +1391,7 @@ Screens:
             Height: =28
             Size: =13
             Text: |-
-              =Switch(varEdit, "assignee", "Reassign to", "due", "Change due date", "na", "Mark not applicable (reason required)", "")
+              =Switch(varEdit, "assignee", "Reassign to", "due", "Change due date", "na", "Mark not applicable (reason required)", "remove", "Remove file (moved to the _Removed folder; reason required)", "")
             Visible: =!IsBlank(varRow) && !IsBlank(varEdit)
             Width: =456
             X: =Parent.Width - 500
@@ -1447,6 +1563,19 @@ Screens:
             Width: =456
             X: =Parent.Width - 500
             Y: =392
+      - txtRemoveReason:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            Default: =""
+            Height: =90
+            HintText: ="Why is this file being removed? (wrong file, wrong project, wrong requirement...)"
+            Mode: =TextMode.MultiLine
+            Size: =12
+            Visible: =varEdit = "remove"
+            Width: =456
+            X: =Parent.Width - 500
+            Y: =392
       - btnEditSave:
           Control: Classic/Button@2.2.0
           Properties:
@@ -1460,9 +1589,10 @@ Screens:
                   "assignee", If(IsBlank(varSelectedAssignee), DisplayMode.Disabled, DisplayMode.Edit),
                   "due", If(IsBlank(Trim(txtDueDate.Text)) || IsError(DateValue(txtDueDate.Text)), DisplayMode.Disabled, DisplayMode.Edit),
                   "na", If(IsBlank(Trim(txtNAReason.Text)), DisplayMode.Disabled, DisplayMode.Edit),
+                  "remove", If(IsBlank(Trim(txtRemoveReason.Text)) || varSaving, DisplayMode.Disabled, DisplayMode.Edit),
                   DisplayMode.Disabled
               )
-            Fill: =If(varEdit = "na", RGBA(117, 64, 0, 1), RGBA(10, 92, 178, 1))
+            Fill: =If(varEdit in ["na", "remove"], RGBA(117, 64, 0, 1), RGBA(10, 92, 178, 1))
             FontWeight: =FontWeight.Semibold
             Height: =38
             OnSelect: |-
@@ -1501,6 +1631,47 @@ Screens:
                                   PerformedDate: Now()
                               }
                           ),
+                          "remove",
+                          Set(
+                              varUp,
+                              IfError(
+                                  NPIUploadFile.Run(
+                                      "remove",
+                                      varProject.ProjectFolderUrl,
+                                      "",
+                                      "",
+                                      varProject.Title,
+                                      rowTitle,
+                                      Text(varRow.Gate),
+                                      varRow.Form,
+                                      Coalesce(varRow.Section, ""),
+                                      varMe,
+                                      varRow.FileName
+                                  ),
+                                  {success: false, message: "The NPIUploadFile flow could not be reached. Check that the flow is on and added to this app, then read the first red action in its run history.", fileurl: "", filename: "", itemid: 0, stamped: false}
+                              )
+                          );
+                          If(!varUp.success, Error({Kind: ErrorKind.Custom, Message: varUp.message}));
+                          Patch(
+                              'Project Requirements',
+                              LookUp('Project Requirements', ID = rowId),
+                              {FileLink: Blank(), FileName: Blank(), FileItemId: Blank(), Status: {Value: If(oldS in ["Done", "Reviewed"], "Draft", oldS)}}
+                          );
+                          Patch(
+                              'NPI Activity Log',
+                              Defaults('NPI Activity Log'),
+                              {
+                                  Title: rowTitle & ": file removed",
+                                  ProjectID: varProject.Title,
+                                  RequirementID: rowTitle,
+                                  ActionType: {Value: "Remove"},
+                                  FileName: varRow.FileName,
+                                  Detail: "Moved " & varRow.FileName & " to _Removed" & If(oldS in ["Done", "Reviewed"], "; " & oldS & " -> Draft", ""),
+                                  Reason: Trim(txtRemoveReason.Text),
+                                  PerformedBy: varMeUser,
+                                  PerformedDate: Now()
+                              }
+                          ),
                           "na",
                           Patch('Project Requirements', LookUp('Project Requirements', ID = rowId), {Status: {Value: "N/A"}, NAReason: Trim(txtNAReason.Text)});
                           Patch(
@@ -1524,7 +1695,7 @@ Screens:
                       __SET_CANREVIEW__;
                       Set(varSelectedAssignee, Blank());
                       Set(varEdit, "");
-                      Notify(Switch(mode, "assignee", "Reassigned", "due", "Due date set", "Marked N/A"), NotificationType.Success),
+                      Notify(Switch(mode, "assignee", "Reassigned", "due", "Due date set", "remove", "File removed", "Marked N/A"), NotificationType.Success),
                       Notify("Update failed: " & FirstError.Message, NotificationType.Error)
                   )
               )
@@ -1533,7 +1704,7 @@ Screens:
             RadiusTopLeft: =4
             RadiusTopRight: =4
             Size: =13
-            Text: =Switch(varEdit, "assignee", "Save assignee", "due", "Save due date", "na", "Set N/A", "Save")
+            Text: =Switch(varEdit, "assignee", "Save assignee", "due", "Save due date", "na", "Set N/A", "remove", "Remove file", "Save")
             Visible: =!IsBlank(varRow) && !IsBlank(varEdit)
             Width: =190
             X: =Parent.Width - 500

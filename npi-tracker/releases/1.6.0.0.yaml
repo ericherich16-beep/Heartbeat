@@ -1,0 +1,13 @@
+version: 1.6.0.0
+title: Increment 2b upload, replace and remove
+base: base/tenant_export_1_2_0_1.zip
+flows: [NPIUploadFile]
+extra_controls:
+  - type: Attachments@2.3.0
+    props: [AddAttachmentText, BorderColor, DisplayMode, Height, MaxAttachments, NoAttachmentsText, Size, Visible, Width, X, Y]
+summary: |
+  Upload a PDF from the requirement row (NPIUploadFile flow saves it in the project folder, stamps library
+  columns, returns the link); Replace saves a new version of the same file; Remove moves it to _Removed
+  with a required reason. Real uploader recorded on the row and in the library. U4: new file on a Reviewed
+  row resets it to Done; upload closed after the gate is signed. Duplicate names get the requirement ID prefix.
+  PDF now required before Submit for review.

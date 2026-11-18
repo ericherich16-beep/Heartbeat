@@ -1,0 +1,23 @@
+name: NPIUploadFile
+dir: NPIUploadFile
+guid: 7c1e4b2a-5d3f-4e8a-9b61-2f0a6c9d4e17
+cr_key: 3b8f0c51-6e2d-4a7c-8f19-c4d2a7b5e903
+inputs:
+- Mode
+- ProjectFolderUrl
+- FileName
+- FileContent
+- ProjectID
+- RequirementID
+- Gate
+- Form
+- Section
+- UploaderEmail
+- ExistingFileName
+outputs:
+  success: boolean
+  message: string
+  fileurl: string
+  filename: string
+  itemid: number
+  stamped: boolean

@@ -11,7 +11,7 @@ App:
       Set(varLastMessage, "");
       Set(varProjectFilter, "Open");
       Set(varDocFilter, "Needed");
-      Set(varPdfRequired, false);
+      Set(varPdfRequired, true);
       Set(varUpcomingDays, 14);
       Set(varSiteUrl, "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning");
       Set(varProjectLibrary, "NPIProjectFiles");

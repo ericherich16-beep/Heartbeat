@@ -1,0 +1,674 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "ericp_sharedsharepointonline_npi"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "d649fe14-0cbc-437f-828f-71cd9fe894ce"
+          },
+          "type": "Request",
+          "kind": "PowerAppV2",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "Mode",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_1": {
+                  "title": "ProjectFolderUrl",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_2": {
+                  "title": "FileName",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_3": {
+                  "title": "FileContent",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_4": {
+                  "title": "ProjectID",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_5": {
+                  "title": "RequirementID",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_6": {
+                  "title": "Gate",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_7": {
+                  "title": "Form",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_8": {
+                  "title": "Section",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_9": {
+                  "title": "UploaderEmail",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_10": {
+                  "title": "ExistingFileName",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT"
+                }
+              },
+              "required": [
+                "text",
+                "text_1",
+                "text_2",
+                "text_3",
+                "text_4",
+                "text_5",
+                "text_6",
+                "text_7",
+                "text_8",
+                "text_9",
+                "text_10"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Initialize_varItemId": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "2651555e-a558-4f08-9c23-b1c65bf0df27"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "varItemId",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "Initialize_varPath": {
+          "runAfter": {
+            "Initialize_varItemId": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "394f4772-3dc8-41fa-87b6-a2fd34c1496e"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "varPath",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Compose_FolderName": {
+          "runAfter": {
+            "Initialize_varPath": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "48534e70-eed0-4e00-b3c9-246258cd719b"
+          },
+          "type": "Compose",
+          "inputs": "@decodeUriComponent(last(split(trim(triggerBody()?['text_1']),'/')))"
+        },
+        "Compose_FolderPath": {
+          "runAfter": {
+            "Compose_FolderName": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "da359744-660e-4aea-8cfc-61a744019765"
+          },
+          "type": "Compose",
+          "inputs": "@concat('/NPIProjectFiles/',outputs('Compose_FolderName'))"
+        },
+        "Scope_Main": {
+          "runAfter": {
+            "Compose_FolderPath": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "4fcf4eb4-6289-4d98-a49d-79ba7b9b4a16"
+          },
+          "type": "Scope",
+          "actions": {
+            "If_remove": {
+              "metadata": {
+                "operationMetadataId": "ed43eb44-c7c6-4b88-b795-8f544ac3aa84"
+              },
+              "type": "If",
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@triggerBody()?['text']",
+                      "remove"
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Get_file_to_remove": {
+                  "metadata": {
+                    "operationMetadataId": "d5b4f4d8-cbe0-4bf5-b5ef-fc6fdc65768b"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning",
+                      "path": "@{outputs('Compose_FolderPath')}/@{triggerBody()?['text_10']}"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "GetFileMetadataByPath",
+                      "connectionName": "shared_sharepointonline"
+                    }
+                  }
+                },
+                "Create_Removed_folder": {
+                  "metadata": {
+                    "operationMetadataId": "c2bc74bf-4533-4f59-9851-e5d1afdb9578"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning",
+                      "table": "876092ca-47ee-4732-9e45-b0bf72fcac93",
+                      "parameters/path": "@concat(outputs('Compose_FolderName'),'/_Removed')"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "CreateNewFolder",
+                      "connectionName": "shared_sharepointonline"
+                    }
+                  },
+                  "runAfter": {
+                    "Get_file_to_remove": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Move_file_to_Removed": {
+                  "metadata": {
+                    "operationMetadataId": "460ac678-0c30-46c7-89f3-91194ef88fac"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning",
+                      "parameters/sourceFileId": "@body('Get_file_to_remove')?['Id']",
+                      "parameters/destinationDataset": "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning",
+                      "parameters/destinationFolderPath": "@concat(outputs('Compose_FolderPath'),'/_Removed')",
+                      "parameters/nameConflictBehavior": 2
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "MoveFileAsync",
+                      "connectionName": "shared_sharepointonline"
+                    }
+                  },
+                  "runAfter": {
+                    "Create_Removed_folder": [
+                      "Succeeded",
+                      "Failed"
+                    ]
+                  }
+                },
+                "Respond_removed": {
+                  "metadata": {
+                    "operationMetadataId": "c256a4cd-7b21-4503-81d0-41ec5b95642b"
+                  },
+                  "type": "Response",
+                  "kind": "PowerApp",
+                  "inputs": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "title": "success",
+                          "x-ms-dynamically-added": true,
+                          "type": "boolean"
+                        },
+                        "message": {
+                          "title": "message",
+                          "x-ms-dynamically-added": true,
+                          "type": "string"
+                        },
+                        "fileurl": {
+                          "title": "fileurl",
+                          "x-ms-dynamically-added": true,
+                          "type": "string"
+                        },
+                        "filename": {
+                          "title": "filename",
+                          "x-ms-dynamically-added": true,
+                          "type": "string"
+                        },
+                        "itemid": {
+                          "title": "itemid",
+                          "x-ms-dynamically-added": true,
+                          "type": "number"
+                        },
+                        "stamped": {
+                          "title": "stamped",
+                          "x-ms-dynamically-added": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": {}
+                    },
+                    "statusCode": 200,
+                    "body": {
+                      "success": true,
+                      "message": "File moved to the _Removed folder.",
+                      "fileurl": "",
+                      "filename": "@triggerBody()?['text_10']",
+                      "itemid": 0,
+                      "stamped": false
+                    }
+                  },
+                  "runAfter": {
+                    "Move_file_to_Removed": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
+              "else": {
+                "actions": {
+                  "Compose_Content": {
+                    "metadata": {
+                      "operationMetadataId": "1bca4ac8-b41d-449f-99c0-2bb8e3300ccf"
+                    },
+                    "type": "Compose",
+                    "inputs": "@base64ToBinary(last(split(replace(triggerBody()?['text_3'],'\"',''),',')))"
+                  },
+                  "Check_existing_name": {
+                    "metadata": {
+                      "operationMetadataId": "f166a9e9-fe45-4ef6-8eb8-5ee568b89cef"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning",
+                        "path": "@{outputs('Compose_FolderPath')}/@{triggerBody()?['text_2']}"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "GetFileMetadataByPath",
+                        "connectionName": "shared_sharepointonline"
+                      }
+                    },
+                    "runAfter": {
+                      "Compose_Content": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Compose_FinalName": {
+                    "metadata": {
+                      "operationMetadataId": "388f603b-6944-4288-840a-cca9966aaecd"
+                    },
+                    "type": "Compose",
+                    "runAfter": {
+                      "Check_existing_name": [
+                        "Succeeded",
+                        "Failed"
+                      ]
+                    },
+                    "inputs": "@if(and(equals(actions('Check_existing_name')?['status'],'Succeeded'),equals(triggerBody()?['text'],'upload')),concat(triggerBody()?['text_5'],'_',triggerBody()?['text_2']),triggerBody()?['text_2'])"
+                  },
+                  "If_replace": {
+                    "metadata": {
+                      "operationMetadataId": "00f6e175-c15b-4b5a-a1c5-2e77a65075e9"
+                    },
+                    "type": "If",
+                    "runAfter": {
+                      "Compose_FinalName": [
+                        "Succeeded"
+                      ]
+                    },
+                    "expression": {
+                      "and": [
+                        {
+                          "equals": [
+                            "@triggerBody()?['text']",
+                            "replace"
+                          ]
+                        },
+                        {
+                          "equals": [
+                            "@actions('Check_existing_name')?['status']",
+                            "Succeeded"
+                          ]
+                        }
+                      ]
+                    },
+                    "actions": {
+                      "Update_file_new_version": {
+                        "metadata": {
+                          "operationMetadataId": "46c81f2b-c921-42a3-b660-465d19224e7c"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "dataset": "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning",
+                            "id": "@body('Check_existing_name')?['Id']",
+                            "body": "@outputs('Compose_Content')"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                            "operationId": "UpdateFile",
+                            "connectionName": "shared_sharepointonline"
+                          }
+                        },
+                        "runtimeConfiguration": {
+                          "contentTransfer": {
+                            "transferMode": "Chunked"
+                          }
+                        }
+                      },
+                      "Set_varItemId_replace": {
+                        "metadata": {
+                          "operationMetadataId": "405aefd5-8b5f-41cb-8353-78ddbcdcc8af"
+                        },
+                        "type": "SetVariable",
+                        "runAfter": {
+                          "Update_file_new_version": [
+                            "Succeeded"
+                          ]
+                        },
+                        "inputs": {
+                          "name": "varItemId",
+                          "value": "@body('Update_file_new_version')?['ItemId']"
+                        }
+                      },
+                      "Set_varPath_replace": {
+                        "metadata": {
+                          "operationMetadataId": "5c0c1a33-ecab-4907-8f9a-6ab22ea1a924"
+                        },
+                        "type": "SetVariable",
+                        "runAfter": {
+                          "Set_varItemId_replace": [
+                            "Succeeded"
+                          ]
+                        },
+                        "inputs": {
+                          "name": "varPath",
+                          "value": "@body('Update_file_new_version')?['Path']"
+                        }
+                      }
+                    },
+                    "else": {
+                      "actions": {
+                        "Create_file": {
+                          "metadata": {
+                            "operationMetadataId": "60a82e7f-343f-4d84-9fed-e0b2c4189501"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "dataset": "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning",
+                              "folderPath": "@outputs('Compose_FolderPath')",
+                              "name": "@outputs('Compose_FinalName')",
+                              "body": "@outputs('Compose_Content')"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "operationId": "CreateFile",
+                              "connectionName": "shared_sharepointonline"
+                            }
+                          },
+                          "runtimeConfiguration": {
+                            "contentTransfer": {
+                              "transferMode": "Chunked"
+                            }
+                          }
+                        },
+                        "Set_varItemId_create": {
+                          "metadata": {
+                            "operationMetadataId": "e340ebdd-ebf4-4676-8345-a36bbd98d4a1"
+                          },
+                          "type": "SetVariable",
+                          "runAfter": {
+                            "Create_file": [
+                              "Succeeded"
+                            ]
+                          },
+                          "inputs": {
+                            "name": "varItemId",
+                            "value": "@body('Create_file')?['ItemId']"
+                          }
+                        },
+                        "Set_varPath_create": {
+                          "metadata": {
+                            "operationMetadataId": "8db22c79-da37-40ea-8ed1-f2a3a2e4965c"
+                          },
+                          "type": "SetVariable",
+                          "runAfter": {
+                            "Set_varItemId_create": [
+                              "Succeeded"
+                            ]
+                          },
+                          "inputs": {
+                            "name": "varPath",
+                            "value": "@body('Create_file')?['Path']"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "Stamp_file_properties": {
+                    "metadata": {
+                      "operationMetadataId": "b3530ea2-b930-4246-acff-d009ba7b2657"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning",
+                        "table": "876092ca-47ee-4732-9e45-b0bf72fcac93",
+                        "id": "@variables('varItemId')",
+                        "item": {
+                          "ProjectID": "@triggerBody()?['text_4']",
+                          "RequirementID": "@triggerBody()?['text_5']",
+                          "Gate": "@int(triggerBody()?['text_6'])",
+                          "FormNumber": "@triggerBody()?['text_7']",
+                          "FormSection": "@triggerBody()?['text_8']",
+                          "UploadedBy": {
+                            "Claims": "@concat('i:0#.f|membership|',triggerBody()?['text_9'])"
+                          },
+                          "UploadedDate": "@utcNow()"
+                        }
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "PatchFileItem",
+                        "connectionName": "shared_sharepointonline"
+                      }
+                    },
+                    "runAfter": {
+                      "If_replace": [
+                        "Succeeded"
+                      ]
+                    }
+                  },
+                  "Respond_uploaded": {
+                    "metadata": {
+                      "operationMetadataId": "c751ed13-80fc-4f43-bae7-4d40956b2cfa"
+                    },
+                    "type": "Response",
+                    "kind": "PowerApp",
+                    "inputs": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "success": {
+                            "title": "success",
+                            "x-ms-dynamically-added": true,
+                            "type": "boolean"
+                          },
+                          "message": {
+                            "title": "message",
+                            "x-ms-dynamically-added": true,
+                            "type": "string"
+                          },
+                          "fileurl": {
+                            "title": "fileurl",
+                            "x-ms-dynamically-added": true,
+                            "type": "string"
+                          },
+                          "filename": {
+                            "title": "filename",
+                            "x-ms-dynamically-added": true,
+                            "type": "string"
+                          },
+                          "itemid": {
+                            "title": "itemid",
+                            "x-ms-dynamically-added": true,
+                            "type": "number"
+                          },
+                          "stamped": {
+                            "title": "stamped",
+                            "x-ms-dynamically-added": true,
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": {}
+                      },
+                      "statusCode": 200,
+                      "body": {
+                        "success": true,
+                        "message": "@if(equals(actions('Stamp_file_properties')?['status'],'Succeeded'),'File saved.','File saved, but its library columns could not be stamped. Check that NPIProjectFiles has the ProjectID, RequirementID, Gate, FormNumber, FormSection, UploadedBy and UploadedDate columns.')",
+                        "fileurl": "@concat('https://cartech365.sharepoint.com',replace(replace(concat('/sites/MTCExpansionPlanning',variables('varPath')),'/sites/MTCExpansionPlanning/sites/MTCExpansionPlanning','/sites/MTCExpansionPlanning'),' ','%20'))",
+                        "filename": "@last(split(variables('varPath'),'/'))",
+                        "itemid": "@variables('varItemId')",
+                        "stamped": "@equals(actions('Stamp_file_properties')?['status'],'Succeeded')"
+                      }
+                    },
+                    "runAfter": {
+                      "Stamp_file_properties": [
+                        "Succeeded",
+                        "Failed"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Respond_failed": {
+          "metadata": {
+            "operationMetadataId": "6ba301bc-12d7-4c14-9c73-8f757a80c48b"
+          },
+          "type": "Response",
+          "kind": "PowerApp",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "success": {
+                  "title": "success",
+                  "x-ms-dynamically-added": true,
+                  "type": "boolean"
+                },
+                "message": {
+                  "title": "message",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "fileurl": {
+                  "title": "fileurl",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "filename": {
+                  "title": "filename",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "itemid": {
+                  "title": "itemid",
+                  "x-ms-dynamically-added": true,
+                  "type": "number"
+                },
+                "stamped": {
+                  "title": "stamped",
+                  "x-ms-dynamically-added": true,
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": {}
+            },
+            "statusCode": 200,
+            "body": {
+              "success": false,
+              "message": "@concat('The NPIUploadFile flow failed (', triggerBody()?['text'], ' ', triggerBody()?['text_2'], '). Open its run history and read the first red action.')",
+              "fileurl": "",
+              "filename": "",
+              "itemid": 0,
+              "stamped": false
+            }
+          },
+          "runAfter": {
+            "Scope_Main": [
+              "Failed",
+              "TimedOut",
+              "Skipped"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}
