@@ -331,6 +331,29 @@
                     "type": "Compose",
                     "inputs": "@base64ToBinary(last(split(replace(triggerBody()?['text_3'],'\"',''),',')))"
                   },
+                  "Ensure_project_folder": {
+                    "metadata": {
+                      "operationMetadataId": "862caa38-e391-4b68-b141-ca21e91d393b"
+                    },
+                    "type": "OpenApiConnection",
+                    "runAfter": {
+                      "Compose_Content": [
+                        "Succeeded"
+                      ]
+                    },
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning",
+                        "table": "876092ca-47ee-4732-9e45-b0bf72fcac93",
+                        "parameters/path": "@outputs('Compose_FolderName')"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "CreateNewFolder",
+                        "connectionName": "shared_sharepointonline"
+                      }
+                    }
+                  },
                   "Check_existing_name": {
                     "metadata": {
                       "operationMetadataId": "f166a9e9-fe45-4ef6-8eb8-5ee568b89cef"
@@ -348,8 +371,9 @@
                       }
                     },
                     "runAfter": {
-                      "Compose_Content": [
-                        "Succeeded"
+                      "Ensure_project_folder": [
+                        "Succeeded",
+                        "Failed"
                       ]
                     }
                   },
