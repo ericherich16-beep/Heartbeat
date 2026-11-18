@@ -1,6 +1,6 @@
-# NPI Tracker 1.2.0.1: Overview and Project details redesign
+# NPI Tracker 1.2.0.2: Overview and Project details redesign
 
-**Package:** `dist/EricP_NPITrackerIncrement1_1_2_0_1.zip` (same solution `EricP_NPITrackerIncrement1`, same app `ericp_npitracker_i1`)
+**Package:** `dist/EricP_NPITrackerIncrement1_1_2_0_2.zip` (same solution `EricP_NPITrackerIncrement1`, same app `ericp_npitracker_i1`)
 **Built from:** `EricP_NPITrackerIncrement2a_1_1_0_3.zip` (tenant-tested: imports and opens)
 **Status:** Built, not opened
 
@@ -53,3 +53,13 @@ Rebuild: `python3 -I build.py <1.1.0.3 zip> dist`
 - **QE and QM matching:** the app now recognises the QE or QM by email **or** by sign-in name (the SharePoint Claims value), because the two can differ. The same applies to the Independent Review assignee and uploader check.
 - **Role badge:** the header shows "You: QE", "You: QM" or "You: Team member".
 - **Clearer hints:** when Mark reviewed isn't offered, the panel says why and shows the email you're signed in with. Not started and Draft rows now say to submit first.
+
+## 1.2.0.2 changes
+- **Independent Review rule fixed.** Mark reviewed is blocked for the row's assignee, its uploader, **and the person who last submitted it** (taken from the Activity Log). Assignee and uploader now match by email or sign-in name. Before this, a QE could submit and then review their own Independent Review row.
+- **Reassign, due date and N/A moved onto the main panel** (QE/QM only):
+  - **Reassign** and **Change date** buttons sit next to "Assigned to" and "Due". Each opens an editor in the panel with Save and Cancel.
+  - The due date editor has +1 week, +2 weeks and +30 days shortcuts and shows the date you entered back to you.
+  - A **Mark N/A** link appears on "If required" rows that are Not started or Draft.
+- **View details is now a read-only, two-column grid** of labelled fields (status, gate, assignee, due date, type, level, role, independent review, gate document, file, uploaded by, reviewed by, N/A reason, requirement ID).
+- **The panel shows an INDEPENDENT REVIEW or GATE DOCUMENT flag** under the title.
+- **Not included:** your hand fix for the percentages in the tenant. See the chat.

@@ -40,6 +40,8 @@ Screens:
         Set(varShowDetails, false);
         Set(varShowActivity, false);
         Set(varSaving, false);
+        Set(varEdit, "");
+        Set(varDueText, "");
         Set(varSelectedAssignee, Blank());
         Set(varRow, Blank());
         ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
@@ -53,7 +55,7 @@ Screens:
                 )
             )
         );
-        Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))));
+        If(!varRow.IndependentReview, Set(varCanReview, varIsQEorQM), With({sub: First(SortByColumns(Filter(Filter('NPI Activity Log', ProjectID = varProject.Title && RequirementID = varRow.Title), EndsWith(Detail, "-> Done") && !StartsWith(Detail, "Reviewed")), "PerformedDate", SortOrder.Descending)).PerformedBy}, Set(varCanReview, varIsQEorQM && !((Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe)) || (Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe)) || (Lower(Coalesce(sub.Email, "")) = varMe || EndsWith(Lower(Coalesce(sub.Claims, "")), "|" & varMe))))));
         Reset(txtNote)
     Children:
       - rectDetailHeader:
@@ -244,7 +246,7 @@ Screens:
                   Set(varCurrentGate, Max(1, Min(4, Coalesce(varProject.CurrentGate, 1))));
                   ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
                   Set(varRow, LookUp(colReqs, ID = rowId));
-                  Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))))
+                  If(!varRow.IndependentReview, Set(varCanReview, varIsQEorQM), With({sub: First(SortByColumns(Filter(Filter('NPI Activity Log', ProjectID = varProject.Title && RequirementID = varRow.Title), EndsWith(Detail, "-> Done") && !StartsWith(Detail, "Reviewed")), "PerformedDate", SortOrder.Descending)).PerformedBy}, Set(varCanReview, varIsQEorQM && !((Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe)) || (Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe)) || (Lower(Coalesce(sub.Email, "")) = varMe || EndsWith(Lower(Coalesce(sub.Claims, "")), "|" & varMe))))))
               )
             RadiusBottomLeft: =4
             RadiusBottomRight: =4
@@ -472,7 +474,9 @@ Screens:
               )
             OnSelect: |-
               =Set(varRow, ThisItem);
-              Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))));
+              Set(varEdit, "");
+              Set(varSelectedAssignee, Blank());
+              If(!varRow.IndependentReview, Set(varCanReview, varIsQEorQM), With({sub: First(SortByColumns(Filter(Filter('NPI Activity Log', ProjectID = varProject.Title && RequirementID = varRow.Title), EndsWith(Detail, "-> Done") && !StartsWith(Detail, "Reviewed")), "PerformedDate", SortOrder.Descending)).PerformedBy}, Set(varCanReview, varIsQEorQM && !((Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe)) || (Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe)) || (Lower(Coalesce(sub.Email, "")) = varMe || EndsWith(Lower(Coalesce(sub.Claims, "")), "|" & varMe))))));
               Reset(txtNote)
             TemplatePadding: =0
             TemplateSize: =76
@@ -660,7 +664,7 @@ Screens:
             Text: |-
               =varRow.Form & If(!IsBlank(varRow.Section), " · " & Substitute(varRow.Section, "Sec ", "Section "))
             Visible: =!IsBlank(varRow)
-            Width: =340
+            Width: =320
             X: =Parent.Width - 500
             Y: =184
       - lblRowPill:
@@ -689,8 +693,21 @@ Screens:
             Text: =If(varRow.Status.Value = "Done", "Ready for review", varRow.Status.Value)
             Visible: =!IsBlank(varRow)
             Width: =130
-            X: =Parent.Width - 168
+            X: =Parent.Width - 174
             Y: =188
+      - lblRowFlags:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(140, 78, 0, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =22
+            Size: =10
+            Text: |-
+              =If(varRow.IndependentReview, "INDEPENDENT REVIEW", "") & If(varRow.IndependentReview && varRow.IsGateDoc, "  ·  ", "") & If(varRow.IsGateDoc, "GATE DOCUMENT", "")
+            Visible: =!IsBlank(varRow) && (varRow.IndependentReview || varRow.IsGateDoc)
+            Width: =456
+            X: =Parent.Width - 500
+            Y: =218
       - lblRowHelp:
           Control: Label@2.5.1
           Properties:
@@ -717,42 +734,73 @@ Screens:
             Visible: =!IsBlank(varRow)
             Width: =456
             X: =Parent.Width - 500
-            Y: =222
+            Y: =240
+      - rectInfoBox:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(246, 248, 251, 1)
+            Height: =80
+            Visible: =!IsBlank(varRow)
+            Width: =456
+            X: =Parent.Width - 500
+            Y: =272
       - lblAssignedCap:
           Control: Label@2.5.1
           Properties:
             Color: =RGBA(17, 24, 39, 1)
             FontWeight: =FontWeight.Semibold
-            Height: =28
+            Height: =36
             Size: =12
             Text: ="Assigned to"
             Visible: =!IsBlank(varRow)
             Width: =100
-            X: =Parent.Width - 500
-            Y: =252
+            X: =Parent.Width - 492
+            Y: =276
       - lblAssignedVal:
           Control: Label@2.5.1
           Properties:
             Color: =RGBA(31, 41, 55, 1)
-            Height: =28
+            Height: =36
             Size: =12
             Text: =Coalesce(varRow.Assignee.DisplayName, "Unassigned")
             Visible: =!IsBlank(varRow)
-            Width: =190
-            X: =Parent.Width - 400
-            Y: =252
+            Width: =250
+            X: =Parent.Width - 392
+            Y: =276
+      - btnChangeAssignee:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(10, 92, 178, 1)
+            BorderThickness: =1
+            Color: =If(varEdit = "assignee", Color.White, RGBA(10, 92, 178, 1))
+            Fill: =If(varEdit = "assignee", RGBA(10, 92, 178, 1), Color.White)
+            Height: =28
+            OnSelect: |-
+              =Set(varSelectedAssignee, Blank());
+              Reset(txtAssigneeSearch);
+              Set(varEdit, If(varEdit = "assignee", "", "assignee"))
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =11
+            Text: ="Reassign"
+            Visible: =!IsBlank(varRow) && varIsQEorQM
+            Width: =96
+            X: =Parent.Width - 148
+            Y: =280
       - lblDueCap:
           Control: Label@2.5.1
           Properties:
             Color: =RGBA(17, 24, 39, 1)
             FontWeight: =FontWeight.Semibold
-            Height: =28
+            Height: =36
             Size: =12
             Text: ="Due"
             Visible: =!IsBlank(varRow)
-            Width: =46
-            X: =Parent.Width - 204
-            Y: =252
+            Width: =100
+            X: =Parent.Width - 492
+            Y: =312
       - lblDueVal:
           Control: Label@2.5.1
           Properties:
@@ -762,13 +810,41 @@ Screens:
                   RGBA(177, 14, 30, 1),
                   RGBA(31, 41, 55, 1)
               )
-            Height: =28
+            Height: =36
             Size: =12
-            Text: =If(IsBlank(varRow.DueDate), "Not set", Text(varRow.DueDate, "mmm d, yyyy"))
+            Text: |-
+              =If(
+                  IsBlank(varRow.DueDate),
+                  "Not set",
+                  Text(varRow.DueDate, "mmm d, yyyy") &
+                  If(varRow.DueDate < Today() && !(varRow.Status.Value in ["Reviewed", "N/A"]), " · Overdue", "")
+              )
             Visible: =!IsBlank(varRow)
-            Width: =140
-            X: =Parent.Width - 162
-            Y: =252
+            Width: =250
+            X: =Parent.Width - 392
+            Y: =312
+      - btnChangeDue:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(10, 92, 178, 1)
+            BorderThickness: =1
+            Color: =If(varEdit = "due", Color.White, RGBA(10, 92, 178, 1))
+            Fill: =If(varEdit = "due", RGBA(10, 92, 178, 1), Color.White)
+            Height: =28
+            OnSelect: |-
+              =Set(varDueText, If(IsBlank(varRow.DueDate), "", Text(varRow.DueDate, "mm/dd/yyyy")));
+              Reset(txtDueDate);
+              Set(varEdit, If(varEdit = "due", "", "due"))
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =11
+            Text: ="Change date"
+            Visible: =!IsBlank(varRow) && varIsQEorQM
+            Width: =96
+            X: =Parent.Width - 148
+            Y: =316
       - lblPdfCap:
           Control: Label@2.5.1
           Properties:
@@ -777,33 +853,33 @@ Screens:
             Height: =28
             Size: =12
             Text: ="PDF document"
-            Visible: =!IsBlank(varRow)
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =200
             X: =Parent.Width - 500
-            Y: =286
+            Y: =360
       - rectUploadBox:
           Control: Rectangle@2.3.0
           Properties:
             BorderColor: =RGBA(190, 199, 212, 1)
             BorderThickness: =1
             Fill: =RGBA(250, 251, 253, 1)
-            Height: =54
-            Visible: =!IsBlank(varRow)
+            Height: =50
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =456
             X: =Parent.Width - 500
-            Y: =314
+            Y: =388
       - lblUploadIcon:
           Control: Label@2.5.1
           Properties:
             Align: =Align.Center
             Color: =RGBA(55, 65, 81, 1)
-            Height: =54
+            Height: =50
             Size: =18
             Text: ="↑"
-            Visible: =!IsBlank(varRow)
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =40
             X: =Parent.Width - 494
-            Y: =314
+            Y: =388
       - btnAddPdf:
           Control: Classic/Button@2.2.0
           Properties:
@@ -815,31 +891,31 @@ Screens:
             DisabledFill: =Color.White
             DisplayMode: =DisplayMode.Disabled
             Fill: =Color.White
-            Height: =32
+            Height: =30
             RadiusBottomLeft: =4
             RadiusBottomRight: =4
             RadiusTopLeft: =4
             RadiusTopRight: =4
             Size: =12
             Text: ="Add PDF"
-            Visible: =!IsBlank(varRow)
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =96
             X: =Parent.Width - 448
-            Y: =325
+            Y: =398
       - rectUploadDivider:
           Control: Rectangle@2.3.0
           Properties:
             Fill: =RGBA(190, 199, 212, 1)
             Height: =26
-            Visible: =!IsBlank(varRow)
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =1
             X: =Parent.Width - 338
-            Y: =328
+            Y: =400
       - lblUploadText:
           Control: Label@2.5.1
           Properties:
             Color: =If(IsBlank(varRow.FileLink), RGBA(75, 85, 99, 1), RGBA(10, 92, 178, 1))
-            Height: =54
+            Height: =50
             OnSelect: =If(!IsBlank(varRow.FileLink), Launch(varRow.FileLink))
             Size: =12
             Text: |-
@@ -849,10 +925,10 @@ Screens:
                   "Open file: " & Coalesce(varRow.FileName, "linked file")
               )
             Underline: =!IsBlank(varRow.FileLink)
-            Visible: =!IsBlank(varRow)
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =316
             X: =Parent.Width - 330
-            Y: =314
+            Y: =388
       - lblNotesCap:
           Control: Label@2.5.1
           Properties:
@@ -861,23 +937,23 @@ Screens:
             Height: =28
             Size: =12
             Text: ="Notes"
-            Visible: =!IsBlank(varRow) && !(varRow.Status.Value in ["Reviewed", "N/A"])
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit) && !(varRow.Status.Value in ["Reviewed", "N/A"])
             Width: =200
             X: =Parent.Width - 500
-            Y: =378
+            Y: =444
       - txtNote:
           Control: Classic/TextInput@2.3.2
           Properties:
             BorderColor: =RGBA(190, 199, 212, 1)
             Default: =""
-            Height: =64
+            Height: =56
             HintText: ="Add a note..."
             Mode: =TextMode.MultiLine
             Size: =12
-            Visible: =!IsBlank(varRow) && !(varRow.Status.Value in ["Reviewed", "N/A"])
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit) && !(varRow.Status.Value in ["Reviewed", "N/A"])
             Width: =456
             X: =Parent.Width - 500
-            Y: =406
+            Y: =472
       - btnPrimary:
           Control: Classic/Button@2.2.0
           Properties:
@@ -934,7 +1010,7 @@ Screens:
                           Refresh('Project Requirements');
                           ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
                           Set(varRow, LookUp(colReqs, ID = rowId));
-                          Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))));
+                          If(!varRow.IndependentReview, Set(varCanReview, varIsQEorQM), With({sub: First(SortByColumns(Filter(Filter('NPI Activity Log', ProjectID = varProject.Title && RequirementID = varRow.Title), EndsWith(Detail, "-> Done") && !StartsWith(Detail, "Reviewed")), "PerformedDate", SortOrder.Descending)).PerformedBy}, Set(varCanReview, varIsQEorQM && !((Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe)) || (Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe)) || (Lower(Coalesce(sub.Email, "")) = varMe || EndsWith(Lower(Coalesce(sub.Claims, "")), "|" & varMe))))));
                           Set(varSaving, false);
                           Notify(If(newS <> oldS, rowTitle & " is now " & newS, "Note saved"), NotificationType.Success),
                           Set(varSaving, false);
@@ -955,10 +1031,10 @@ Screens:
                   "N/A", If(varIsQEorQM, "Restore", "Not applicable"),
                   "Submit for review"
               )
-            Visible: =!IsBlank(varRow)
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =190
             X: =Parent.Width - 500
-            Y: =484
+            Y: =540
       - btnSecondary:
           Control: Classic/Button@2.2.0
           Properties:
@@ -1008,7 +1084,7 @@ Screens:
                           Refresh('Project Requirements');
                           ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
                           Set(varRow, LookUp(colReqs, ID = rowId));
-                          Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))));
+                          If(!varRow.IndependentReview, Set(varCanReview, varIsQEorQM), With({sub: First(SortByColumns(Filter(Filter('NPI Activity Log', ProjectID = varProject.Title && RequirementID = varRow.Title), EndsWith(Detail, "-> Done") && !StartsWith(Detail, "Reviewed")), "PerformedDate", SortOrder.Descending)).PerformedBy}, Set(varCanReview, varIsQEorQM && !((Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe)) || (Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe)) || (Lower(Coalesce(sub.Email, "")) = varMe || EndsWith(Lower(Coalesce(sub.Claims, "")), "|" & varMe))))));
                           Set(varSaving, false);
                           Notify(If(newS <> oldS, rowTitle & " is now " & newS, "Note saved"), NotificationType.Success),
                           Set(varSaving, false);
@@ -1023,10 +1099,10 @@ Screens:
             Size: =13
             Text: |-
               =If(varRow.Status.Value = "Done", If(varCanReview, "Send back", "Back to draft"), "Save draft")
-            Visible: =!IsBlank(varRow) && varRow.Status.Value in ["Not started", "Draft", "Done"]
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit) && varRow.Status.Value in ["Not started", "Draft", "Done"]
             Width: =150
             X: =Parent.Width - 296
-            Y: =484
+            Y: =540
       - lblActionHint:
           Control: Label@2.5.1
           Properties:
@@ -1042,33 +1118,28 @@ Screens:
                       varCanReview,
                       "Send back returns it to Draft for rework. Add a note to say why.",
                       varIsQEorQM,
-                      "Independent review: you can't review an item you are assigned to or uploaded.",
+                      "Independent review: you can't review an item you are assigned to, uploaded or submitted. Another QE or the QM must review it.",
                       "Only the project QE (" & Coalesce(varProject.QE.Email, "none set") & ") or the QM can review. You are signed in as " & varMe & "."
                   ),
                   ""
               )
-            Visible: =!IsBlank(varRow)
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =456
             X: =Parent.Width - 500
-            Y: =526
+            Y: =582
       - lblViewDetails:
           Control: Label@2.5.1
           Properties:
             Color: =RGBA(10, 92, 178, 1)
             FontWeight: =FontWeight.Semibold
             Height: =30
-            OnSelect: |-
-              =Set(varSelectedAssignee, Blank());
-              Reset(txtAssigneeSearch);
-              Reset(txtDueDate);
-              Reset(txtNAReason);
-              Set(varShowDetails, true)
+            OnSelect: =Set(varShowDetails, true)
             Size: =13
             Text: ="View details"
-            Visible: =!IsBlank(varRow)
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =110
             X: =Parent.Width - 500
-            Y: =570
+            Y: =626
       - lblLinkSep:
           Control: Label@2.5.1
           Properties:
@@ -1077,10 +1148,10 @@ Screens:
             Height: =30
             Size: =13
             Text: ="|"
-            Visible: =!IsBlank(varRow)
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =20
             X: =Parent.Width - 388
-            Y: =570
+            Y: =626
       - lblActivity:
           Control: Label@2.5.1
           Properties:
@@ -1099,10 +1170,319 @@ Screens:
               Set(varShowActivity, true)
             Size: =13
             Text: ="Activity"
-            Visible: =!IsBlank(varRow)
-            Width: =90
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit)
+            Width: =80
             X: =Parent.Width - 364
-            Y: =570
+            Y: =626
+      - lblMarkNA:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Right
+            Color: =RGBA(117, 64, 0, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =30
+            OnSelect: |-
+              =Reset(txtNAReason);
+              Set(varEdit, "na")
+            Size: =13
+            Text: ="Mark N/A"
+            Visible: =!IsBlank(varRow) && IsBlank(varEdit) && varIsQEorQM && varRow.ReqLevel.Value = "If required" && varRow.Status.Value in ["Not started", "Draft"]
+            Width: =120
+            X: =Parent.Width - 164
+            Y: =626
+      - lblEditTitle:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            Size: =13
+            Text: |-
+              =Switch(varEdit, "assignee", "Reassign to", "due", "Change due date", "na", "Mark not applicable (reason required)", "")
+            Visible: =!IsBlank(varRow) && !IsBlank(varEdit)
+            Width: =456
+            X: =Parent.Width - 500
+            Y: =362
+      - txtAssigneeSearch:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            Default: =""
+            Height: =38
+            HintText: ="Type 2 or more letters of a name or email"
+            Size: =12
+            Visible: =varEdit = "assignee"
+            Width: =456
+            X: =Parent.Width - 500
+            Y: =392
+      - galPeople:
+          Control: Gallery@2.15.0
+          Variant: Vertical
+          Properties:
+            Height: =144
+            Items: |-
+              =With(
+                  {q: Lower(Trim(txtAssigneeSearch.Text))},
+                  FirstN(
+                      Filter(
+                          Choices([@'Project Requirements'].Assignee),
+                          Len(q) >= 2 &&
+                          (StartsWith(Lower(DisplayName), q) || StartsWith(Lower(Email), q))
+                      ),
+                      15
+                  )
+              )
+            TemplateSize: =36
+            Visible: =varEdit = "assignee" && Len(Trim(txtAssigneeSearch.Text)) >= 2
+            Width: =456
+            X: =Parent.Width - 500
+            Y: =434
+          Children:
+            - btnPerson:
+                Control: Classic/Button@2.2.0
+                Properties:
+                  Align: =Align.Left
+                  BorderThickness: =0
+                  Color: =If(varSelectedAssignee.Email = ThisItem.Email, Color.White, RGBA(31, 41, 55, 1))
+                  Fill: =If(varSelectedAssignee.Email = ThisItem.Email, RGBA(10, 92, 178, 1), RGBA(243, 244, 246, 1))
+                  Height: =32
+                  OnSelect: =Set(varSelectedAssignee, ThisItem)
+                  Size: =11
+                  Text: =ThisItem.DisplayName & "  (" & ThisItem.Email & ")"
+                  Width: =440
+                  X: =2
+                  Y: =2
+      - lblSelectedPerson:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(55, 65, 81, 1)
+            Height: =28
+            Size: =12
+            Text: |-
+              =If(IsBlank(varSelectedAssignee), "No person selected", "New assignee: " & varSelectedAssignee.DisplayName)
+            Visible: =varEdit = "assignee"
+            Width: =456
+            X: =Parent.Width - 500
+            Y: =582
+      - txtDueDate:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            Default: =varDueText
+            Height: =38
+            HintText: ="mm/dd/yyyy"
+            Size: =12
+            Visible: =varEdit = "due"
+            Width: =160
+            X: =Parent.Width - 500
+            Y: =392
+      - btnDue7:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            BorderThickness: =1
+            Color: =RGBA(17, 24, 39, 1)
+            Fill: =RGBA(243, 244, 246, 1)
+            Height: =38
+            OnSelect: |-
+              =Set(varDueText, Text(DateAdd(Today(), 7, TimeUnit.Days), "mm/dd/yyyy"));
+              Reset(txtDueDate)
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =11
+            Text: ="+1 week"
+            Visible: =varEdit = "due"
+            Width: =90
+            X: =Parent.Width - 330
+            Y: =392
+      - btnDue14:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            BorderThickness: =1
+            Color: =RGBA(17, 24, 39, 1)
+            Fill: =RGBA(243, 244, 246, 1)
+            Height: =38
+            OnSelect: |-
+              =Set(varDueText, Text(DateAdd(Today(), 14, TimeUnit.Days), "mm/dd/yyyy"));
+              Reset(txtDueDate)
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =11
+            Text: ="+2 weeks"
+            Visible: =varEdit = "due"
+            Width: =90
+            X: =Parent.Width - 232
+            Y: =392
+      - btnDue30:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            BorderThickness: =1
+            Color: =RGBA(17, 24, 39, 1)
+            Fill: =RGBA(243, 244, 246, 1)
+            Height: =38
+            OnSelect: |-
+              =Set(varDueText, Text(DateAdd(Today(), 30, TimeUnit.Days), "mm/dd/yyyy"));
+              Reset(txtDueDate)
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =11
+            Text: ="+30 days"
+            Visible: =varEdit = "due"
+            Width: =90
+            X: =Parent.Width - 134
+            Y: =392
+      - lblDueHelp:
+          Control: Label@2.5.1
+          Properties:
+            Color: =If(!IsBlank(Trim(txtDueDate.Text)) && IsError(DateValue(txtDueDate.Text)), RGBA(177, 14, 30, 1), RGBA(75, 85, 99, 1))
+            Height: =28
+            Size: =11
+            Text: |-
+              =If(
+                  IsBlank(Trim(txtDueDate.Text)),
+                  "Type a date as mm/dd/yyyy or pick a shortcut.",
+                  IsError(DateValue(txtDueDate.Text)),
+                  "That isn't a date. Use mm/dd/yyyy.",
+                  "New due date: " & Text(DateValue(txtDueDate.Text), "dddd, mmm d, yyyy")
+              )
+            Visible: =varEdit = "due"
+            Width: =456
+            X: =Parent.Width - 500
+            Y: =436
+      - txtNAReason:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            BorderColor: =RGBA(190, 199, 212, 1)
+            Default: =""
+            Height: =90
+            HintText: ="Why is this requirement not applicable to this project?"
+            Mode: =TextMode.MultiLine
+            Size: =12
+            Visible: =varEdit = "na"
+            Width: =456
+            X: =Parent.Width - 500
+            Y: =392
+      - btnEditSave:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderThickness: =0
+            Color: =Color.White
+            DisabledColor: =RGBA(107, 114, 128, 1)
+            DisabledFill: =RGBA(226, 231, 238, 1)
+            DisplayMode: |-
+              =Switch(
+                  varEdit,
+                  "assignee", If(IsBlank(varSelectedAssignee), DisplayMode.Disabled, DisplayMode.Edit),
+                  "due", If(IsBlank(Trim(txtDueDate.Text)) || IsError(DateValue(txtDueDate.Text)), DisplayMode.Disabled, DisplayMode.Edit),
+                  "na", If(IsBlank(Trim(txtNAReason.Text)), DisplayMode.Disabled, DisplayMode.Edit),
+                  DisplayMode.Disabled
+              )
+            Fill: =If(varEdit = "na", RGBA(117, 64, 0, 1), RGBA(10, 92, 178, 1))
+            FontWeight: =FontWeight.Semibold
+            Height: =38
+            OnSelect: |-
+              =With(
+                  {rowId: varRow.ID, rowTitle: varRow.Title, oldS: varRow.Status.Value, mode: varEdit},
+                  IfError(
+                      Switch(
+                          mode,
+                          "assignee",
+                          Patch('Project Requirements', LookUp('Project Requirements', ID = rowId), {Assignee: varSelectedAssignee});
+                          Patch(
+                              'NPI Activity Log',
+                              Defaults('NPI Activity Log'),
+                              {
+                                  Title: rowTitle & ": reassigned",
+                                  ProjectID: varProject.Title,
+                                  RequirementID: rowTitle,
+                                  ActionType: {Value: "Reassign"},
+                                  Detail: Coalesce(varRow.Assignee.DisplayName, "Unassigned") & " -> " & varSelectedAssignee.DisplayName,
+                                  PerformedBy: varMeUser,
+                                  PerformedDate: Now()
+                              }
+                          ),
+                          "due",
+                          Patch('Project Requirements', LookUp('Project Requirements', ID = rowId), {DueDate: DateValue(txtDueDate.Text)});
+                          Patch(
+                              'NPI Activity Log',
+                              Defaults('NPI Activity Log'),
+                              {
+                                  Title: rowTitle & ": due date",
+                                  ProjectID: varProject.Title,
+                                  RequirementID: rowTitle,
+                                  ActionType: {Value: "Due date"},
+                                  Detail: If(IsBlank(varRow.DueDate), "none", Text(varRow.DueDate, "mm/dd/yyyy")) & " -> " & Text(DateValue(txtDueDate.Text), "mm/dd/yyyy"),
+                                  PerformedBy: varMeUser,
+                                  PerformedDate: Now()
+                              }
+                          ),
+                          "na",
+                          Patch('Project Requirements', LookUp('Project Requirements', ID = rowId), {Status: {Value: "N/A"}, NAReason: Trim(txtNAReason.Text)});
+                          Patch(
+                              'NPI Activity Log',
+                              Defaults('NPI Activity Log'),
+                              {
+                                  Title: rowTitle & ": " & oldS & " -> N/A",
+                                  ProjectID: varProject.Title,
+                                  RequirementID: rowTitle,
+                                  ActionType: {Value: "N/A"},
+                                  Detail: oldS & " -> N/A",
+                                  Reason: Trim(txtNAReason.Text),
+                                  PerformedBy: varMeUser,
+                                  PerformedDate: Now()
+                              }
+                          )
+                      );
+                      Refresh('Project Requirements');
+                      ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
+                      Set(varRow, LookUp(colReqs, ID = rowId));
+                      If(!varRow.IndependentReview, Set(varCanReview, varIsQEorQM), With({sub: First(SortByColumns(Filter(Filter('NPI Activity Log', ProjectID = varProject.Title && RequirementID = varRow.Title), EndsWith(Detail, "-> Done") && !StartsWith(Detail, "Reviewed")), "PerformedDate", SortOrder.Descending)).PerformedBy}, Set(varCanReview, varIsQEorQM && !((Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe)) || (Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe)) || (Lower(Coalesce(sub.Email, "")) = varMe || EndsWith(Lower(Coalesce(sub.Claims, "")), "|" & varMe))))));
+                      Set(varSelectedAssignee, Blank());
+                      Set(varEdit, "");
+                      Notify(Switch(mode, "assignee", "Reassigned", "due", "Due date set", "Marked N/A"), NotificationType.Success),
+                      Notify("Update failed: " & FirstError.Message, NotificationType.Error)
+                  )
+              )
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =13
+            Text: =Switch(varEdit, "assignee", "Save assignee", "due", "Save due date", "na", "Set N/A", "Save")
+            Visible: =!IsBlank(varRow) && !IsBlank(varEdit)
+            Width: =190
+            X: =Parent.Width - 500
+            Y: =620
+      - btnEditCancel:
+          Control: Classic/Button@2.2.0
+          Properties:
+            BorderColor: =RGBA(17, 24, 39, 1)
+            BorderThickness: =1
+            Color: =RGBA(17, 24, 39, 1)
+            Fill: =Color.White
+            FontWeight: =FontWeight.Semibold
+            Height: =38
+            OnSelect: |-
+              =Set(varSelectedAssignee, Blank());
+              Set(varEdit, "")
+            RadiusBottomLeft: =4
+            RadiusBottomRight: =4
+            RadiusTopLeft: =4
+            RadiusTopRight: =4
+            Size: =13
+            Text: ="Cancel"
+            Visible: =!IsBlank(varRow) && !IsBlank(varEdit)
+            Width: =150
+            X: =Parent.Width - 296
+            Y: =620
       - rectDlgOverlay:
           Control: Rectangle@2.3.0
           Properties:
@@ -1116,7 +1496,7 @@ Screens:
           Control: Rectangle@2.3.0
           Properties:
             Fill: =Color.White
-            Height: =610
+            Height: =620
             Visible: =varShowDetails || varShowActivity
             Width: =760
             X: =(Parent.Width - 760) / 2
@@ -1127,13 +1507,25 @@ Screens:
             Color: =RGBA(17, 24, 39, 1)
             FontWeight: =FontWeight.Bold
             Height: =36
-            Size: =17
+            Size: =18
             Text: |-
-              =If(varShowActivity, "Activity · ", "Details · ") & varRow.Title & " · " & varRow.Form & If(!IsBlank(varRow.Section), " " & varRow.Section)
+              =varRow.Form & If(!IsBlank(varRow.Section), " · " & Substitute(varRow.Section, "Sec ", "Section ")) & If(varShowActivity, " · Activity", " · Details")
             Visible: =varShowDetails || varShowActivity
             Width: =600
             X: =(Parent.Width - 760) / 2 + 24
             Y: =84
+      - lblDlgSub:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(75, 85, 99, 1)
+            Height: =24
+            Size: =11
+            Text: |-
+              =varProject.Title & " · " & varProject.PartNumber & " Rev " & varProject.Revision & " · Requirement " & varRow.Title
+            Visible: =varShowDetails || varShowActivity
+            Width: =600
+            X: =(Parent.Width - 760) / 2 + 24
+            Y: =118
       - btnDlgClose:
           Control: Classic/Button@2.2.0
           Properties:
@@ -1153,31 +1545,67 @@ Screens:
             Width: =96
             X: =(Parent.Width - 760) / 2 + 640
             Y: =84
-      - lblDlgDetails:
-          Control: Label@2.5.1
+      - galDetails:
+          Control: Gallery@2.15.0
+          Variant: Vertical
           Properties:
-            Color: =RGBA(31, 41, 55, 1)
-            Height: =300
-            Size: =12
-            Text: |-
-              ="Gate: " & varRow.Gate & Char(10) &
-              "Requirement type: " & varRow.RequirementType.Value & Char(10) &
-              "Level: " & varRow.ReqLevel.Value & Char(10) &
-              "Role: " & Coalesce(varRow.Role.Value, "Not set") & Char(10) &
-              "Independent review: " & If(varRow.IndependentReview, "Yes", "No") & Char(10) &
-              "Gate document: " & If(varRow.IsGateDoc, "Yes", "No") & Char(10) &
-              "Status: " & varRow.Status.Value & Char(10) &
-              "Assignee: " & Coalesce(varRow.Assignee.DisplayName, "Unassigned") & Char(10) &
-              "Due: " & If(IsBlank(varRow.DueDate), "Not set", Text(varRow.DueDate, "mmm d, yyyy")) & Char(10) &
-              "Uploaded by: " & Coalesce(varRow.UploadedBy.DisplayName, "-") & If(IsBlank(varRow.UploadedDate), "", " on " & Text(varRow.UploadedDate, "mmm d, yyyy")) & Char(10) &
-              "File: " & Coalesce(varRow.FileName, If(IsBlank(varRow.FileLink), "None", "Linked")) & Char(10) &
-              "Reviewed by: " & Coalesce(varRow.ReviewedBy.DisplayName, "-") & If(IsBlank(varRow.ReviewedDate), "", " on " & Text(varRow.ReviewedDate, "mmm d, yyyy")) & Char(10) &
-              "N/A reason: " & Coalesce(varRow.NAReason, "-")
-            VerticalAlign: =VerticalAlign.Top
+            Height: =420
+            Items: |-
+              =Table(
+                  {k: "Status", v: If(varRow.Status.Value = "Done", "Ready for review", varRow.Status.Value)},
+                  {k: "Gate", v: "Gate " & varRow.Gate},
+                  {k: "Assigned to", v: Coalesce(varRow.Assignee.DisplayName, "Unassigned")},
+                  {k: "Due", v: If(IsBlank(varRow.DueDate), "Not set", Text(varRow.DueDate, "mmm d, yyyy"))},
+                  {k: "Requirement type", v: varRow.RequirementType.Value},
+                  {k: "Required or if required", v: varRow.ReqLevel.Value},
+                  {k: "Role", v: Coalesce(varRow.Role.Value, "Not set")},
+                  {k: "Independent review", v: If(varRow.IndependentReview, "Required", "Not required")},
+                  {k: "Gate document", v: If(varRow.IsGateDoc, "Yes", "No")},
+                  {k: "File", v: Coalesce(varRow.FileName, If(IsBlank(varRow.FileLink), "None yet", "Linked"))},
+                  {k: "Uploaded by", v: Coalesce(varRow.UploadedBy.DisplayName, "-") & If(IsBlank(varRow.UploadedDate), "", ", " & Text(varRow.UploadedDate, "mmm d, yyyy"))},
+                  {k: "Reviewed by", v: Coalesce(varRow.ReviewedBy.DisplayName, "-") & If(IsBlank(varRow.ReviewedDate), "", ", " & Text(varRow.ReviewedDate, "mmm d, yyyy"))},
+                  {k: "N/A reason", v: Coalesce(varRow.NAReason, "-")},
+                  {k: "Requirement ID", v: varRow.Title}
+              )
+            ShowScrollbar: =false
+            TemplatePadding: =0
+            TemplateSize: =60
             Visible: =varShowDetails
-            Width: =350
+            Width: =712
+            WrapCount: =2
             X: =(Parent.Width - 760) / 2 + 24
-            Y: =128
+            Y: =156
+          Children:
+            - rectDetailCell:
+                Control: Rectangle@2.3.0
+                Properties:
+                  Fill: =RGBA(246, 248, 251, 1)
+                  Height: =54
+                  Width: =Parent.TemplateWidth - 10
+                  X: =0
+                  Y: =0
+            - lblDetailKey:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(107, 114, 128, 1)
+                  Height: =22
+                  Size: =10
+                  Text: =Upper(ThisItem.k)
+                  Width: =Parent.TemplateWidth - 24
+                  X: =8
+                  Y: =4
+            - lblDetailValue:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =RGBA(17, 24, 39, 1)
+                  FontWeight: =FontWeight.Semibold
+                  Height: =28
+                  Size: =13
+                  Text: =ThisItem.v
+                  Tooltip: =ThisItem.v
+                  Width: =Parent.TemplateWidth - 24
+                  X: =8
+                  Y: =24
       - btnDlgOpenFile:
           Control: Classic/Button@2.2.0
           Properties:
@@ -1195,292 +1623,7 @@ Screens:
             Visible: =varShowDetails && !IsBlank(varRow.FileLink)
             Width: =120
             X: =(Parent.Width - 760) / 2 + 24
-            Y: =436
-      - lblDlgNoRights:
-          Control: Label@2.5.1
-          Properties:
-            Color: =RGBA(117, 64, 0, 1)
-            Height: =60
-            Size: =12
-            Text: ="Only the project QE or the QM can reassign, set due dates or mark an item N/A."
-            Visible: =varShowDetails && !varIsQEorQM
-            Width: =336
-            X: =(Parent.Width - 760) / 2 + 400
-            Y: =128
-      - lblReassignCap:
-          Control: Label@2.5.1
-          Properties:
-            Color: =RGBA(17, 24, 39, 1)
-            FontWeight: =FontWeight.Semibold
-            Height: =28
-            Size: =13
-            Text: ="Reassign"
-            Visible: =varShowDetails && varIsQEorQM
-            Width: =200
-            X: =(Parent.Width - 760) / 2 + 400
-            Y: =128
-      - txtAssigneeSearch:
-          Control: Classic/TextInput@2.3.2
-          Properties:
-            BorderColor: =RGBA(190, 199, 212, 1)
-            Default: =""
-            Height: =38
-            HintText: ="Search people (2+ letters)"
-            Size: =12
-            Visible: =varShowDetails && varIsQEorQM
-            Width: =336
-            X: =(Parent.Width - 760) / 2 + 400
-            Y: =156
-      - galPeople:
-          Control: Gallery@2.15.0
-          Variant: Vertical
-          Properties:
-            Height: =144
-            Items: |-
-              =With(
-                  {q: Lower(Trim(txtAssigneeSearch.Text))},
-                  FirstN(
-                      Filter(
-                          Choices([@'Project Requirements'].Assignee),
-                          Len(q) >= 2 &&
-                          (StartsWith(Lower(DisplayName), q) || StartsWith(Lower(Email), q))
-                      ),
-                      15
-                  )
-              )
-            TemplateSize: =36
-            Visible: =varShowDetails && varIsQEorQM && Len(Trim(txtAssigneeSearch.Text)) >= 2
-            Width: =336
-            X: =(Parent.Width - 760) / 2 + 400
-            Y: =198
-          Children:
-            - btnPerson:
-                Control: Classic/Button@2.2.0
-                Properties:
-                  Align: =Align.Left
-                  BorderThickness: =0
-                  Color: =If(varSelectedAssignee.Email = ThisItem.Email, Color.White, RGBA(31, 41, 55, 1))
-                  Fill: =If(varSelectedAssignee.Email = ThisItem.Email, RGBA(10, 92, 178, 1), RGBA(243, 244, 246, 1))
-                  Height: =32
-                  OnSelect: =Set(varSelectedAssignee, ThisItem)
-                  Size: =10
-                  Text: =ThisItem.DisplayName & " (" & ThisItem.Email & ")"
-                  Width: =328
-                  X: =2
-                  Y: =2
-      - lblSelectedPerson:
-          Control: Label@2.5.1
-          Properties:
-            Color: =RGBA(75, 85, 99, 1)
-            Height: =38
-            Size: =11
-            Text: |-
-              =If(IsBlank(varSelectedAssignee), "No person selected", "Selected: " & varSelectedAssignee.DisplayName)
-            Visible: =varShowDetails && varIsQEorQM
-            Width: =206
-            X: =(Parent.Width - 760) / 2 + 400
-            Y: =346
-      - btnReassign:
-          Control: Classic/Button@2.2.0
-          Properties:
-            BorderThickness: =0
-            Color: =Color.White
-            DisplayMode: =If(IsBlank(varSelectedAssignee), DisplayMode.Disabled, DisplayMode.Edit)
-            Fill: =RGBA(10, 92, 178, 1)
-            Height: =36
-            OnSelect: |-
-              =With(
-                  {oldA: Coalesce(varRow.Assignee.DisplayName, "Unassigned"), p: varSelectedAssignee, rowId: varRow.ID, rowTitle: varRow.Title},
-                  IfError(
-                      Patch(
-                          'Project Requirements',
-                          LookUp('Project Requirements', ID = rowId),
-                          {Assignee: p}
-                      );
-                      Patch(
-                          'NPI Activity Log',
-                          Defaults('NPI Activity Log'),
-                          {
-                              Title: rowTitle & ": reassigned",
-                              ProjectID: varProject.Title,
-                              RequirementID: rowTitle,
-                              ActionType: {Value: "Reassign"},
-                              Detail: oldA & " -> " & p.DisplayName,
-                              PerformedBy: varMeUser,
-                              PerformedDate: Now()
-                          }
-                      );
-                      Set(varSelectedAssignee, Blank());
-                      Reset(txtAssigneeSearch);
-                      Refresh('Project Requirements');
-                      ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
-                      Set(varRow, LookUp(colReqs, ID = rowId));
-                      Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))));
-                      Notify("Reassigned", NotificationType.Success),
-                      Notify("Update failed: " & FirstError.Message, NotificationType.Error)
-                  )
-              )
-            RadiusBottomLeft: =4
-            RadiusBottomRight: =4
-            RadiusTopLeft: =4
-            RadiusTopRight: =4
-            Size: =12
-            Text: ="Reassign"
-            Visible: =varShowDetails && varIsQEorQM
-            Width: =120
-            X: =(Parent.Width - 760) / 2 + 616
-            Y: =346
-      - lblDueDateCap:
-          Control: Label@2.5.1
-          Properties:
-            Color: =RGBA(17, 24, 39, 1)
-            FontWeight: =FontWeight.Semibold
-            Height: =28
-            Size: =13
-            Text: ="Due date"
-            Visible: =varShowDetails && varIsQEorQM
-            Width: =200
-            X: =(Parent.Width - 760) / 2 + 400
-            Y: =400
-      - txtDueDate:
-          Control: Classic/TextInput@2.3.2
-          Properties:
-            BorderColor: =RGBA(190, 199, 212, 1)
-            Default: =If(IsBlank(varRow.DueDate), "", Text(varRow.DueDate, "mm/dd/yyyy"))
-            Height: =38
-            HintText: ="mm/dd/yyyy"
-            Size: =12
-            Visible: =varShowDetails && varIsQEorQM
-            Width: =180
-            X: =(Parent.Width - 760) / 2 + 400
-            Y: =428
-      - btnSetDue:
-          Control: Classic/Button@2.2.0
-          Properties:
-            BorderThickness: =0
-            Color: =Color.White
-            DisplayMode: =If(IsBlank(Trim(txtDueDate.Text)) || IsError(DateValue(txtDueDate.Text)), DisplayMode.Disabled, DisplayMode.Edit)
-            Fill: =RGBA(10, 92, 178, 1)
-            Height: =38
-            OnSelect: |-
-              =With(
-                  {
-                      oldD: If(IsBlank(varRow.DueDate), "none", Text(varRow.DueDate, "mm/dd/yyyy")),
-                      newD: DateValue(txtDueDate.Text),
-                      rowId: varRow.ID,
-                      rowTitle: varRow.Title
-                  },
-                  IfError(
-                      Patch(
-                          'Project Requirements',
-                          LookUp('Project Requirements', ID = rowId),
-                          {DueDate: newD}
-                      );
-                      Patch(
-                          'NPI Activity Log',
-                          Defaults('NPI Activity Log'),
-                          {
-                              Title: rowTitle & ": due date",
-                              ProjectID: varProject.Title,
-                              RequirementID: rowTitle,
-                              ActionType: {Value: "Due date"},
-                              Detail: oldD & " -> " & Text(newD, "mm/dd/yyyy"),
-                              PerformedBy: varMeUser,
-                              PerformedDate: Now()
-                          }
-                      );
-                      Refresh('Project Requirements');
-                      ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
-                      Set(varRow, LookUp(colReqs, ID = rowId));
-                      Reset(txtDueDate);
-                      Notify("Due date set", NotificationType.Success),
-                      Notify("Update failed: " & FirstError.Message, NotificationType.Error)
-                  )
-              )
-            RadiusBottomLeft: =4
-            RadiusBottomRight: =4
-            RadiusTopLeft: =4
-            RadiusTopRight: =4
-            Size: =12
-            Text: ="Set due date"
-            Visible: =varShowDetails && varIsQEorQM
-            Width: =146
-            X: =(Parent.Width - 760) / 2 + 590
-            Y: =428
-      - lblNACap:
-          Control: Label@2.5.1
-          Properties:
-            Color: =RGBA(17, 24, 39, 1)
-            FontWeight: =FontWeight.Semibold
-            Height: =28
-            Size: =13
-            Text: ="Mark N/A (reason required)"
-            Visible: =varShowDetails && varIsQEorQM && varRow.ReqLevel.Value = "If required" && varRow.Status.Value in ["Not started", "Draft"]
-            Width: =336
-            X: =(Parent.Width - 760) / 2 + 400
-            Y: =484
-      - txtNAReason:
-          Control: Classic/TextInput@2.3.2
-          Properties:
-            BorderColor: =RGBA(190, 199, 212, 1)
-            Default: =""
-            Height: =60
-            HintText: ="Why is this requirement not applicable?"
-            Mode: =TextMode.MultiLine
-            Size: =12
-            Visible: =varShowDetails && varIsQEorQM && varRow.ReqLevel.Value = "If required" && varRow.Status.Value in ["Not started", "Draft"]
-            Width: =336
-            X: =(Parent.Width - 760) / 2 + 400
-            Y: =512
-      - btnSetNA:
-          Control: Classic/Button@2.2.0
-          Properties:
-            BorderThickness: =0
-            Color: =Color.White
-            DisplayMode: =If(IsBlank(Trim(txtNAReason.Text)), DisplayMode.Disabled, DisplayMode.Edit)
-            Fill: =RGBA(117, 64, 0, 1)
-            Height: =36
-            OnSelect: |-
-              =With(
-                  {oldS: varRow.Status.Value, why: Trim(txtNAReason.Text), rowId: varRow.ID, rowTitle: varRow.Title},
-                  IfError(
-                      Patch(
-                          'Project Requirements',
-                          LookUp('Project Requirements', ID = rowId),
-                          {Status: {Value: "N/A"}, NAReason: why}
-                      );
-                      Patch(
-                          'NPI Activity Log',
-                          Defaults('NPI Activity Log'),
-                          {
-                              Title: rowTitle & ": " & oldS & " -> N/A",
-                              ProjectID: varProject.Title,
-                              RequirementID: rowTitle,
-                              ActionType: {Value: "N/A"},
-                              Detail: oldS & " -> N/A",
-                              Reason: why,
-                              PerformedBy: varMeUser,
-                              PerformedDate: Now()
-                          }
-                      );
-                      Reset(txtNAReason);
-                      Refresh('Project Requirements');
-                      ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
-                      Set(varRow, LookUp(colReqs, ID = rowId));
-                      Notify("Marked N/A", NotificationType.Success),
-                      Notify("Update failed: " & FirstError.Message, NotificationType.Error)
-                  )
-              )
-            RadiusBottomLeft: =4
-            RadiusBottomRight: =4
-            RadiusTopLeft: =4
-            RadiusTopRight: =4
-            Size: =12
-            Text: ="Set N/A"
-            Visible: =varShowDetails && varIsQEorQM && varRow.ReqLevel.Value = "If required" && varRow.Status.Value in ["Not started", "Draft"]
-            Width: =120
-            X: =(Parent.Width - 760) / 2 + 616
-            Y: =580
+            Y: =636
       - lblActivityEmpty:
           Control: Label@2.5.1
           Properties:
@@ -1491,18 +1634,18 @@ Screens:
             Visible: =varShowActivity && CountRows(colActivity) = 0
             Width: =500
             X: =(Parent.Width - 760) / 2 + 24
-            Y: =132
+            Y: =156
       - galActivity:
           Control: Gallery@2.15.0
           Variant: Vertical
           Properties:
-            Height: =520
+            Height: =516
             Items: =colActivity
             TemplateSize: =72
             Visible: =varShowActivity
             Width: =712
             X: =(Parent.Width - 760) / 2 + 24
-            Y: =132
+            Y: =156
           Children:
             - rectActDivider:
                 Control: Rectangle@2.3.0
