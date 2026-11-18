@@ -1352,14 +1352,7 @@ Screens:
             FontWeight: =FontWeight.Semibold
             Height: =30
             OnSelect: |-
-              =ClearCollect(
-                  colActivity,
-                  SortByColumns(
-                      Filter('NPI Activity Log', ProjectID = varProject.Title && RequirementID = varRow.Title),
-                      "PerformedDate",
-                      SortOrder.Descending
-                  )
-              );
+              =Refresh('NPI Activity Log');
               Set(varShowActivity, true)
             Size: =13
             Text: ="Activity"
@@ -1879,7 +1872,7 @@ Screens:
             Height: =40
             Size: =12
             Text: ="No activity recorded for this item yet."
-            Visible: =varShowActivity && CountRows(colActivity) = 0
+            Visible: =varShowActivity && CountRows(galActivity.AllItems) = 0
             Width: =500
             X: =(Parent.Width - 760) / 2 + 24
             Y: =156
@@ -1888,7 +1881,12 @@ Screens:
           Variant: Vertical
           Properties:
             Height: =516
-            Items: =colActivity
+            Items: |-
+              =SortByColumns(
+                  Filter('NPI Activity Log', ProjectID = varProject.Title && RequirementID = varRow.Title),
+                  "PerformedDate",
+                  SortOrder.Descending
+              )
             TemplateSize: =72
             Visible: =varShowActivity
             Width: =712
