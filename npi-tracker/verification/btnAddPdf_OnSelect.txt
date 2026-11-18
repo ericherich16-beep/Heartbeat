@@ -1,0 +1,77 @@
+With(
+    {
+        f: First(attPdf.Attachments),
+        rowId: varRow.ID,
+        rowTitle: varRow.Title,
+        oldS: varRow.Status.Value,
+        mode: If(IsBlank(varRow.FileLink), "upload", "replace")
+    },
+    With(
+        {
+            finalName: If(
+                mode = "replace" && !IsBlank(varRow.FileName),
+                varRow.FileName,
+                If(CountRows(Filter(colReqs, ID <> rowId && FileName = f.Name)) > 0, rowTitle & "_" & f.Name, f.Name)
+            )
+        },
+        Set(varSaving, true);
+        Set(
+            varUp,
+            IfError(
+                NPIUploadFile.Run(
+                    mode,
+                    varProject.ProjectFolderUrl,
+                    finalName,
+                    JSON(f.Value, JSONFormat.IncludeBinaryData),
+                    varProject.Title,
+                    rowTitle,
+                    Text(varRow.Gate),
+                    varRow.Form,
+                    Coalesce(varRow.Section, ""),
+                    varMe,
+                    Coalesce(varRow.FileName, "")
+                ),
+                {success: false, message: "The NPIUploadFile flow call failed: " & FirstError.Message & " (if the flow has no run, remove and re-add NPIUploadFile in Studio > Power Automate)", fileurl: "", filename: "", itemid: 0, stamped: false}
+            )
+        );
+        IfError(
+            If(!varUp.success, Error({Kind: ErrorKind.Custom, Message: varUp.message}));
+            Patch(
+                'Project Requirements',
+                LookUp('Project Requirements', ID = rowId),
+                {
+                    FileLink: varUp.fileurl,
+                    FileName: varUp.filename,
+                    FileItemId: varUp.itemid,
+                    UploadedBy: varMeUser,
+                    UploadedDate: Now(),
+                    Status: {Value: Switch(oldS, "Reviewed", "Done", "Not started", "Draft", oldS)}
+                }
+            );
+            Patch(
+                'NPI Activity Log',
+                Defaults('NPI Activity Log'),
+                {
+                    Title: rowTitle & ": " & mode,
+                    ProjectID: varProject.Title,
+                    RequirementID: rowTitle,
+                    ActionType: {Value: If(mode = "replace", "Replace", "Upload")},
+                    FileName: varUp.filename,
+                    Detail: If(mode = "replace", "New version of ", "Uploaded ") & varUp.filename &
+                        Switch(oldS, "Reviewed", "; Reviewed -> Done (new file needs review again)", "Not started", "; Not started -> Draft", ""),
+                    PerformedBy: varMeUser,
+                    PerformedDate: Now()
+                }
+            );
+            Reset(attPdf);
+            Refresh('Project Requirements');
+            ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
+            Set(varRow, LookUp(colReqs, ID = rowId));
+            If(!varRow.IndependentReview, Set(varCanReview, varIsQEorQM), With({sub: First(SortByColumns(Filter(Filter('NPI Activity Log', ProjectID = varProject.Title && RequirementID = varRow.Title), EndsWith(Detail, "-> Done") && !StartsWith(Detail, "Reviewed")), "PerformedDate", SortOrder.Descending)).PerformedBy}, Set(varCanReview, varIsQEorQM && !((Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe)) || (Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe)) || (Lower(Coalesce(sub.Email, "")) = varMe || EndsWith(Lower(Coalesce(sub.Claims, "")), "|" & varMe))))));
+            Set(varSaving, false);
+            Notify(varUp.message, If(varUp.stamped, NotificationType.Success, NotificationType.Warning)),
+            Set(varSaving, false);
+            Notify("Upload failed: " & FirstError.Message, NotificationType.Error)
+        )
+    )
+)
