@@ -6,6 +6,8 @@ App:
     ConfirmExitMessage: ="Project creation is still running."
     OnStart: |-
       =Set(varBusy, false);
+      Set(varMe, Lower(User().Email));
+      Set(varJumpRowId, Blank());
       Set(varShowNew, false);
       Set(varNewError, "");
       Set(varLastMessage, "");

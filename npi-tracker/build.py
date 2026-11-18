@@ -235,6 +235,17 @@ def validate(app_yaml, screens):
                     errs.append(f"{name}.{prop}: reference to unknown control {r}")
                 elif controls[r][0] != screen:
                     errs.append(f"{name}.{prop}: cross-screen reference to {r}")
+    # every variable that is read is Set somewhere (catches silently failed edits)
+    texts = [v for v in app["App"]["Properties"].values()]
+    for _, (screen, ctype, spec) in controls.items():
+        texts += list((spec.get("Properties") or {}).values())
+    for text in screens.values():
+        (_, sspec), = yaml.safe_load(text)["Screens"].items()
+        texts += list(sspec["Properties"].values())
+    blob = "\n".join(t for t in texts if isinstance(t, str))
+    set_vars = set(re.findall(r"\bSet\(\s*(var\w+)", blob))
+    for v in sorted(set(re.findall(r"\b(var\w+)\b", blob)) - set_vars):
+        errs.append(f"variable {v} is read but never Set")
     # column checks
     for name, (screen, ctype, spec) in controls.items():
         for prop, val in (spec.get("Properties") or {}).items():
