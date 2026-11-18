@@ -1,6 +1,6 @@
-# NPI Tracker 1.2.0.0: Overview and Project details redesign
+# NPI Tracker 1.2.0.1: Overview and Project details redesign
 
-**Package:** `dist/EricP_NPITrackerIncrement1_1_2_0_0.zip` (same solution `EricP_NPITrackerIncrement1`, same app `ericp_npitracker_i1`)
+**Package:** `dist/EricP_NPITrackerIncrement1_1_2_0_1.zip` (same solution `EricP_NPITrackerIncrement1`, same app `ericp_npitracker_i1`)
 **Built from:** `EricP_NPITrackerIncrement2a_1_1_0_3.zip` (tenant-tested: imports and opens)
 **Status:** Built, not opened
 
@@ -48,3 +48,8 @@ Rebuild: `python3 -I build.py <1.1.0.3 zip> dist`
 9. View details: test reassign and setting a due date. Check that the overdue date turns red.
 10. As a non-QE user: check that review, N/A, reassign and due-date controls are hidden.
 11. Create a new project and check that it appears with 0%.
+
+## 1.2.0.1 changes
+- **QE and QM matching:** the app now recognises the QE or QM by email **or** by sign-in name (the SharePoint Claims value), because the two can differ. The same applies to the Independent Review assignee and uploader check.
+- **Role badge:** the header shows "You: QE", "You: QM" or "You: Team member".
+- **Clearer hints:** when Mark reviewed isn't offered, the panel says why and shows the email you're signed in with. Not started and Draft rows now say to submit first.

@@ -17,8 +17,23 @@ Screens:
         });
         Refresh('NPI Role Defaults');
         Refresh('Project Requirements');
-        Set(varQMEmail, Lower(Coalesce(LookUp('NPI Role Defaults', Role.Value = "QM").DefaultAssignee.Email, "")));
-        Set(varIsQEorQM, Lower(Coalesce(varProject.QE.Email, "")) = varMe || varQMEmail = varMe);
+        ClearCollect(colQM, Filter('NPI Role Defaults', Role.Value = "QM"));
+        Set(
+            varIsQM,
+            !IsEmpty(
+                Filter(
+                    colQM,
+                    Lower(Coalesce(DefaultAssignee.Email, "")) = varMe ||
+                    EndsWith(Lower(Coalesce(DefaultAssignee.Claims, "")), "|" & varMe)
+                )
+            )
+        );
+        Set(
+            varIsQE,
+            Lower(Coalesce(varProject.QE.Email, "")) = varMe ||
+            EndsWith(Lower(Coalesce(varProject.QE.Claims, "")), "|" & varMe)
+        );
+        Set(varIsQEorQM, varIsQE || varIsQM);
         Set(varCurrentGate, Max(1, Min(4, Coalesce(varProject.CurrentGate, 1))));
         Set(varGate, varCurrentGate);
         Set(varDocFilter, "Needed");
@@ -38,7 +53,7 @@ Screens:
                 )
             )
         );
-        Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe)));
+        Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))));
         Reset(txtNote)
     Children:
       - rectDetailHeader:
@@ -176,6 +191,20 @@ Screens:
             Width: =120
             X: =792
             Y: =28
+      - lblHdrRole:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Center
+            Color: =Color.White
+            Fill: =If(varIsQEorQM, RGBA(16, 124, 16, 1), RGBA(4, 62, 128, 1))
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            Size: =11
+            Text: |-
+              ="You: " & If(varIsQE, "QE", varIsQM, "QM", "Team member")
+            Width: =130
+            X: =Parent.Width - 430
+            Y: =30
       - btnOpenFolder:
           Control: Classic/Button@2.2.0
           Properties:
@@ -215,7 +244,7 @@ Screens:
                   Set(varCurrentGate, Max(1, Min(4, Coalesce(varProject.CurrentGate, 1))));
                   ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
                   Set(varRow, LookUp(colReqs, ID = rowId));
-                  Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe)))
+                  Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))))
               )
             RadiusBottomLeft: =4
             RadiusBottomRight: =4
@@ -443,7 +472,7 @@ Screens:
               )
             OnSelect: |-
               =Set(varRow, ThisItem);
-              Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe)));
+              Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))));
               Reset(txtNote)
             TemplatePadding: =0
             TemplateSize: =76
@@ -905,7 +934,7 @@ Screens:
                           Refresh('Project Requirements');
                           ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
                           Set(varRow, LookUp(colReqs, ID = rowId));
-                          Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe)));
+                          Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))));
                           Set(varSaving, false);
                           Notify(If(newS <> oldS, rowTitle & " is now " & newS, "Note saved"), NotificationType.Success),
                           Set(varSaving, false);
@@ -979,7 +1008,7 @@ Screens:
                           Refresh('Project Requirements');
                           ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
                           Set(varRow, LookUp(colReqs, ID = rowId));
-                          Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe)));
+                          Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))));
                           Set(varSaving, false);
                           Notify(If(newS <> oldS, rowTitle & " is now " & newS, "Note saved"), NotificationType.Success),
                           Set(varSaving, false);
@@ -1007,14 +1036,14 @@ Screens:
             Text: |-
               =Switch(
                   varRow.Status.Value,
-                  "Not started", If(varPdfRequired, "PDF required before submitting.", "PDF required before submitting once upload is switched on (Increment 2b)."),
-                  "Draft", If(varPdfRequired, "PDF required before submitting.", "PDF required before submitting once upload is switched on (Increment 2b)."),
+                  "Not started", If(varPdfRequired, "PDF required before submitting.", "Submit for review first. The QE or QM can then mark it reviewed."),
+                  "Draft", If(varPdfRequired, "PDF required before submitting.", "Submit for review first. The QE or QM can then mark it reviewed."),
                   "Done", If(
                       varCanReview,
                       "Send back returns it to Draft for rework. Add a note to say why.",
                       varIsQEorQM,
                       "Independent review: you can't review an item you are assigned to or uploaded.",
-                      "Only the project QE or the QM can review."
+                      "Only the project QE (" & Coalesce(varProject.QE.Email, "none set") & ") or the QM can review. You are signed in as " & varMe & "."
                   ),
                   ""
               )
@@ -1286,7 +1315,7 @@ Screens:
                       Refresh('Project Requirements');
                       ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
                       Set(varRow, LookUp(colReqs, ID = rowId));
-                      Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe)));
+                      Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && (Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe) || Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe))));
                       Notify("Reassigned", NotificationType.Success),
                       Notify("Update failed: " & FirstError.Message, NotificationType.Error)
                   )

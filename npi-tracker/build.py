@@ -22,8 +22,8 @@ from pathlib import Path
 
 import yaml
 
-VERSION = "1.2.0.0"
-LABEL = "NPI Tracker 1.2.0.0 - Overview and Project details redesign"
+VERSION = "1.2.0.1"
+LABEL = "NPI Tracker 1.2.0.1 - Overview and Project details redesign"
 HERE = Path(__file__).resolve().parent
 SRC = HERE / "src"
 
@@ -31,7 +31,9 @@ SRC = HERE / "src"
 CANREVIEW = (
     "Set(varCanReview, varIsQEorQM && !(varRow.IndependentReview && "
     "(Lower(Coalesce(varRow.Assignee.Email, \"\")) = varMe || "
-    "Lower(Coalesce(varRow.UploadedBy.Email, \"\")) = varMe)))"
+    "EndsWith(Lower(Coalesce(varRow.Assignee.Claims, \"\")), \"|\" & varMe) || "
+    "Lower(Coalesce(varRow.UploadedBy.Email, \"\")) = varMe || "
+    "EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, \"\")), \"|\" & varMe))))"
 )
 PRIMARY_TARGET = (
     'Switch(varRow.Status.Value, "Done", If(varCanReview, "Reviewed", ""), '
@@ -263,7 +265,7 @@ def main(base_zip, out_dir):
         elif n == "Properties.json":
             p = json.loads(data)
             p["AppDescription"] = (
-                "NPI Tracker 1.2.0.0: overview with highlights and gate progress; project details with gate strip, "
+                "NPI Tracker 1.2.0.1: overview with highlights and gate progress; project details with gate strip, "
                 "document list, action panel, details and activity views. Built on 1.1.0.3."
             )
             p["DefaultConnectedDataSourceMaxGetRowsCount"] = 2000
@@ -292,7 +294,7 @@ def main(base_zip, out_dir):
                 s = s.replace('description="NPI Tracker Increment 2a"', f'description="{LABEL}"')
                 s = re.sub(
                     r'<Description description="[^"]*" languagecode="1033" />',
-                    '<Description description="NPI Tracker 1.2.0.0: Overview and Project details redesign built on '
+                    '<Description description="NPI Tracker 1.2.0.1: Overview and Project details redesign built on '
                     'the working 1.1.0.3 package. NPICreateProject is unchanged from the working 1.0.0.8 export." '
                     'languagecode="1033" />',
                     s,
@@ -304,7 +306,7 @@ def main(base_zip, out_dir):
                 s = re.sub(r"<AppVersion>[^<]*</AppVersion>", f"<AppVersion>{stamp_iso}</AppVersion>", s)
                 s = re.sub(
                     r"<Description>NPI Tracker[^<]*</Description>",
-                    "<Description>NPI Tracker 1.2.0.0: Overview and Project details redesign.</Description>",
+                    "<Description>NPI Tracker 1.2.0.1: Overview and Project details redesign.</Description>",
                     s,
                 )
                 data = s.encode("utf-8")
