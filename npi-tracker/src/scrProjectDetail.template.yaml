@@ -1055,14 +1055,6 @@ Screens:
             Width: =300
             X: =Parent.Width - 462
             Y: =390
-      - imgPdfData:
-          Control: Image@2.2.3
-          Properties:
-            Height: =1
-            Image: =First(attPdf.Attachments).Value
-            Width: =1
-            X: =0
-            Y: =0
       - btnAddPdf:
           Control: Classic/Button@2.2.0
           Properties:
@@ -1108,14 +1100,15 @@ Screens:
                                   mode,
                                   Coalesce(varProject.ProjectFolderUrl, varFolderName),
                                   finalName,
-                                  JSON(imgPdfData.Image, JSONFormat.IncludeBinaryData),
+                                  "",
                                   varProject.Title,
                                   rowTitle,
                                   Text(varRow.Gate),
                                   varRow.Form,
                                   Coalesce(varRow.Section, ""),
                                   varMe,
-                                  Coalesce(varRow.FileName, "")
+                                  Coalesce(varRow.FileName, ""),
+                                  {file: {contentBytes: f.Value, name: f.Name}}
                               ),
                               {success: false, message: "The NPIUploadFile flow call failed: " & FirstError.Message & " (if the flow has no run, remove and re-add NPIUploadFile in Studio > Power Automate)", fileurl: "", filename: "", itemid: 0, stamped: false}
                           )

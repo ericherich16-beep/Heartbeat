@@ -89,6 +89,22 @@
                   "title": "ExistingFileName",
                   "type": "string",
                   "x-ms-content-hint": "TEXT"
+                },
+                "file": {
+                  "title": "File Content",
+                  "type": "object",
+                  "x-ms-dynamically-added": true,
+                  "description": "PDF to upload (optional; not used for remove)",
+                  "x-ms-content-hint": "FILE",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "contentBytes": {
+                      "type": "string",
+                      "format": "byte"
+                    }
+                  }
                 }
               },
               "required": [
@@ -329,7 +345,7 @@
                       "operationMetadataId": "1bca4ac8-b41d-449f-99c0-2bb8e3300ccf"
                     },
                     "type": "Compose",
-                    "inputs": "@dataUriToBinary(replace(replace(triggerBody()?['text_3'],'\"',''),'\\',''))"
+                    "inputs": "@base64ToBinary(triggerBody()?['file']?['contentBytes'])"
                   },
                   "Ensure_project_folder": {
                     "metadata": {

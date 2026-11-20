@@ -75,14 +75,6 @@ SCREEN = """Screens:
             Width: =500
             X: =24
             Y: =186
-      - imgTestData:
-          Control: Image@2.2.3
-          Properties:
-            Height: =1
-            Image: =First(attTest.Attachments).Value
-            Width: =1
-            X: =0
-            Y: =0
       - btnRunUpload:
           Control: Classic/Button@2.2.0
           Properties:
@@ -96,14 +88,15 @@ SCREEN = """Screens:
                           "upload",
                           Trim(txtFolderUrl.Text),
                           First(attTest.Attachments).Name,
-                          JSON(imgTestData.Image, JSONFormat.IncludeBinaryData),
+                          "",
                           "TEST",
                           "TEST-REQ",
                           "1",
                           "TEST",
                           "",
                           Lower(User().Email),
-                          ""
+                          "",
+                          {file: {contentBytes: First(attTest.Attachments).Value, name: First(attTest.Attachments).Name}}
                       ),
                       {success: false, message: "Flow call failed: " & FirstError.Message, fileurl: "", filename: "", itemid: 0, stamped: false}
                   )

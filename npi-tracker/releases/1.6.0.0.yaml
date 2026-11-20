@@ -3,8 +3,6 @@ title: Increment 2b upload, replace and remove
 base: base/tenant_export_1_2_0_1.zip
 flows: [NPIUploadFile]
 extra_controls:
-  - type: Image@2.2.3
-    props: [Height, Image, Width, X, Y, Visible]
   - type: Attachments@2.3.0
     props: [AddAttachmentText, BorderColor, DisplayMode, Height, MaxAttachments, NoAttachmentsText, Size, Visible, Width, X, Y]
 summary: |
