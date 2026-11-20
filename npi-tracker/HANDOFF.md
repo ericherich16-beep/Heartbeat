@@ -67,3 +67,8 @@ python3 -I build_uploadtest.py
 - Activity gallery "Detail isn't recognized": source now binds galActivity directly to NPI Activity Log (hand fix given).
 - Source change: the upload/remove failure message now includes FirstError.Message.
 - 2026-11-20: JSON(..., IncludeBinaryData) sends only an appres://blobmanager reference for PDFs, even through an Image control. NPIUploadFile now takes an **optional File input** (`file`), and the app passes `{file: {contentBytes: f.Value, name: f.Name}}` as the last argument. My WADL generator only writes text inputs, so **1.6.0.1 must be built from a tenant export taken after the flow was re-added in Studio**. The build then keeps the tenant's data source definition for the flow.
+- 2026-11-20: **The user's tenant app has diverged from source** (hand edits in Studio, some made with another AI). Names seen in the live btnAddPdf formula:
+  - folder link column **`ProjectFolderURLTXT`** (text), used in place of ProjectFolderUrl
+  - Activity Log data source named **`NPIActivityLog`** (no spaces)
+  - blank flow arguments replaced with `" "`
+  **Do not build 1.6.0.1 from src/ until it is reconciled with the user's export.** Diff the export's Src/*.pa.yaml against `history/1.6.0.0/src` first. Then keep their names: update schema.yaml (and add a data-source alias) rather than overwriting their app.
