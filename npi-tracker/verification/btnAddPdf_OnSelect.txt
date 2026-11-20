@@ -22,7 +22,7 @@ With(
                     mode,
                     Coalesce(varProject.ProjectFolderUrl, varFolderName),
                     finalName,
-                    JSON(f.Value, JSONFormat.IncludeBinaryData),
+                    JSON(imgPdfData.Image, JSONFormat.IncludeBinaryData),
                     varProject.Title,
                     rowTitle,
                     Text(varRow.Gate),

@@ -75,6 +75,14 @@ SCREEN = """Screens:
             Width: =500
             X: =24
             Y: =186
+      - imgTestData:
+          Control: Image@2.2.3
+          Properties:
+            Height: =1
+            Image: =First(attTest.Attachments).Value
+            Width: =1
+            X: =0
+            Y: =0
       - btnRunUpload:
           Control: Classic/Button@2.2.0
           Properties:
@@ -88,7 +96,7 @@ SCREEN = """Screens:
                           "upload",
                           Trim(txtFolderUrl.Text),
                           First(attTest.Attachments).Name,
-                          JSON(First(attTest.Attachments).Value, JSONFormat.IncludeBinaryData),
+                          JSON(imgTestData.Image, JSONFormat.IncludeBinaryData),
                           "TEST",
                           "TEST-REQ",
                           "1",
@@ -137,6 +145,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     flow = yaml.safe_load((HERE / "flows" / "NPIUploadFile" / "flow.yaml").read_text())
     build.FLOWS.add(flow["name"])
+    build.ALLOWED["Image@2.2.3"] = {"Height", "Image", "Width", "X", "Y", "Visible"}
     build.ALLOWED["Attachments@2.3.0"] = {"AddAttachmentText", "Height", "MaxAttachments", "NoAttachmentsText",
                                           "Width", "X", "Y"}
     errs, n = build.validate(APP_YAML, {"Src\\scrTest.pa.yaml": SCREEN})

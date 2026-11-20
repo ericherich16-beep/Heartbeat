@@ -1055,6 +1055,14 @@ Screens:
             Width: =300
             X: =Parent.Width - 462
             Y: =390
+      - imgPdfData:
+          Control: Image@2.2.3
+          Properties:
+            Height: =1
+            Image: =First(attPdf.Attachments).Value
+            Width: =1
+            X: =0
+            Y: =0
       - btnAddPdf:
           Control: Classic/Button@2.2.0
           Properties:
@@ -1100,7 +1108,7 @@ Screens:
                                   mode,
                                   Coalesce(varProject.ProjectFolderUrl, varFolderName),
                                   finalName,
-                                  JSON(f.Value, JSONFormat.IncludeBinaryData),
+                                  JSON(imgPdfData.Image, JSONFormat.IncludeBinaryData),
                                   varProject.Title,
                                   rowTitle,
                                   Text(varRow.Gate),
