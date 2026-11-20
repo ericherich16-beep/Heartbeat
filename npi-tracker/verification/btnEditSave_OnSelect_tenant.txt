@@ -1,0 +1,103 @@
+With(
+    {rowId: varRow.ID, rowTitle: varRow.Title, oldS: varRow.Status.Value, mode: varEdit},
+    IfError(
+        Switch(
+            mode,
+            "assignee",
+            Patch('Project Requirements', LookUp('Project Requirements', ID = rowId), {Assignee: varSelectedAssignee});
+            Patch(
+                'NPIActivityLog',
+                Defaults('NPIActivityLog'),
+                {
+                    Title: rowTitle & ": reassigned",
+                    ProjectID: varProject.Title,
+                    RequirementID: rowTitle,
+                    ActionType: {Value: "Reassign"},
+                    Detail: Coalesce(varRow.Assignee.DisplayName, "Unassigned") & " -> " & varSelectedAssignee.DisplayName,
+                    PerformedBy: varMeUser,
+                    PerformedDate: Now()
+                }
+            ),
+            "due",
+            Patch('Project Requirements', LookUp('Project Requirements', ID = rowId), {DueDate: DateValue(txtDueDate.Text)});
+            Patch(
+                'NPIActivityLog',
+                Defaults('NPIActivityLog'),
+                {
+                    Title: rowTitle & ": due date",
+                    ProjectID: varProject.Title,
+                    RequirementID: rowTitle,
+                    ActionType: {Value: "Due date"},
+                    Detail: If(IsBlank(varRow.DueDate), "none", Text(varRow.DueDate, "mm/dd/yyyy")) & " -> " & Text(DateValue(txtDueDate.Text), "mm/dd/yyyy"),
+                    PerformedBy: varMeUser,
+                    PerformedDate: Now()
+                }
+            ),
+            "remove",
+            Set(
+                varUp,
+                IfError(
+                    NPIUploadFile.Run(
+                        "remove",
+                        If(IsBlank(varProject.ProjectFolderURLTXT), " ", varProject.ProjectFolderURLTXT),
+                        " ",
+                        " ",
+                        If(IsBlank(varProject.Title), " ", varProject.Title),
+                        If(IsBlank(rowTitle), " ", rowTitle),
+                        If(IsBlank(Text(varRow.Gate)), " ", Text(varRow.Gate)),
+                        If(IsBlank(varRow.Form), " ", varRow.Form),
+                        If(IsBlank(varRow.Section), " ", varRow.Section),
+                        If(IsBlank(varMe), " ", varMe),
+                        If(IsBlank(varRow.FileName), " ", varRow.FileName)
+                    ),
+                    {success: false, message: "The NPIUploadFile flow call failed: " & FirstError.Message & " (if the flow has no run, remove and re-add NPIUploadFile in Studio > Power Automate)", fileurl: "", filename: "", itemid: 0, stamped: false}
+                )
+            );
+            If(!varUp.success, Error({Kind: ErrorKind.Custom, Message: varUp.message}));
+            Patch(
+                'Project Requirements',
+                LookUp('Project Requirements', ID = rowId),
+                {FileLink: Blank(), FileName: Blank(), FileItemId: Blank(), Status: {Value: If(oldS in ["Done", "Reviewed"], "Draft", oldS)}}
+            );
+            Patch(
+                'NPIActivityLog',
+                Defaults('NPIActivityLog'),
+                {
+                    Title: rowTitle & ": file removed",
+                    ProjectID: varProject.Title,
+                    RequirementID: rowTitle,
+                    ActionType: {Value: "Remove"},
+                    FileName: varRow.FileName,
+                    Detail: "Moved " & varRow.FileName & " to _Removed" & If(oldS in ["Done", "Reviewed"], "; " & oldS & " -> Draft", ""),
+                    Reason: Trim(txtRemoveReason.Text),
+                    PerformedBy: varMeUser,
+                    PerformedDate: Now()
+                }
+            ),
+            "na",
+            Patch('Project Requirements', LookUp('Project Requirements', ID = rowId), {Status: {Value: "N/A"}, NAReason: Trim(txtNAReason.Text)});
+            Patch(
+                'NPIActivityLog',
+                Defaults('NPIActivityLog'),
+                {
+                    Title: rowTitle & ": " & oldS & " -> N/A",
+                    ProjectID: varProject.Title,
+                    RequirementID: rowTitle,
+                    ActionType: {Value: "N/A"},
+                    Detail: oldS & " -> N/A",
+                    Reason: Trim(txtNAReason.Text),
+                    PerformedBy: varMeUser,
+                    PerformedDate: Now()
+                }
+            )
+        );
+        Refresh('Project Requirements');
+        ClearCollect(colReqs, Filter('Project Requirements', ProjectID = varProject.Title));
+        Set(varRow, LookUp(colReqs, ID = rowId));
+        If(!varRow.IndependentReview, Set(varCanReview, varIsQEorQM), With({sub: First(SortByColumns(Filter(Filter('NPIActivityLog', ProjectID = varProject.Title && RequirementID = varRow.Title), EndsWith(Detail, "-> Done") && !StartsWith(Detail, "Reviewed")), "PerformedDate", SortOrder.Descending)).PerformedBy}, Set(varCanReview, varIsQEorQM && !((Lower(Coalesce(varRow.Assignee.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.Assignee.Claims, "")), "|" & varMe)) || (Lower(Coalesce(varRow.UploadedBy.Email, "")) = varMe || EndsWith(Lower(Coalesce(varRow.UploadedBy.Claims, "")), "|" & varMe)) || (Lower(Coalesce(sub.Email, "")) = varMe || EndsWith(Lower(Coalesce(sub.Claims, "")), "|" & varMe))))));
+        Set(varSelectedAssignee, Blank());
+        Set(varEdit, "");
+        Notify(Switch(mode, "assignee", "Reassigned", "due", "Due date set", "remove", "File removed", "Marked N/A"), NotificationType.Success),
+        Notify("Update failed: " & FirstError.Message, NotificationType.Error)
+    )
+)
