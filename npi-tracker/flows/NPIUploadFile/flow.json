@@ -329,7 +329,7 @@
                       "operationMetadataId": "1bca4ac8-b41d-449f-99c0-2bb8e3300ccf"
                     },
                     "type": "Compose",
-                    "inputs": "@base64ToBinary(last(split(replace(triggerBody()?['text_3'],'\"',''),',')))"
+                    "inputs": "@dataUriToBinary(replace(replace(triggerBody()?['text_3'],'\"',''),'\\',''))"
                   },
                   "Ensure_project_folder": {
                     "metadata": {
