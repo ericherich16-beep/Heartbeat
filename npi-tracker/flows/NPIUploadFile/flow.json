@@ -556,17 +556,13 @@
                         "dataset": "https://cartech365.sharepoint.com/sites/MTCExpansionPlanning",
                         "table": "876092ca-47ee-4732-9e45-b0bf72fcac93",
                         "id": "@variables('varItemId')",
-                        "item": {
-                          "ProjectID": "@triggerBody()?['text_4']",
-                          "RequirementID": "@triggerBody()?['text_5']",
-                          "Gate": "@int(triggerBody()?['text_6'])",
-                          "FormNumber": "@triggerBody()?['text_7']",
-                          "FormSection": "@triggerBody()?['text_8']",
-                          "UploadedBy": {
-                            "Claims": "@concat('i:0#.f|membership|',triggerBody()?['text_9'])"
-                          },
-                          "UploadedDate": "@utcNow()"
-                        }
+                        "item/ProjectID": "@triggerBody()?['text_4']",
+                        "item/RequirementID": "@triggerBody()?['text_5']",
+                        "item/Gate": "@int(triggerBody()?['text_6'])",
+                        "item/FormNumber": "@triggerBody()?['text_7']",
+                        "item/FormSection": "@trim(triggerBody()?['text_8'])",
+                        "item/UploadedBy/Claims": "@concat('i:0#.f|membership|',trim(triggerBody()?['text_9']))",
+                        "item/UploadedDate": "@utcNow()"
                       },
                       "host": {
                         "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",

@@ -72,3 +72,4 @@ python3 -I build_uploadtest.py
   - Activity Log data source named **`NPIActivityLog`** (no spaces)
   - blank flow arguments replaced with `" "`
   **Do not build 1.6.0.1 from src/ until it is reconciled with the user's export.** Diff the export's Src/*.pa.yaml against `history/1.6.0.0/src` first. Then keep their names: update schema.yaml (and add a data-source alias) rather than overwriting their app.
+- 2026-11-20: Uploads work in the tenant (File input, any file type). The library stamp step ran with **no item fields**: the designer dropped the nested `item` object. Fixed by hand by re-selecting the library in the designer. Source flow now uses the designer's flat `item/<Column>` parameter format.
