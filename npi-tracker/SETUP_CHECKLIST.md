@@ -40,3 +40,6 @@ Site: MTC Expansion Planning. **Create each column with the exact internal name 
 - [ ] Add an AS9102 template to NPIFormTemplates, if one exists.
 - [ ] Delete test solutions A–D, the NPI Upload Test solution (after 1.6.0.0 works), and any `TEST-*` projects, rows and folders.
 - [ ] Trigger inputs 7–9 on NPICreateProject: remove them only after checking that no action uses them. **The app still sends them**, so update both together.
+
+## Site time zone
+- [ ] Site settings → Regional settings → Time zone **(UTC-05:00) Eastern Time (US and Canada)**. Flows keep writing `utcNow()`. SharePoint shows dates in the site time zone and handles daylight saving time.
