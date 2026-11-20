@@ -1169,7 +1169,7 @@ Screens:
             Color: |-
               =If(IsBlank(varRow.FileLink), RGBA(75, 85, 99, 1), RGBA(10, 92, 178, 1))
             Height: =24
-            OnSelect: =If(!IsBlank(varRow.FileLink), Launch(varRow.FileLink))
+            OnSelect: =If(!IsBlank(varRow.FileLink), Launch(varRow.FileLink & If(Find("?", varRow.FileLink) > 0, "&", "?") & "web=1", {}, LaunchTarget.New))
             Size: =11
             Text: |-
               =If(
@@ -1850,7 +1850,7 @@ Screens:
             Color: =Color.White
             Fill: =RGBA(10, 92, 178, 1)
             Height: =36
-            OnSelect: =Launch(varRow.FileLink)
+            OnSelect: =Launch(varRow.FileLink & If(Find("?", varRow.FileLink) > 0, "&", "?") & "web=1", {}, LaunchTarget.New)
             RadiusBottomLeft: =4
             RadiusBottomRight: =4
             RadiusTopLeft: =4
