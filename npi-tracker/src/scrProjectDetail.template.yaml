@@ -1013,7 +1013,7 @@ Screens:
             FontWeight: =FontWeight.Semibold
             Height: =28
             Size: =12
-            Text: ="PDF document"
+            Text: ="Document"
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =200
             X: =Parent.Width - 500
@@ -1044,7 +1044,7 @@ Screens:
       - attPdf:
           Control: Attachments@2.3.0
           Properties:
-            AddAttachmentText: ="Choose a PDF"
+            AddAttachmentText: ="Choose a file"
             BorderColor: =RGBA(250, 251, 253, 1)
             DisplayMode: =If(!IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)) || varRow.Status.Value = "N/A" || varSaving, DisplayMode.Disabled, DisplayMode.Edit)
             Height: =50
@@ -1067,7 +1067,6 @@ Screens:
             DisplayMode: |-
               =If(
                   CountRows(attPdf.Attachments) = 1 &&
-                  EndsWith(Lower(First(attPdf.Attachments).Name), ".pdf") &&
                   !(!IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate))) && varRow.Status.Value <> "N/A" && !varSaving,
                   DisplayMode.Edit,
                   DisplayMode.Disabled
@@ -1168,18 +1167,12 @@ Screens:
           Control: Label@2.5.1
           Properties:
             Color: |-
-              =If(
-                  CountRows(attPdf.Attachments) = 1 && !EndsWith(Lower(First(attPdf.Attachments).Name), ".pdf"),
-                  RGBA(177, 14, 30, 1),
-                  If(IsBlank(varRow.FileLink), RGBA(75, 85, 99, 1), RGBA(10, 92, 178, 1))
-              )
+              =If(IsBlank(varRow.FileLink), RGBA(75, 85, 99, 1), RGBA(10, 92, 178, 1))
             Height: =24
             OnSelect: =If(!IsBlank(varRow.FileLink), Launch(varRow.FileLink))
             Size: =11
             Text: |-
               =If(
-                  CountRows(attPdf.Attachments) = 1 && !EndsWith(Lower(First(attPdf.Attachments).Name), ".pdf"),
-                  "Only PDF files can be uploaded.",
                   !IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)),
                   If(IsBlank(varRow.FileLink), "Gate is signed. Upload is closed.", "Signed record: " & Coalesce(varRow.FileName, "open file")),
                   IsBlank(varRow.FileLink),
@@ -1308,8 +1301,8 @@ Screens:
             Text: |-
               =If(!IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)), "Gate " & varRow.Gate & " is signed, so this item is locked.", Switch(
                   varRow.Status.Value,
-                  "Not started", If(varPdfRequired && IsBlank(varRow.FileLink), "PDF required before submitting.", "Submit for review when it is ready. The QE or QM then reviews it."),
-                  "Draft", If(varPdfRequired && IsBlank(varRow.FileLink), "PDF required before submitting.", "Submit for review when it is ready. The QE or QM then reviews it."),
+                  "Not started", If(varPdfRequired && IsBlank(varRow.FileLink), "A file is required before submitting.", "Submit for review when it is ready. The QE or QM then reviews it."),
+                  "Draft", If(varPdfRequired && IsBlank(varRow.FileLink), "A file is required before submitting.", "Submit for review when it is ready. The QE or QM then reviews it."),
                   "Done", If(
                       varCanReview,
                       "Send back returns it to Draft for rework. Add a note to say why.",
