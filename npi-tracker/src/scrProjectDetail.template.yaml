@@ -1024,7 +1024,7 @@ Screens:
             BorderColor: =RGBA(190, 199, 212, 1)
             BorderThickness: =1
             Fill: =RGBA(250, 251, 253, 1)
-            Height: =54
+            Height: =88
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =456
             X: =Parent.Width - 500
@@ -1034,7 +1034,7 @@ Screens:
           Properties:
             Align: =Align.Center
             Color: =RGBA(55, 65, 81, 1)
-            Height: =54
+            Height: =88
             Size: =18
             Text: ="↑"
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
@@ -1047,7 +1047,7 @@ Screens:
             AddAttachmentText: ="Choose a file"
             BorderColor: =RGBA(250, 251, 253, 1)
             DisplayMode: =If(!IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)) || varRow.Status.Value = "N/A" || varSaving, DisplayMode.Disabled, DisplayMode.Edit)
-            Height: =50
+            Height: =84
             MaxAttachments: =1
             NoAttachmentsText: =""
             Size: =11
@@ -1162,7 +1162,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =96
             X: =Parent.Width - 150
-            Y: =399
+            Y: =416
       - lblUploadText:
           Control: Label@2.5.1
           Properties:
@@ -1183,7 +1183,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =350
             X: =Parent.Width - 500
-            Y: =444
+            Y: =478
       - lblRemoveFile:
           Control: Label@2.5.1
           Properties:
@@ -1199,7 +1199,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit) && !IsBlank(varRow.FileLink) && IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate))
             Width: =100
             X: =Parent.Width - 144
-            Y: =444
+            Y: =478
       - lblNotesCap:
           Control: Label@2.5.1
           Properties:
@@ -1211,7 +1211,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit) && !(varRow.Status.Value in ["Reviewed", "N/A"])
             Width: =200
             X: =Parent.Width - 500
-            Y: =466
+            Y: =500
       - txtNote:
           Control: Classic/TextInput@2.3.2
           Properties:
@@ -1224,7 +1224,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit) && !(varRow.Status.Value in ["Reviewed", "N/A"])
             Width: =456
             X: =Parent.Width - 500
-            Y: =494
+            Y: =528
       - btnPrimary:
           Control: Classic/Button@2.2.0
           Properties:
@@ -1264,7 +1264,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =190
             X: =Parent.Width - 500
-            Y: =562
+            Y: =596
       - btnSecondary:
           Control: Classic/Button@2.2.0
           Properties:
@@ -1291,7 +1291,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit) && varRow.Status.Value in ["Not started", "Draft", "Done"]
             Width: =150
             X: =Parent.Width - 296
-            Y: =562
+            Y: =596
       - lblActionHint:
           Control: Label@2.5.1
           Properties:
@@ -1315,7 +1315,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =456
             X: =Parent.Width - 500
-            Y: =604
+            Y: =638
       - lblViewDetails:
           Control: Label@2.5.1
           Properties:
@@ -1328,7 +1328,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =110
             X: =Parent.Width - 500
-            Y: =648
+            Y: =682
       - lblLinkSep:
           Control: Label@2.5.1
           Properties:
@@ -1340,7 +1340,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =20
             X: =Parent.Width - 388
-            Y: =648
+            Y: =682
       - lblActivity:
           Control: Label@2.5.1
           Properties:
@@ -1355,7 +1355,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit)
             Width: =80
             X: =Parent.Width - 364
-            Y: =648
+            Y: =682
       - lblMarkNA:
           Control: Label@2.5.1
           Properties:
@@ -1371,7 +1371,7 @@ Screens:
             Visible: =!IsBlank(varRow) && IsBlank(varEdit) && varIsQEorQM && IsBlank(Switch(varRow.Gate, 1, varProject.Gate1SignedDate, 2, varProject.Gate2SignedDate, 3, varProject.Gate3SignedDate, varProject.Gate4SignedDate)) && varRow.ReqLevel.Value = "If required" && varRow.Status.Value in ["Not started", "Draft"]
             Width: =120
             X: =Parent.Width - 164
-            Y: =648
+            Y: =682
       - lblEditTitle:
           Control: Label@2.5.1
           Properties:
