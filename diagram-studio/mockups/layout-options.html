@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout Options Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE work: a design review of three diagram layouts, side by side with numbers
+   IDEA a proof sheet: the same drawing printed three ways, with the defects counted in the margin
+   PICTURE the NPI data model itself, drawn by each layout engine at real size
+   COLOUR Diagram Studio's own: white paper, ink #0b0b10, signal green #00a862, red for defects; night #07130d
+   TYPE Space Grotesk 600 for headings + Inter
+   LAYOUT laptop: title and option tabs on top, drawing left, notes and defect counts right; phone: stacked */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#07130d);--chrome:light-dark(#f6f8f7,#0c1a13);--ink:light-dark(#0b0b10,#e8f2ec);--mute:light-dark(#5b6470,#93a59b);
+--line:light-dark(#dfe4e2,#1f3329);--paper:light-dark(#ffffff,#0a1711);--dot:light-dark(#d5dbd8,#1d3227);--acc:light-dark(#00a862,#2bd48a);--mist:light-dark(#eafaf2,#0f2a1d);--bad:light-dark(#c62828,#ff7a70)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;overflow-x:clip}
+h1{font:600 clamp(26px,3.4vw,38px)/1.08 "Space Grotesk",Inter,sans-serif;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
+.top{padding:22px max(4vw,16px) 14px;border-bottom:1px solid var(--line);background:var(--chrome)}
+.top p{margin:0;color:var(--mute);max-width:72ch}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.tabs button{height:44px;padding:0 16px;border:1px solid var(--line);border-radius:22px;background:var(--paper);font:500 15px Inter,sans-serif;color:var(--ink);cursor:pointer}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tabs button:focus-visible,.zb:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 360px;min-height:calc(100vh - 170px)}
+.stage{position:relative;border-right:1px solid var(--line);background-color:var(--paper);background-image:radial-gradient(var(--dot) 1px,transparent 1.2px);background-size:20px 20px;overflow:auto;max-height:calc(100vh - 170px);min-height:420px}
+.stage svg{display:block}
+.stage svg text{font-family:Inter,system-ui,sans-serif}
+.zbar{position:sticky;top:10px;left:10px;z-index:2;display:inline-flex;gap:4px;margin:10px;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:3px}
+.zb{height:34px;padding:0 10px;border:0;border-radius:6px;background:none;font:500 13px Inter,sans-serif;color:var(--ink);cursor:pointer}
+.zb.on{background:var(--mist)}
+.side{padding:20px;overflow:auto;max-height:calc(100vh - 170px)}
+.side h2{font:600 22px/1.15 "Space Grotesk",Inter,sans-serif;margin:0 0 8px;letter-spacing:-.01em}
+.side ul{padding-left:18px;margin:8px 0}
+.side li{margin:4px 0}
+.score{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
+.score div{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.score b{display:block;font:600 26px/1.1 "Space Grotesk",Inter,sans-serif;font-variant-numeric:tabular-nums}
+.score b.bad{color:var(--bad)}.score b.good{color:var(--acc)}
+.score span{font-size:12.5px;color:var(--mute);line-height:1.3;display:block}
+.hint{font-size:13px;color:var(--mute);border-top:1px solid var(--line);padding-top:12px;margin-top:14px}
+table.cmp{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+table.cmp th,table.cmp td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:right;white-space:nowrap}
+table.cmp th:first-child,table.cmp td:first-child{text-align:left}
+.nd{cursor:pointer}
+svg.focus .nd:not(.hot),svg.focus .ed:not(.hot){opacity:.15}
+@media(max-width:860px){.main{grid-template-columns:minmax(0,1fr)}.stage{border-right:0;border-bottom:1px solid var(--line);max-height:70vh}.side{max-height:none}}
+@media(prefers-reduced-motion:no-preference){svg .nd,svg .ed{transition:opacity .15s}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Three ways to lay out the NPI data model</h1>
+  <p>Mockup for discussion. Each tab draws the same 8 tables and 8 relationships from your NPI Tracker model, then counts the defects in the margin. Click any table to highlight its relationships.</p>
+  <div class="tabs" role="tablist">
+    <button id="tA" role="tab" data-v="A">A. Current Tidy</button>
+    <button id="tB" role="tab" data-v="B">B. Flow, left to right</button>
+    <button id="tC" role="tab" data-v="C">C. Flow + keys only</button>
+  </div>
+</header>
+<div class="main">
+  <div class="stage" id="stage"><div class="zbar"><button class="zb" id="zFit">Fit</button><button class="zb" id="z100">100%</button></div><div id="fig"></div></div>
+  <aside class="side" id="side"></aside>
+</div>
+<script>
+{
+const $=s=>document.querySelector(s);
+const HEAD=32,ROW=24,W=230;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const COL={blue:['#e4eefb','#2759a8','#12223a','#86b4f2'],amber:['#fdf1d6','#9a6200','#2c220d','#f0c060'],purple:['#efe7fb','#6a3db3','#231936','#c4a5f5'],grey:['#eef1f0','#66706b','#1a2520','#a1aea7'],green:['#e3f6ec','#0b8a52','#0f2a1d','#4fdc9b']};
+const fill=c=>`light-dark(${COL[c][0]},${COL[c][2]})`,stroke=c=>`light-dark(${COL[c][1]},${COL[c][3]})`;
+document.head.insertAdjacentHTML('beforeend',`<style>${Object.keys(COL).map(k=>`.f-${k}{fill:${fill(k)}}.s-${k}{stroke:${stroke(k)}}.h-${k}{fill:${stroke(k)}}`).join('')}</style>`);
+/* ---------- the NPI model, as built by the prompts ---------- */
+const f=(n,t,o={})=>({n,t,...o});
+const T=[
+ {id:'NP',name:'NPI Projects',c:'blue',fields:[f('ID','id',{pk:1}),f('Title','text'),f('PartNumber','text'),f('Revision','text'),f('PartRevKey','text'),f('Customer','text'),f('ProjectType','choice'),f('QE','person'),f('CurrentGate','number'),f('ProjectFolderUrl','text'),f('PreviousProject','lookup',{fk:1}),f('ProjectStatus','choice'),f('Gate1SignedBy','person'),f('Gate2SignedBy','person'),f('Gate3SignedBy','person'),f('Gate4SignedBy','person'),f('Gate1SignedDate','datetime'),f('Gate2SignedDate','datetime'),f('Gate3SignedDate','datetime'),f('Gate4SignedDate','datetime'),f('CloseDate','datetime'),f('RetentionUntil','datetime'),f('Created','datetime'),f('Modified','datetime')]},
+ {id:'PR',name:'Project Requirements',c:'blue',fields:[f('ID','id',{pk:1}),f('Title','text'),f('ProjectID','text',{fk:1}),f('Gate','number'),f('SortOrder','number'),f('Form','text'),f('Section','text'),f('RequirementType','choice'),f('Role','choice'),f('ReqLevel','choice'),f('IndependentReview','boolean'),f('IsGateDoc','boolean'),f('Assignee','person'),f('DueDate','datetime'),f('Status','choice'),f('NAReason','text'),f('ReviewedBy','person'),f('ReviewedDate','datetime'),f('UploadedBy','person'),f('UploadedDate','datetime'),f('FileLink','text'),f('FileItemId','number'),f('FileName','text')]},
+ {id:'GR',name:'Gate Requirements',c:'amber',fields:[f('ID','id',{pk:1}),f('Title','text'),f('Gate','number'),f('SortOrder','number'),f('Form','text'),f('Section','text'),f('RequirementType','choice'),f('Role','choice'),f('ReqLevel','choice'),f('IndependentReview','boolean'),f('IsGateDoc','boolean'),f('Active','boolean'),f('ChangeReason','text'),f('ApprovedBy','person')]},
+ {id:'RD',name:'NPI Role Defaults',c:'amber',fields:[f('ID','id',{pk:1}),f('Title','text'),f('Role','choice'),f('DefaultAssignee','person')]},
+ {id:'OQ',name:'NPI Open Questions',c:'purple',fields:[f('ID','id',{pk:1}),f('Title','text'),f('ProjectID','text',{fk:1}),f('Gate','number'),f('Owner','person'),f('DueDate','datetime'),f('QStatus','choice'),f('Resolution','text'),f('GateMoveReason','text'),f('Created','datetime')]},
+ {id:'AL',name:'NPI Activity Log',c:'grey',fields:[f('ID','id',{pk:1}),f('Title','text'),f('ProjectID','text',{fk:1}),f('RequirementID','text',{fk:1}),f('ActionType','choice'),f('Detail','text'),f('Reason','text'),f('FileName','text'),f('PerformedBy','person'),f('PerformedDate','datetime')]},
+ {id:'PF',name:'NPIProjectFiles',c:'green',fields:[f('ID','id',{pk:1}),f('FileLeafRef','text'),f('ProjectID','text',{fk:1}),f('RequirementID','text',{fk:1}),f('Gate','number'),f('FormNumber','text'),f('FormSection','text'),f('UploadedBy','person'),f('UploadedDate','datetime')]},
+ {id:'FT',name:'NPIFormTemplates',c:'green',fields:[f('ID','id',{pk:1}),f('FileLeafRef','text')]}];
+const E=[
+ {a:['PR','ProjectID'],b:['NP','Title'],sa:'0N',sb:'11'},{a:['OQ','ProjectID'],b:['NP','Title'],sa:'0N',sb:'11'},
+ {a:['AL','ProjectID'],b:['NP','Title'],sa:'0N',sb:'11'},{a:['PF','ProjectID'],b:['NP','Title'],sa:'0N',sb:'11'},
+ {a:['AL','RequirementID'],b:['PR','Title'],sa:'0N',sb:'01'},{a:['PF','RequirementID'],b:['PR','Title'],sa:'0N',sb:'01'},
+ {a:['GR',null],b:['PR',null],sa:'none',sb:'arrow',dash:1,label:'copied at project creation'},
+ {a:['RD','Role'],b:['PR','Role'],sa:'none',sb:'arrow',dash:1,label:'default Assignee by Role'}].map((e,i)=>({...e,id:i}));
+
+/* ---------- shared geometry ---------- */
+function tables(collapse){
+ return T.map(t=>{const used=new Set(E.flatMap(e=>[e.a[0]===t.id?e.a[1]:null,e.b[0]===t.id?e.b[1]:null]).filter(Boolean));
+  const v=collapse?t.fields.filter(x=>x.pk||x.fk||used.has(x.n)):t.fields,more=t.fields.length-v.length;
+  return{...t,v,more,w:W,h:HEAD+(v.length+(more?1:0))*ROW+6,x:0,y:0}});
+}
+const rowY=(t,fn)=>fn?t.y+HEAD+t.v.findIndex(x=>x.n===fn)*ROW+ROW/2:t.y+HEAD/2;
+/* A: what Diagram Studio does today (grid by link count; shortest elbow route) */
+function layoutA(){
+ const ts=tables(false),by=Object.fromEntries(ts.map(t=>[t.id,t]));
+ const deg=t=>E.filter(e=>e.a[0]===t.id||e.b[0]===t.id).length;
+ const order=[...ts].sort((p,q)=>deg(q)-deg(p)),cols=Math.ceil(Math.sqrt(ts.length)),ys=Array(cols).fill(60);
+ order.forEach((t,i)=>{const c=i%cols;t.x=60+c*320;t.y=ys[c];ys[c]+=t.h+70});
+ const anc=(t,fn,o)=>{const s=o.x>=t.x+t.w-20?'r':o.x+o.w<=t.x+20?'l':'r';return{x:s==='r'?t.x+t.w:t.x,y:rowY(t,fn),dx:s==='r'?1:-1,dy:0}};
+ const routes=E.map(e=>{const A=by[e.a[0]],B=by[e.b[0]],a=anc(A,e.a[1],B),b=anc(B,e.b[1],A);return{e,a,b,pts:route(a,b),child:A.id,parent:B.id,trunk:null}});
+ return{ts,routes};
+}
+function route(a,b){
+ const K=20,a1={x:a.x+a.dx*K,y:a.y},b1={x:b.x+b.dx*K,y:b.y},pts=[a,a1];
+ if(a.dx===b.dx){const x=a.dx>0?Math.max(a1.x,b1.x):Math.min(a1.x,b1.x);pts.push({x,y:a1.y},{x,y:b1.y})}
+ else if((b1.x-a1.x)*a.dx>=0){const x=(a1.x+b1.x)/2;pts.push({x,y:a1.y},{x,y:b1.y})}
+ else{const y=(a1.y+b1.y)/2;pts.push({x:a1.x,y},{x:b1.x,y})}
+ pts.push(b1,b);return pts;
+}
+/* B and C: layered columns, lanes in the gaps, trunks per key, corridors between tables */
+function layoutL(collapse){
+ const ts=tables(collapse),by=Object.fromEntries(ts.map(t=>[t.id,t]));
+ const rel=E.map(e=>e.dash?{e,p:e.a,c:e.b,pm:e.sa,cm:e.sb}:{e,p:e.b,c:e.a,pm:e.sb,cm:e.sa});
+ const rank=Object.fromEntries(ts.map(t=>[t.id,0]));
+ for(let i=0;i<ts.length;i++)for(const r of rel)rank[r.c[0]]=Math.max(rank[r.c[0]],rank[r.p[0]]+1);
+ const R=Math.max(...Object.values(rank)),cols=[...Array(R+1)].map((_,k)=>ts.filter(t=>rank[t.id]===k));
+ const linked=t=>rel.some(r=>r.p[0]===t.id||r.c[0]===t.id);
+ const idx=()=>{const m={};cols.forEach(c=>c.forEach((t,i)=>m[t.id]=i));return m};
+ const sweep=(k,nk)=>{const m=idx();const bc=t=>{const ns=rel.filter(r=>(r.p[0]===t.id&&rank[r.c[0]]===nk)||(r.c[0]===t.id&&rank[r.p[0]]===nk)).map(r=>m[r.p[0]===t.id?r.c[0]:r.p[0]]);return linked(t)?(ns.length?ns.reduce((a,b)=>a+b,0)/ns.length:m[t.id]):1e9};cols[k].sort((p,q)=>bc(p)-bc(q))};
+ for(let it=0;it<4;it++){for(let k=1;k<=R;k++)sweep(k,k-1);for(let k=R-1;k>=0;k--)sweep(k,k+1)}
+ const place=gs=>cols.forEach((c,k)=>{let y=60+(gs[k][0]?gs[k][0]:0);c.forEach((t,i)=>{t.y=y;y+=t.h+(gs[k][i+1]||50)})});
+ const gapSize=n=>n?40+18*n:50;
+ let gs=cols.map(c=>Array(c.length+1).fill(0));place(gs);
+ const corr={},gapUse=cols.map(c=>c.map(()=>[]).concat([[]]));
+ for(const r of rel){const rp=rank[r.p[0]],rc=rank[r.c[0]];for(let m=rp+1;m<rc;m++){
+  const tgt=(rowY(by[r.c[0]],r.c[1])+rowY(by[r.p[0]],r.p[1]))/2,c=cols[m];
+  const centers=c.map((t,i)=>i===0?t.y-25:(c[i-1].y+c[i-1].h+t.y)/2).concat([c[c.length-1].y+c[c.length-1].h+25]);
+  let best=0;centers.forEach((v,i)=>{if(Math.abs(v-tgt)<Math.abs(centers[best]-tgt))best=i});
+  gapUse[m][best].push(r);corr[r.e.id+':'+m]={m,g:best}}}
+ gs=cols.map((c,k)=>gapUse[k].map((u,i)=>u.length?gapSize(u.length):(i===0?0:50)));place(gs);
+ const cy={};cols.forEach((c,m)=>gapUse[m].forEach((u,g)=>{if(!u.length)return;const top=g===0?c[0].y-gs[m][0]:c[g-1].y+c[g-1].h;
+  u.sort((p,q)=>(rowY(by[p.p[0]],p.p[1]))-(rowY(by[q.p[0]],q.p[1]))).forEach((r,j)=>cy[r.e.id+':'+m]=top+gs[m][g]/2-(u.length-1)*9+j*18)}));
+ const lanes=[...Array(R)].map(()=>new Map());
+ const tkey=r=>`${r.p[0]}:${r.p[1]||'*'}`;
+ for(const r of rel){const rp=rank[r.p[0]],rc=rank[r.c[0]];for(let k=rp;k<rc;k++){const key=k===rp?'T'+tkey(r):'E'+r.e.id+':'+k;if(!lanes[k].has(key))lanes[k].set(key,{key,trunk:k===rp,ys:[]})}}
+ const lab=lanes.map(()=>0);for(const r of rel)if(r.e.label)lab[rank[r.c[0]]-1]=Math.max(lab[rank[r.c[0]]-1],r.e.label.length*6.6+12);
+ const cw=lanes.map((m,k)=>Math.max(130,70+(m.size-1)*18,lab[k]?lab[k]+80+m.size*18:0));
+ let x=60;cols.forEach((c,k)=>{c.forEach(t=>t.x=x);x+=W+(cw[k]||0)});
+ for(const r of rel){const rp=rank[r.p[0]],rc=rank[r.c[0]];let y=rowY(by[r.c[0]],r.c[1]);
+  for(let k=rc-1;k>=rp;k--){const key=k===rp?'T'+tkey(r):'E'+r.e.id+':'+k,L=lanes[k].get(key);L.ys.push(y);const ny=k>rp?cy[r.e.id+':'+k]:rowY(by[r.p[0]],r.p[1]);L.ys.push(ny);y=ny}}
+ lanes.forEach((m,k)=>{const arr=[...m.values()].map(L=>({...L,span:Math.max(...L.ys)-Math.min(...L.ys)}));
+  arr.sort((p,q)=>(p.trunk===q.trunk?q.span-p.span:p.trunk?-1:1));const x0=cols[k][0].x+W+35;arr.forEach((L,i)=>m.get(L.key).x=x0+i*18)});
+ const routes=rel.map(r=>{const P=by[r.p[0]],C=by[r.c[0]],rp=rank[P.id],rc=rank[C.id];let y=rowY(C,r.c[1]);const pts=[{x:C.x,y}];
+  for(let k=rc-1;k>=rp;k--){const key=k===rp?'T'+tkey(r):'E'+r.e.id+':'+k,lx=lanes[k].get(key).x;pts.push({x:lx,y});
+   if(k>rp){y=cy[r.e.id+':'+k];pts.push({x:lx,y})}else{const py=rowY(P,r.p[1]);pts.push({x:lx,y:py},{x:P.x+P.w,y:py})}}
+  const e=r.e;return{e,pts,child:C.id,parent:P.id,trunk:tkey(r),cpt:{x:C.x,y:rowY(C,r.c[1]),dx:-1,dy:0},ppt:{x:P.x+P.w,y:rowY(P,r.p[1]),dx:1,dy:0},cm:r.cm,pm:r.pm}});
+ return{ts,routes};
+}
+/* ---------- defect counts ---------- */
+function score(L){
+ const segs=L.routes.map(r=>r.pts.slice(1).map((p,i)=>[r.pts[i],p]));
+ let through=0,cross=0,overlap=0,len=0;
+ L.routes.forEach((r,i)=>{let hit=false;for(const[s,t]of segs[i]){len+=Math.abs(s.x-t.x)+Math.abs(s.y-t.y);
+  for(const tb of L.ts){if(tb.id===r.child||tb.id===r.parent)continue;const x0=Math.min(s.x,t.x),x1=Math.max(s.x,t.x),y0=Math.min(s.y,t.y),y1=Math.max(s.y,t.y);
+   if(x1>tb.x+2&&x0<tb.x+tb.w-2&&y1>tb.y+2&&y0<tb.y+tb.h-2)hit=true}}if(hit)through++});
+ for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){const ri=L.routes[i],rj=L.routes[j];if(ri.trunk&&ri.trunk===rj.trunk)continue;
+  for(const[a,b]of segs[i])for(const[c,d]of segs[j]){const hi=a.y===b.y,hj=c.y===d.y;
+   if(hi!==hj){const[h1,h2,v1,v2]=hi?[a,b,c,d]:[c,d,a,b];const hx0=Math.min(h1.x,h2.x),hx1=Math.max(h1.x,h2.x),vy0=Math.min(v1.y,v2.y),vy1=Math.max(v1.y,v2.y);
+    if(v1.x>hx0+1&&v1.x<hx1-1&&h1.y>vy0+1&&h1.y<vy1-1)cross++}
+   else if(hi&&hj&&Math.abs(a.y-c.y)<1){if(Math.min(Math.max(a.x,b.x),Math.max(c.x,d.x))-Math.max(Math.min(a.x,b.x),Math.min(c.x,d.x))>4)overlap++}
+   else if(!hi&&!hj&&Math.abs(a.x-c.x)<1){if(Math.min(Math.max(a.y,b.y),Math.max(c.y,d.y))-Math.max(Math.min(a.y,b.y),Math.min(c.y,d.y))>4)overlap++}}}
+ const xs=L.ts.flatMap(t=>[t.x,t.x+t.w]),ys=L.ts.flatMap(t=>[t.y,t.y+t.h]);
+ return{through,cross,overlap,len:Math.round(len),w:Math.round(Math.max(...xs)-Math.min(...xs)),h:Math.round(Math.max(...ys)-Math.min(...ys))};
+}
+/* ---------- drawing ---------- */
+function marker(m,p,col){
+ if(!m||m==='none')return'';const d={x:p.dx,y:p.dy},q={x:-d.y,y:d.x},at=(k,s=0)=>`${p.x+d.x*k+q.x*s} ${p.y+d.y*k+q.y*s}`;
+ const bar=k=>`<path d="M${at(k,-7)}L${at(k,7)}" stroke="${col}" stroke-width="1.6"/>`,ring=k=>`<circle cx="${p.x+d.x*k}" cy="${p.y+d.y*k}" r="4.5" fill="var(--paper)" stroke="${col}" stroke-width="1.6"/>`;
+ const crow=`<path d="M${at(0,-8)}L${at(12)}L${at(0,8)}M${at(0)}L${at(12)}" fill="none" stroke="${col}" stroke-width="1.6"/>`;
+ return{arrow:`<path d="M${at(0)}L${at(11,-5.5)}L${at(11,5.5)}Z" fill="${col}"/>`,'11':bar(7)+bar(13),'01':bar(7)+ring(18),'0N':crow+ring(19)}[m]||'';
+}
+function tableSVG(t){
+ let h=`<g class="nd" data-t="${t.id}" transform="translate(${t.x} ${t.y})"><rect width="${t.w}" height="${t.h}" rx="6" fill="var(--paper)" class="s-${t.c}" stroke-width="1.4"/>
+ <path d="M0 6A6 6 0 0 1 6 0H${t.w-6}A6 6 0 0 1 ${t.w} 6V${HEAD}H0Z" class="h-${t.c}"/><text x="12" y="${HEAD/2}" dy=".35em" font-size="14" font-weight="700" fill="var(--paper)">${esc(t.name)}</text>`;
+ t.v.forEach((x,i)=>{const y=HEAD+i*ROW;if(i%2)h+=`<rect y="${y}" width="${t.w}" height="${ROW}" class="f-${t.c}" fill-opacity=".55"/>`;
+  const k=x.pk?'PK':x.fk?'FK':'';if(k)h+=`<text x="10" y="${y+ROW/2}" dy=".35em" font-size="10" font-weight="700" fill="${k==='PK'?stroke('amber'):stroke('blue')}">${k}</text>`;
+  h+=`<text x="34" y="${y+ROW/2}" dy=".35em" font-size="13" fill="var(--ink)">${esc(x.n)}</text><text x="${t.w-10}" y="${y+ROW/2}" dy=".35em" font-size="12" text-anchor="end" fill="var(--mute)">${esc(x.t)}</text>`});
+ if(t.more)h+=`<text x="34" y="${HEAD+t.v.length*ROW+ROW/2}" dy=".35em" font-size="12.5" font-style="italic" fill="var(--mute)">+${t.more} more fields</text>`;
+ return h+'</g>';
+}
+function edgeSVG(r,A){
+ const col='var(--ink)',e=r.e;const d='M'+r.pts.map(p=>`${p.x} ${p.y}`).join('L');
+ let h=`<g class="ed" data-a="${r.child}" data-b="${r.parent}"><path d="${d}" fill="none" stroke="${col}" stroke-width="1.5"${e.dash?' stroke-dasharray="6 4"':''} stroke-linejoin="round"/>`;
+ if(A){h+=marker(e.sa,r.a,col)+marker(e.sb,r.b,col)}else{h+=marker(r.cm,r.cpt,col)+marker(r.pm,r.ppt,col)}
+ if(e.label){let best=null,bl=0;for(let i=1;i<r.pts.length;i++){const s=r.pts[i-1],t=r.pts[i],l=Math.abs(s.x-t.x)+Math.abs(s.y-t.y);if(s.y===t.y&&l>bl){bl=l;best={x:(s.x+t.x)/2,y:s.y}}}
+  if(best&&bl>60){const w=e.label.length*6.6+12;h+=`<rect x="${best.x-w/2}" y="${best.y-10}" width="${w}" height="20" rx="4" fill="var(--paper)"/><text x="${best.x}" y="${best.y}" dy=".35em" text-anchor="middle" font-size="12" fill="var(--ink)">${esc(e.label)}</text>`}}
+ return h+'</g>';
+}
+const VIEWS={
+ A:{make:layoutA,title:'A. Current Tidy',body:`<p>What the <b>Tidy up</b> step does today.</p><ul><li>Tables fill a three-column grid, busiest first. Placement ignores which tables are related.</li><li>Each line takes the shortest elbow path, straight through any table in its way.</li><li>Lines to the same field (four into <code>NPI Projects.Title</code>) end at the same point and lie on top of each other.</li></ul>`},
+ B:{make:()=>layoutL(false),title:'B. Flow, left to right',body:`<p>Tables are placed in columns by dependency. A table that others point at sits to the left of the tables that point at it, so every relationship reads right to left.</p><ul><li>Lines only run in the gaps between columns, each in its own lane, so no line crosses a table.</li><li>Lines to the same key join into one trunk with one marker at the key, like a bus. The crow's feet stay at each child table.</li><li>A line that skips a column passes through a gap between tables, which opens up to make room.</li><li>Column order is tuned to keep lines short and uncrossed.</li></ul>`},
+ C:{make:()=>layoutL(true),title:'C. Flow + keys only',body:`<p>The same layout as B, but each table shows only its keys and linked fields, with "+N more fields" at the bottom.</p><ul><li>The whole model fits on one screen, so the structure is clear at a glance.</li><li>In the app this would be a view switch ("All fields" / "Keys only") plus a per-table expand, so nothing is lost. The handoff spec always has every field.</li></ul>`}};
+let cur='B',fit=true;
+const results={};for(const k in VIEWS){const L=VIEWS[k].make();results[k]={L,s:score(L)}}
+function draw(){
+ const {L,s}=results[cur],v=VIEWS[cur];
+ const xs=L.ts.flatMap(t=>[t.x,t.x+t.w]).concat(L.routes.flatMap(r=>r.pts.map(p=>p.x))),ys=L.ts.flatMap(t=>[t.y,t.y+t.h]).concat(L.routes.flatMap(r=>r.pts.map(p=>p.y)));
+ const x0=Math.min(...xs)-30,y0=Math.min(...ys)-30,Wd=Math.max(...xs)+30-x0,Hd=Math.max(...ys)+30-y0;
+ const stage=$('#stage'),avail=stage.clientWidth-20,z=fit?Math.min(1,avail/Wd):1;
+ $('#fig').innerHTML=`<svg id="svg" width="${Math.round(Wd*z)}" height="${Math.round(Hd*z)}" viewBox="${x0} ${y0} ${Wd} ${Hd}" role="img" aria-label="${esc(v.title)} layout of the NPI data model">${L.routes.map(r=>edgeSVG(r,cur==='A')).join('')}${L.ts.map(tableSVG).join('')}</svg>`;
+ const cls=(n,good)=>n===0?'good':good?'':'bad';
+ $('#side').innerHTML=`<h2>${v.title}</h2>${v.body}<div class="score"><div><b class="${cls(s.through)}">${s.through}</b><span>lines that cut through a table</span></div><div><b class="${cls(s.overlap)}">${s.overlap}</b><span>lines lying on top of each other</span></div><div><b class="${cls(s.cross)}">${s.cross}</b><span>line crossings</span></div></div>
+ <div style="overflow-x:auto"><table class="cmp"><thead><tr><th>Option</th><th>Through tables</th><th>Stacked</th><th>Crossings</th><th>Size</th></tr></thead><tbody>${Object.entries(results).map(([k,r])=>`<tr${k===cur?' style="font-weight:600"':''}><td>${k}</td><td>${r.s.through}</td><td>${r.s.overlap}</td><td>${r.s.cross}</td><td>${r.s.w}×${r.s.h}</td></tr>`).join('')}</tbody></table></div>
+ <p class="hint">Trunk lines in B and C share a path on purpose, so they are not counted as stacked. Size is the area the tables cover, in pixels at 100%.</p>`;
+ document.querySelectorAll('.tabs button').forEach(b=>{b.classList.toggle('on',b.dataset.v===cur);b.setAttribute('aria-selected',b.dataset.v===cur)});
+ $('#zFit').classList.toggle('on',fit);$('#z100').classList.toggle('on',!fit);
+}
+document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b){cur=b.dataset.v;draw()}});
+$('#zFit').onclick=()=>{fit=true;draw()};$('#z100').onclick=()=>{fit=false;draw()};
+$('#fig').addEventListener('click',e=>{const svg=$('#svg'),g=e.target.closest('.nd');svg.querySelectorAll('.hot').forEach(x=>x.classList.remove('hot'));
+ if(!g||g.classList.contains('was')){svg.classList.remove('focus');svg.querySelectorAll('.was').forEach(x=>x.classList.remove('was'));return}
+ svg.querySelectorAll('.was').forEach(x=>x.classList.remove('was'));const id=g.dataset.t;g.classList.add('hot','was');svg.classList.add('focus');
+ svg.querySelectorAll('.ed').forEach(ed=>{if(ed.dataset.a===id||ed.dataset.b===id){ed.classList.add('hot');const o=ed.dataset.a===id?ed.dataset.b:ed.dataset.a;svg.querySelector(`.nd[data-t="${o}"]`)?.classList.add('hot')}})});
+const ro=new ResizeObserver(()=>{if(fit)draw()});ro.observe($('#stage'));
+draw();
+}
+</script>
+</body>
+</html>
