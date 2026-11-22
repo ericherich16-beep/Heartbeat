@@ -56,7 +56,7 @@ button{cursor:pointer}
 .rh{fill:var(--paper);stroke:var(--acc);stroke-width:1.5}
 .hit{stroke:transparent;fill:none;stroke-width:14;cursor:pointer;pointer-events:stroke}
 #ed{position:absolute;display:none;z-index:5;border:2px solid var(--acc);border-radius:4px;background:var(--paper);resize:none;text-align:center;padding:4px;line-height:1.25;overflow:hidden}
-#hint{position:absolute;left:12px;bottom:10px;color:var(--mute);font-size:12.5px;pointer-events:none;background:color-mix(in srgb,var(--paper) 85%,transparent);padding:2px 6px;border-radius:4px}
+#hint{position:absolute;left:12px;top:10px;color:var(--mute);font-size:12.5px;pointer-events:none;background:color-mix(in srgb,var(--paper) 85%,transparent);padding:2px 6px;border-radius:4px}
 #tabs{grid-area:tabs;display:flex;align-items:center;gap:2px;border-top:1px solid var(--line);background:var(--chrome);padding:4px 8px;overflow-x:auto}
 .tab{height:32px;padding:0 12px;border:1px solid transparent;border-radius:6px;background:none;white-space:nowrap;color:var(--mute)}
 .tab.on{background:var(--paper);border-color:var(--line);color:var(--ink);font-weight:600}
@@ -104,6 +104,28 @@ kbd{font:11.5px Inter,sans-serif;border:1px solid var(--line);border-bottom-widt
 .tpl b{display:block;margin-bottom:2px}.tpl span{color:var(--mute);font-size:12.5px}
 #toast{position:fixed;left:50%;bottom:56px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:40;font-size:13.5px}
 #fmt{display:none}
+#ask{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(660px,calc(100% - 24px));z-index:6;display:flex;flex-direction:column;gap:6px}
+#askF{display:flex;gap:6px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+#askF:focus-within{border-color:var(--acc)}
+#askIn{flex:1;border:0;background:none;font-size:16px;padding:8px 6px;outline:none}
+#askTier{border:1px solid var(--line);border-radius:6px;background:var(--chrome);height:36px;font-size:13px;padding:0 4px}
+#mic{width:44px;height:44px;flex:none;border-radius:50%;border:1px solid var(--line);background:var(--mist);display:grid;place-items:center}
+#mic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+#mic.rec{background:var(--danger);border-color:var(--danger);color:#fff;animation:pulse 1.4s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--danger) 25%,transparent)}}
+#askOut{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 6px 20px rgba(0,0,0,.1);font-size:14px}
+#askOut p{margin:0}#askOut small{color:var(--mute)}
+#askOut.ok{display:flex;align-items:center;gap:10px;flex-wrap:wrap}#askOut.ok>div:first-child{flex:1}
+#askOut.err{border-color:var(--danger)}#askOut.ok{border-color:var(--acc)}
+#askOut .aa{display:flex;gap:6px}#askOut .aa .btn{height:32px}
+.exs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.ex{border:1px solid var(--line);background:var(--chrome);border-radius:16px;padding:6px 10px;font-size:13px;text-align:left}
+.ex:hover{border-color:var(--acc)}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--acc);border-right-color:transparent;border-radius:50%;animation:sp 1s linear infinite;vertical-align:-1px;margin-right:4px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--danger);margin-right:4px}
+@media(max-width:600px){#askTier{display:none}#ask{bottom:8px}}
+@media(prefers-reduced-motion:reduce){#mic.rec,.spin{animation:none}}
 @media(max-width:860px){
 #app{grid-template:"top" auto "pal" auto "cv" minmax(0,1fr) "tabs" auto/minmax(0,1fr)}
 #pal{border-right:0;border-bottom:1px solid var(--line);display:flex;gap:4px;overflow-x:auto;padding:6px 8px}
@@ -146,6 +168,15 @@ kbd{font:11.5px Inter,sans-serif;border:1px solid var(--line);border-bottom-widt
   <main id="cv">
     <svg id="svg" xmlns="http://www.w3.org/2000/svg"><g id="world"></g></svg>
     <textarea id="ed" spellcheck="false" aria-label="Edit text"></textarea>
+    <div id="ask">
+      <div id="askOut" hidden aria-live="polite"></div>
+      <form id="askF" autocomplete="off">
+        <button type="button" id="mic" title="Speak a change" aria-label="Speak a change" hidden><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        <input id="askIn" type="text" aria-label="Describe a change" placeholder="Describe a change, e.g. add a payments table linked to orders">
+        <select id="askTier" aria-label="Speed" title="Smart is more careful; Fast answers sooner"><option value="default">Smart</option><option value="quick">Fast</option></select>
+        <button class="btn pri" id="askGo" type="submit">Do it</button>
+      </form>
+    </div>
     <div id="hint">Drag shapes in · drag from a dot to connect · Space+drag or two-finger scroll to pan</div>
   </main>
   <div id="tabs"></div>
@@ -398,7 +429,7 @@ function changed(full=true){
  if(now!==last){untouched=false;undo.push(last);if(undo.length>120)undo.shift();redo.length=0;last=now;doc.updated=Date.now();queueSave()}
  render();if(full)renderPanel();
 }
-function restore(s){doc=JSON.parse(s);last=s;sel=[];selEdge=null;selField=null;page=P();render();renderPanel();renderTabs();$('#fname').value=doc.name;queueSave()}
+function restore(s){const cur=doc.cur;doc=JSON.parse(s);last=s;if(doc.pages.some(p=>p.id===cur))doc.cur=cur;sel=[];selEdge=null;selField=null;page=P();render();renderPanel();renderTabs();$('#fname').value=doc.name;queueSave()}
 function doUndo(){if(!undo.length)return;redo.push(last);restore(undo.pop())}
 function doRedo(){if(!redo.length)return;undo.push(last);restore(redo.pop())}
 
@@ -491,7 +522,7 @@ function renderPanel(){
   <div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="btn" id="pgDup">Duplicate page</button><button class="btn del" id="pgDel"${doc.pages.length>1?'':' disabled'}>Delete page</button></div>
   <label>Data model</label><div class="row" style="flex-wrap:wrap"><button class="btn" id="sqlIn">Import SQL</button><button class="btn" id="sqlOut"${tables?'':' disabled'}>Export SQL</button></div>
   <p class="note">${page.nodes.length} shapes, ${page.edges.length} connectors${tables?`, ${tables} tables`:''}.</p>
-  <p class="note"><b>Shortcuts</b><br><kbd>Dbl-click</kbd> edit text · <kbd>Del</kbd> delete<br><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate<br><kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy, paste · arrows nudge<br><kbd>Space</kbd>+drag pan · <kbd>Ctrl</kbd>+wheel zoom · <kbd>0</kbd> fit</p>`;
+  <p class="note"><b>Shortcuts</b><br><kbd>Dbl-click</kbd> edit text · <kbd>Del</kbd> delete<br><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate<br><kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy, paste · arrows nudge<br><kbd>/</kbd> describe a change · <kbd>Space</kbd>+drag pan · <kbd>Ctrl</kbd>+wheel zoom · <kbd>0</kbd> fit</p>`;
  }
  insp.innerHTML=h;
 }
@@ -704,7 +735,7 @@ function zoomBy(f){const v=view(),r=svg.getBoundingClientRect(),mx=r.width/2,my=
 function contentBox(nodes){const bs=nodes.map(bounds);if(!bs.length)return null;
  let x0=Math.min(...bs.map(b=>b.x)),y0=Math.min(...bs.map(b=>b.y)),x1=Math.max(...bs.map(b=>b.x+b.w)),y1=Math.max(...bs.map(b=>b.y+b.h));return{x:x0,y:y0,w:x1-x0,h:y1-y0}}
 function fit(){const b=contentBox(page.nodes),r=svg.getBoundingClientRect(),v=view();if(!b||!r.width){v.x=40;v.y=40;v.z=1;return render()}
- const z=Math.min(1.25,Math.max(.2,Math.min((r.width-60)/b.w,(r.height-60)/b.h)));v.z=z;v.x=(r.width-b.w*z)/2-b.x*z;v.y=(r.height-b.h*z)/2-b.y*z;render()}
+ const BAR=84,z=Math.min(1.25,Math.max(.2,Math.min((r.width-60)/b.w,(r.height-60-BAR)/b.h)));v.z=z;v.x=(r.width-b.w*z)/2-b.x*z;v.y=(r.height-BAR-b.h*z)/2-b.y*z;render()}
 
 /* ---------- inline text editing ---------- */
 let editing=null;
@@ -752,6 +783,7 @@ document.addEventListener('keydown',ev=>{
   const ids=new Set(sel);for(const id of sel){const m=N(id);if(m?.type==='pool')poolChildren(m).forEach(c=>ids.add(c))}
   for(const id of ids){const m=N(id);m.x+=dx;m.y+=dy}changed(false)}
  else if(k==='0')fit();else if(k==='='||k==='+')zoomBy(1.2);else if(k==='-')zoomBy(1/1.2);
+ else if(k==='/'||(mod&&k==='k')){ev.preventDefault();askIn.focus()}
  else if(k==='enter'&&sel.length===1){ev.preventDefault();editNode(N(sel[0]))}
 });
 document.addEventListener('keyup',ev=>{if(ev.key===' '){space=false;cv.style.cursor=''}});
@@ -875,6 +907,153 @@ async function exportDlg(kind){
 }
 let toastT;function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>e.style.display='none',2600)}
 
+
+/* ---------- natural-language editing ---------- */
+const askIn=$('#askIn'),askOut=$('#askOut'),mic=$('#mic'),askGo=$('#askGo');
+let sampler=null,dict=null,askCtl=null,askBusy=false;const convo=[];
+function snapshotForAI(){
+ const r=v=>Math.round(v);
+ const tables=[],shapes=[],pools=[];
+ for(const n of page.nodes){const b=bounds(n);
+  if(n.type==='table')tables.push({id:n.id,name:n.name,x:r(b.x),y:r(b.y),w:r(b.w),h:r(b.h),color:n.c,fields:n.fields.map(f=>({id:f.id,name:f.name,type:f.type,...(f.pk?{pk:true}:{}),...(f.fk?{fk:true}:{}),...(f.nn?{nn:true}:{})}))});
+  else if(n.type==='pool'){let off=n.dir==='v'?n.x:n.y;pools.push({id:n.id,title:n.title,dir:n.dir,x:r(b.x),y:r(b.y),w:r(b.w),h:r(b.h),color:n.c,lanes:n.lanes.map(l=>{const o={name:l.name,from:r(off),to:r(off+l.size)};off+=l.size;return o})})}
+  else shapes.push({id:n.id,type:n.type,label:n.label,x:r(b.x),y:r(b.y),w:r(b.w),h:r(b.h),color:n.c})}
+ const connectors=page.edges.map(e=>({id:e.id,from:e.a.n,...(e.a.f?{fromField:e.a.f}:{}),to:e.b.n,...(e.b.f?{toField:e.b.f}:{}),label:e.label||undefined,start:e.sa,end:e.sb,style:e.st}));
+ return{page:page.name,otherPages:doc.pages.filter(p=>p!==page).map(p=>p.name),selected:selEdge?[selEdge]:sel,tables,pools,shapes,connectors};
+}
+const AI_RULES=`You edit diagrams in Diagram Studio, a web diagram editor for table relationship diagrams (ERDs) and process maps with swimlanes.
+You get the current page as JSON and a request from the user, often spoken aloud, so expect loose wording and speech-to-text mistakes; infer the intent.
+Reply with ONLY one JSON object: {"summary": string, "ops": Op[]}.
+"summary" is one or two short plain sentences saying what you changed (or answering a question, or asking for the one detail you need, with ops []).
+
+Coordinates are pixels, x right, y down, 10px grid. Leave about 60-80px between objects. Tables are about 230 wide; height is 38 + 24 per field. Flowchart shapes are about 140x64 (decision 140x90). Omit x and y to let the editor place new objects automatically to the right of existing content.
+Refer to existing objects by id, or by exact table name / shape label / pool title. Give new objects a "ref" string so later ops in the same reply can refer to them by that ref.
+Fields are referred to by field id or field name.
+Colours: slate, green, blue, amber, red, purple, grey.
+Shape types: process, decision, terminator (start/end), data, document, database, subprocess, manual, prep, delay, circle, offpage, note, text.
+Connector ends: none, arrow, open, 1, 11 (exactly one), 01 (zero or one), N (many), 1N (one or many), 0N (zero or many). Styles: orth, straight, curve.
+
+Ops (all keys besides "op" optional unless noted):
+{"op":"add_table","ref","name"*,"x","y","color","fields":[{"name"*,"type","pk","fk","nn"}]}
+{"op":"update_table","id"*,"name","color"}
+{"op":"add_field","table"*,"name"*,"type","pk","fk","nn","after":field}
+{"op":"update_field","table"*,"field"*,"name","type","pk","fk","nn"}
+{"op":"remove_field","table"*,"field"*}
+{"op":"add_shape","ref","type"*,"label","x","y","color","pool","lane"}   // pool+lane (lane name) puts it inside that swimlane
+{"op":"update_shape","id"*,"label","type","color","w","h"}
+{"op":"add_pool","ref","title","dir":"h"|"v","lanes":[names],"x","y"}
+{"op":"update_pool","id"*,"title","color","lanes":[names]}   // lanes replaces the lane list, keeping sizes of lanes whose names stay
+{"op":"connect","from"*,"to"*,"fromField","toField","label","start","end","style","dashed"}
+{"op":"update_connector","id"*,"label","start","end","style","dashed","color"}
+{"op":"move","id"*,"x","y","dx","dy"}
+{"op":"delete","id"*}   // a shape, table, pool or connector; connectors on a deleted object go too
+{"op":"layout"}   // tidy all tables on this page into a neat grid
+{"op":"add_page","name"*}  {"op":"switch_page","name"*}  {"op":"rename_page","name"*}
+
+Conventions: for a foreign key, connect FROM the child table's FK field TO the parent's primary key field with start "0N" (or "1N") and end "11"; mark the child field fk true. Name tables in snake_case. New tables normally get an id primary key. In process maps connect steps in order with end "arrow"; label decision branches (Yes / No). Put each step in the lane of whoever does it. "Selected" means the ids in "selected".`;
+function aiPrompt(text){
+ const hist=convo.slice(-4).map(c=>`User: ${c.u}\nYou: ${c.s}`).join('\n');
+ return `${AI_RULES}\n\n${hist?`Earlier in this session:\n${hist}\n\n`:''}Current page:\n${JSON.stringify(snapshotForAI())}\n\nRequest: ${text}`;
+}
+function applyOps(ops){
+ const refs={},made=[];let done=0,skipped=0,auto=null,needFit=!page.nodes.length;
+ const name=n=>(n.type==='table'?n.name:n.type==='pool'?n.title:n.label)||'';
+ const R=v=>{if(v==null)return null;v=String(v);if(refs[v])return refs[v];if(N(v))return v;const lv=v.toLowerCase().trim();return(page.nodes.find(n=>name(n).toLowerCase()===lv)||page.nodes.find(n=>name(n).toLowerCase().replace(/[\s_]+/g,'')===lv.replace(/[\s_]+/g,'')))?.id||null};
+ const NR=v=>{const id=R(v);const n=id&&N(id);if(!n)throw Error('not found: '+v);return n};
+ const FD=(n,f)=>{if(!n.fields||f==null)return null;f=String(f).toLowerCase();return n.fields.find(x=>x.id===f)||n.fields.find(x=>x.name.toLowerCase()===f)||null};
+ const col=c=>COLORS[c]?c:undefined,mk=m=>MARKS.some(x=>x[0]===m)?m:undefined,sty=s=>['orth','straight','curve'].includes(s)?s:undefined;
+ const num=v=>typeof v==='number'&&isFinite(v)?v:undefined;
+ const autoPos=(w,h)=>{if(!auto){const b=contentBox(page.nodes.filter(n=>!made.includes(n.id)));auto={x:b?b.x+b.w+80:60,y0:b?b.y:60,y:b?b.y:60,cw:0}}
+  if(auto.y-auto.y0>520){auto.x+=auto.cw+70;auto.y=auto.y0;auto.cw=0}const p={x:auto.x,y:auto.y};auto.y+=h+60;auto.cw=Math.max(auto.cw,w);return p};
+ const fld=f=>F_(String(f.name||'field').replace(/\s+/g,'_'),String(f.type||'varchar(50)'),{pk:f.pk,fk:f.fk,nn:f.nn||f.pk});
+ const lanesOf=(pool,names)=>names.map(nm=>{const old=pool?.lanes.find(l=>l.name===nm);return old||{id:uid(),name:String(nm),size:pool?.dir==='v'?220:140}});
+ for(const o of Array.isArray(ops)?ops:[]){try{
+  switch(o.op){
+  case 'add_table':{const n={id:uid(),type:'table',x:0,y:0,w:230,name:String(o.name||'new_table').replace(/\s+/g,'_'),c:col(o.color)||'green',fields:(o.fields||[]).map(fld)};
+   if(!n.fields.length)n.fields.push(F_('id','int',{pk:1,nn:1}));
+   const p=num(o.x)!=null&&num(o.y)!=null?{x:o.x,y:o.y}:autoPos(n.w,tblH(n));n.x=p.x;n.y=p.y;page.nodes.push(n);made.push(n.id);if(o.ref)refs[o.ref]=n.id;break}
+  case 'update_table':{const n=NR(o.id);if(o.name)n.name=String(o.name).replace(/\s+/g,'_');if(col(o.color))n.c=o.color;break}
+  case 'add_field':{const n=NR(o.table);if(!n.fields)throw Error('not a table');const f=fld(o);const a=FD(n,o.after);n.fields.splice(a?n.fields.indexOf(a)+1:n.fields.length,0,f);break}
+  case 'update_field':{const n=NR(o.table),f=FD(n,o.field);if(!f)throw Error('no field');if(o.name)f.name=String(o.name).replace(/\s+/g,'_');if(o.type)f.type=String(o.type);for(const k of['pk','fk','nn'])if(typeof o[k]==='boolean')f[k]=o[k];break}
+  case 'remove_field':{const n=NR(o.table),f=FD(n,o.field);if(!f)throw Error('no field');n.fields.splice(n.fields.indexOf(f),1);page.edges=page.edges.filter(e=>e.a.f!==f.id&&e.b.f!==f.id);break}
+  case 'add_shape':{const type=SHAPES[o.type]?o.type:'process',d=SHAPES[type];const n={id:uid(),type,x:0,y:0,w:d.w,h:d.h,label:String(o.label??d.n),c:col(o.color)||d.c||'slate'};
+   let pool=o.pool!=null?N(R(o.pool)):null,lane=null;
+   if(o.lane!=null){const ln=String(o.lane).toLowerCase();const pools=pool?[pool]:page.nodes.filter(x=>x.type==='pool');for(const p of pools){const l=p.lanes.find(l=>l.name.toLowerCase()===ln);if(l){pool=p;lane=l;break}}}
+   if(pool&&lane){let off=0;for(const l of pool.lanes){if(l===lane)break;off+=l.size}
+    if(pool.dir==='v'){n.x=num(o.x)??pool.x+off+(lane.size-n.w)/2;const inL=page.nodes.filter(m=>m.type!=='pool'&&m!==n&&center(m).x>pool.x+off&&center(m).x<pool.x+off+lane.size);n.y=num(o.y)??(inL.length?Math.max(...inL.map(m=>m.y+bounds(m).h))+50:pool.y+LANEH*2+30)}
+    else{n.y=num(o.y)??pool.y+off+(lane.size-n.h)/2;const inL=page.nodes.filter(m=>m.type!=='pool'&&m!==n&&center(m).y>pool.y+off&&center(m).y<pool.y+off+lane.size);n.x=num(o.x)??(inL.length?Math.max(...inL.map(m=>m.x+bounds(m).w))+60:pool.x+LANEH*2+40)}
+    const b=bounds(pool);if(pool.dir==='h'&&n.x+n.w+30>b.x+b.w)pool.w=Math.ceil((n.x+n.w+40-pool.x-LANEH*2)/10)*10;if(pool.dir==='v'&&n.y+n.h+30>b.y+b.h)pool.h=Math.ceil((n.y+n.h+40-pool.y-LANEH*2)/10)*10}
+   else{const p=num(o.x)!=null&&num(o.y)!=null?{x:o.x,y:o.y}:autoPos(n.w,n.h);n.x=p.x;n.y=p.y}
+   page.nodes.push(n);made.push(n.id);if(o.ref)refs[o.ref]=n.id;break}
+  case 'update_shape':{const n=NR(o.id);if(o.label!=null)n.label=String(o.label);if(SHAPES[o.type])n.type=o.type;if(col(o.color))n.c=o.color;if(num(o.w))n.w=o.w;if(num(o.h))n.h=o.h;break}
+  case 'add_pool':{const n=newPool(0,0,o.dir==='v'?'v':'h');if(o.title)n.title=String(o.title);if(Array.isArray(o.lanes)&&o.lanes.length)n.lanes=lanesOf(n,o.lanes);
+   const b=bounds(n),p=num(o.x)!=null&&num(o.y)!=null?{x:o.x,y:o.y}:autoPos(b.w,b.h);n.x=p.x;n.y=p.y;page.nodes.unshift(n);made.push(n.id);if(o.ref)refs[o.ref]=n.id;break}
+  case 'update_pool':{const n=NR(o.id);if(n.type!=='pool')throw Error('not a pool');if(o.title)n.title=String(o.title);if(col(o.color))n.c=o.color;if(Array.isArray(o.lanes)&&o.lanes.length)n.lanes=lanesOf(n,o.lanes);break}
+  case 'connect':{const a=NR(o.from),b=NR(o.to);const isT=a.type==='table'&&b.type==='table';const fa=FD(a,o.fromField),fb=FD(b,o.toField);
+   if(isT&&fa&&!fa.pk)fa.fk=true;
+   page.edges.push({id:uid(),a:{n:a.id,...(fa?{f:fa.id}:{})},b:{n:b.id,...(fb?{f:fb.id}:{})},st:sty(o.style)||lineStyle,sa:mk(o.start)||(isT?'0N':'none'),sb:mk(o.end)||(isT?'11':'arrow'),label:String(o.label||''),...(o.dashed?{dash:true}:{})});break}
+  case 'update_connector':{const e=page.edges.find(e=>e.id===o.id);if(!e)throw Error('no connector');if(o.label!=null)e.label=String(o.label);if(mk(o.start))e.sa=o.start;if(mk(o.end))e.sb=o.end;if(sty(o.style))e.st=o.style;if(typeof o.dashed==='boolean')e.dash=o.dashed;if(col(o.color))e.c=o.color;break}
+  case 'move':{const n=NR(o.id);const ids=new Set([n.id]);if(n.type==='pool')poolChildren(n).forEach(c=>ids.add(c));const dx=num(o.dx)??(num(o.x)!=null?o.x-n.x:0),dy=num(o.dy)??(num(o.y)!=null?o.y-n.y:0);for(const id of ids){const m=N(id);m.x+=dx;m.y+=dy}break}
+  case 'delete':{if(page.edges.some(e=>e.id===o.id)){page.edges=page.edges.filter(e=>e.id!==o.id);break}const n=NR(o.id);page.nodes=page.nodes.filter(m=>m!==n);page.edges=page.edges.filter(e=>e.a.n!==n.id&&e.b.n!==n.id);break}
+  case 'layout':{const ts=page.nodes.filter(n=>n.type==='table');const deg=t=>page.edges.filter(e=>e.a.n===t.id||e.b.n===t.id).length;ts.sort((p,q)=>deg(q)-deg(p));
+   const cols=Math.max(1,Math.ceil(Math.sqrt(ts.length))),ys=Array(cols).fill(60);ts.forEach((t,i)=>{const c=i%cols;t.x=60+c*320;t.y=ys[c];ys[c]+=tblH(t)+70});needFit=true;break}
+  case 'add_page':{const p={id:uid(),name:String(o.name||'Page '+(doc.pages.length+1)),nodes:[],edges:[]};doc.pages.push(p);doc.cur=p.id;page=p;auto=null;needFit=true;break}
+  case 'switch_page':{const p=doc.pages.find(p=>p.name.toLowerCase()===String(o.name).toLowerCase());if(!p)throw Error('no page');doc.cur=p.id;page=p;auto=null;needFit=true;break}
+  case 'rename_page':page.name=String(o.name||page.name);break;
+  default:throw Error('unknown op '+o.op);}
+  done++;}catch(err){skipped++;console.warn('Skipped op',o,err)}}
+ for(const id of made){const n=N(id);if(n){n.x=Math.round(n.x/GRID)*GRID;n.y=Math.round(n.y/GRID)*GRID}}
+ sel=made.filter(id=>N(id));selEdge=null;selField=null;renderTabs();changed();
+ if(needFit||made.some(id=>{const n=N(id);if(!n)return false;const b=bounds(n),v=view(),r=svg.getBoundingClientRect();return b.x*v.z+v.x>r.width-20||b.y*v.z+v.y>r.height-20||b.x*v.z+v.x<0||b.y*v.z+v.y<0}))fit();
+ return{done,skipped};
+}
+function showAsk(html,cls=''){askOut.innerHTML=html;askOut.className=cls;askOut.hidden=!html}
+const AERR={not_granted:'Claude access was declined for this page, so typed and spoken edits are off.',sampling_disabled:'Claude is not available for this account.',rate_limited:'Too many requests just now. Wait a moment and try again.',session_expired:'Please sign in to Claude again.',invalid_json:'Claude’s answer could not be read. Try rephrasing.',refused:'Claude declined that request. Try rephrasing it.',prompt_too_large:'This page is too large to send. Try a smaller page.'};
+async function runAsk(){
+ const text=askIn.value.trim();if(!text||askBusy)return;
+ if(!sampler){showAsk('Typed and spoken edits work when this page is opened in Claude.','err');return}
+ askBusy=true;askGo.textContent='Stop';askGo.classList.remove('pri');askIn.disabled=true;
+ showAsk(`<span class="spin"></span> Working on “${esc(text)}”…`);
+ askCtl=new AbortController();
+ try{
+  const res=await sampler.json(aiPrompt(text),{signal:askCtl.signal,modelTier:$('#askTier').value,cache:false});
+  if(!res||typeof res!=='object')throw{code:'invalid_json'};
+  const ops=Array.isArray(res.ops)?res.ops:[];const summary=String(res.summary||(ops.length?'Done.':'No changes.'));
+  let r={done:0,skipped:0};if(ops.length)r=applyOps(ops);
+  convo.push({u:text,s:summary});if(convo.length>8)convo.shift();
+  showAsk(`<div><p>${esc(summary)}</p>${r.skipped?`<small>${r.skipped} step${r.skipped>1?'s':''} could not be applied.</small>`:''}</div><div class="aa">${r.done?'<button class="btn" id="askUndo">Undo</button>':''}<button class="btn" id="askX">Close</button></div>`,'ok');
+  askIn.value='';
+ }catch(e){if(e?.code==='cancelled')showAsk('');else{showAsk(esc(AERR[e?.code]||'Something went wrong. Try again.'),'err');if(e?.code==='not_granted'||e?.code==='sampling_disabled'){sampler=null}}}
+ askBusy=false;askGo.textContent='Do it';askGo.classList.add('pri');askIn.disabled=false;askIn.focus();
+}
+$('#askF').addEventListener('submit',ev=>{ev.preventDefault();if(askBusy){askCtl?.abort();return}runAsk()});
+askOut.addEventListener('click',ev=>{const b=ev.target.closest('button');if(!b)return;
+ if(b.id==='askUndo'){doUndo();showAsk('<div><p>Undone.</p></div><div class="aa"><button class="btn" id="askX">Close</button></div>','ok')}else if(b.id==='askX')showAsk('');else if(b.dataset.ex){askIn.value=b.dataset.ex;askIn.focus()}});
+askIn.addEventListener('focus',()=>{if(askIn.value||!askOut.hidden)return;const t=page.nodes.some(n=>n.type==='table'),p=page.nodes.some(n=>n.type==='pool');
+ const ex=t?['Add a payments table linked to orders','Make email unique and required, and add a phone field to customers','Tidy up the layout']:p?['Add a step “Send invoice” in Sales system after Validate order','Add a Finance lane','Label the line from In stock? to Pick and pack “Yes”']:['Create a data model for a library: books, members and loans','Draw a process map for approving an expense with Employee, Manager and Finance lanes'];
+ showAsk(`<small>Try saying or typing:</small><div class="exs">${ex.map(x=>`<button class="ex" data-ex="${esc(x)}">${esc(x)}</button>`).join('')}</div>`)});
+askIn.addEventListener('blur',()=>setTimeout(()=>{if(askOut.querySelector('.exs')&&document.activeElement!==askIn)showAsk('')},200));
+/* dictation */
+let dBase='',sendOnStop=false;
+mic.addEventListener('click',()=>{
+ if(!dict)return;
+ if(dict.active()){sendOnStop=true;dict.stop().catch(()=>{});return}
+ dBase=askIn.value.trim();sendOnStop=false;
+ dict.start().catch(e=>{const m={not_granted:'Microphone access was declined. You can still type.',unavailable:'Voice input is not available here. You can still type.',rate_limited:'The microphone is busy. Try again in a moment.'}[e.code];if(m)showAsk(esc(m),'err');if(e.code==='not_granted'||e.code==='unavailable')mic.hidden=true});
+});
+function wireDictation(d){
+ dict=d;mic.hidden=false;
+ d.onPartial(({text})=>{askIn.value=(dBase+' '+text).trim()});
+ d.onFinal(({text})=>{dBase=(dBase+text).trim();askIn.value=dBase});
+ d.onState(({state,reason})=>{const on=state!=='idle';mic.classList.toggle('rec',on);mic.title=on?'Stop and run':'Speak a change';
+  if(state==='listening')showAsk('<span class="dot"></span> Listening… tap the microphone again when you’re done.');
+  if(state==='idle'){askIn.value=dBase;if((reason==='stopped'&&sendOnStop)||reason==='viewer_stopped'){if(askIn.value.trim())runAsk();else showAsk('')}else if(reason&&reason!=='stopped'&&reason!=='hidden')showAsk('Voice input stopped. You can type instead.','err')}});
+}
+async function connectAI(){
+ if(!window.claude?.use)return;
+ try{const[s,d]=await Promise.all([claude.use('sample'),claude.use('dictation')]);if(s){sampler=s;$('#ask').classList.remove('off')}if(d)wireDictation(d)}catch{}
+}
+
 /* ---------- boot ---------- */
 function start(){
  let d=null;try{const id=localStorage.getItem('diagram-studio-last');const f=id&&LS.all()[id];if(f)d=JSON.parse(f.json)}catch{}
@@ -882,7 +1061,7 @@ function start(){
  doc=d;last=JSON.stringify(doc);page=P();$('#fname').value=doc.name;renderTabs();render();renderPanel();requestAnimationFrame(fit);
  setStatus(untouched?'Sample diagram: edit it or start a new one':'Saved in this browser');
  const ro=new ResizeObserver(()=>render());ro.observe(cv);
- connectStore();
+ connectStore();connectAI();
 }
 start();
 }
