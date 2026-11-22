@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagram Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE work: a drafting tool for schemas and process maps, quiet chrome, the canvas is the hero
+   IDEA a drafting table: dotted grid paper, a stencil of shapes on the left, a format inspector on the right
+   PICTURE the live canvas itself, opening on a sample order schema with field-level relationships
+   COLOUR white paper, ink #0b0b10, signal green #00a862 for selection and connections, mist #eafaf2; night #07130d
+   TYPE Space Grotesk 600 for the file name + Inter for everything else
+   LAYOUT laptop: toolbar / stencil | canvas | inspector / page tabs; phone: toolbar, stencil strip, canvas, inspector as a sheet */
+:root{color-scheme:light dark;
+--bg:light-dark(#ffffff,#07130d);--chrome:light-dark(#f6f8f7,#0c1a13);--ink:light-dark(#0b0b10,#e8f2ec);--mute:light-dark(#5b6470,#93a59b);
+--line:light-dark(#dfe4e2,#1f3329);--paper:light-dark(#ffffff,#0a1711);--dot:light-dark(#cfd6d3,#1d3227);
+--acc:light-dark(#00a862,#2bd48a);--accInk:light-dark(#ffffff,#04110a);--mist:light-dark(#eafaf2,#0f2a1d);--danger:light-dark(#c62828,#ff7a70)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.4 Inter,system-ui,sans-serif;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#app{height:100%;display:grid;grid-template:"top top top" auto "pal cv insp" minmax(0,1fr) "pal tabs insp" auto/208px minmax(0,1fr) 300px}
+#top{grid-area:top;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--chrome)}
+#fname{font:600 19px/1.1 "Space Grotesk",Inter,sans-serif;letter-spacing:-.02em;border:1px solid transparent;background:none;padding:6px 8px;border-radius:6px;width:min(260px,40vw)}
+#fname:hover,#fname:focus{border-color:var(--line);background:var(--paper)}
+.grp{display:flex;gap:2px;align-items:center;padding:0 6px;border-left:1px solid var(--line)}
+.tb{height:36px;min-width:36px;padding:0 10px;border:1px solid transparent;border-radius:6px;background:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.tb:hover{background:var(--mist);border-color:var(--line)}
+.tb:disabled{opacity:.4;cursor:default;background:none;border-color:transparent}
+.tb svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tb.on{background:var(--mist);border-color:var(--acc)}
+#zoomv{min-width:52px;text-align:center;font-variant-numeric:tabular-nums;color:var(--mute)}
+#status{margin-left:auto;color:var(--mute);font-size:13px;white-space:nowrap;padding-right:4px}
+#pal{grid-area:pal;border-right:1px solid var(--line);background:var(--chrome);overflow:auto;padding:10px}
+#pal h3{font-size:13px;font-weight:600;color:var(--mute);margin:12px 4px 6px}
+#pal h3:first-child{margin-top:2px}
+.sg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.si{border:1px solid transparent;background:none;border-radius:8px;padding:6px 2px 4px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;color:var(--mute);touch-action:none;user-select:none}
+.si:hover{background:var(--paper);border-color:var(--line);color:var(--ink)}
+.si svg{width:46px;height:30px;overflow:visible}
+.si svg *{fill:var(--paper);stroke:var(--ink);stroke-width:1.3}
+.si.wide{grid-column:span 3;flex-direction:row;justify-content:flex-start;gap:10px;padding:6px 8px;font-size:13px;color:var(--ink)}
+#cv{grid-area:cv;position:relative;overflow:hidden;background-color:var(--paper);background-image:radial-gradient(var(--dot) 1.1px,transparent 1.2px);touch-action:none}
+#svg{position:absolute;inset:0;width:100%;height:100%;user-select:none;-webkit-user-select:none}
+#svg text{font-family:Inter,system-ui,sans-serif;pointer-events:none}
+.port{opacity:0;fill:var(--paper);stroke:var(--acc);stroke-width:1.5;cursor:crosshair;transition:opacity .12s}
+.nd:hover .port,#svg.linking .port,.nd.sel .port{opacity:1}
+.port:hover{fill:var(--acc);r:6}
+.eh{fill:var(--acc);stroke:var(--paper);stroke-width:2;cursor:move}
+.rh{fill:var(--paper);stroke:var(--acc);stroke-width:1.5}
+.hit{stroke:transparent;fill:none;stroke-width:14;cursor:pointer;pointer-events:stroke}
+#ed{position:absolute;display:none;z-index:5;border:2px solid var(--acc);border-radius:4px;background:var(--paper);resize:none;text-align:center;padding:4px;line-height:1.25;overflow:hidden}
+#hint{position:absolute;left:12px;bottom:10px;color:var(--mute);font-size:12.5px;pointer-events:none;background:color-mix(in srgb,var(--paper) 85%,transparent);padding:2px 6px;border-radius:4px}
+#tabs{grid-area:tabs;display:flex;align-items:center;gap:2px;border-top:1px solid var(--line);background:var(--chrome);padding:4px 8px;overflow-x:auto}
+.tab{height:32px;padding:0 12px;border:1px solid transparent;border-radius:6px;background:none;white-space:nowrap;color:var(--mute)}
+.tab.on{background:var(--paper);border-color:var(--line);color:var(--ink);font-weight:600}
+#insp{grid-area:insp;border-left:1px solid var(--line);background:var(--chrome);overflow:auto;padding:14px}
+#insp h2{font:600 16px/1.2 "Space Grotesk",Inter,sans-serif;margin:0 0 10px}
+#insp label{display:block;font-size:12.5px;color:var(--mute);margin:12px 0 4px}
+#insp .row{display:flex;gap:6px;align-items:center}
+#insp input[type=text],#insp select,#insp textarea{width:100%;border:1px solid var(--line);border-radius:6px;background:var(--paper);padding:7px 8px;font-size:14px}
+#insp textarea{min-height:64px;resize:vertical}
+.sw{display:flex;gap:6px;flex-wrap:wrap}
+.sw button{width:26px;height:26px;border-radius:50%;border:2px solid var(--paper);box-shadow:0 0 0 1px var(--line)}
+.sw button.on{box-shadow:0 0 0 2px var(--acc)}
+.btn{height:34px;padding:0 12px;border:1px solid var(--line);border-radius:6px;background:var(--paper);white-space:nowrap}
+.btn:hover{border-color:var(--acc)}
+.btn.pri{background:var(--acc);color:var(--accInk);border-color:var(--acc);font-weight:600}
+.btn.del{color:var(--danger)}
+.fl{display:grid;grid-template-columns:14px minmax(0,1.5fr) minmax(0,1fr) auto auto 20px;gap:4px;align-items:center;margin-bottom:4px}
+.fl input[type=text]{padding:5px 6px !important;font-size:13px !important}
+.fl .k{font-size:10.5px;font-weight:700;display:flex;align-items:center;gap:1px;color:var(--mute);cursor:pointer;white-space:nowrap}
+.fl .x,.fl .drag{border:0;background:none;color:var(--mute);padding:0;height:26px}
+.fl .drag{cursor:grab;font-size:12px}
+.fl.hl input{border-color:var(--acc) !important}
+.al{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.al .btn{padding:0 4px;font-size:12.5px}
+.note{color:var(--mute);font-size:12.5px;margin-top:14px;line-height:1.5}
+kbd{font:11.5px Inter,sans-serif;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--paper)}
+#menu{position:fixed;z-index:20;display:none;background:var(--paper);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:4px;min-width:210px}
+#menu button{display:flex;width:100%;justify-content:space-between;gap:16px;border:0;background:none;padding:8px 10px;border-radius:5px;text-align:left}
+#menu button:hover{background:var(--mist)}
+#menu hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+#menu small{color:var(--mute)}
+#dlg{position:fixed;inset:0;z-index:30;display:none;place-items:center;background:rgba(0,0,0,.35);padding:16px}
+#dlg>div{background:var(--paper);border-radius:12px;width:min(640px,100%);max-height:90%;overflow:auto;padding:20px;box-shadow:0 16px 48px rgba(0,0,0,.25)}
+#dlg h2{font:600 22px/1.1 "Space Grotesk",Inter,sans-serif;margin:0 0 12px;letter-spacing:-.02em}
+#dlg textarea{width:100%;min-height:240px;font:13px/1.45 ui-monospace,Menlo,monospace;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--chrome)}
+#dlg .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
+.flist{display:grid;gap:6px}
+.fi{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.fi.on{border-color:var(--acc);background:var(--mist)}
+.fi b{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fi small{color:var(--mute);white-space:nowrap}
+.tpl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.tpl button{border:1px solid var(--line);border-radius:8px;background:var(--chrome);padding:12px;text-align:left;min-height:72px}
+.tpl button:hover{border-color:var(--acc)}
+.tpl b{display:block;margin-bottom:2px}.tpl span{color:var(--mute);font-size:12.5px}
+#toast{position:fixed;left:50%;bottom:56px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:40;font-size:13.5px}
+#fmt{display:none}
+@media(max-width:860px){
+#app{grid-template:"top" auto "pal" auto "cv" minmax(0,1fr) "tabs" auto/minmax(0,1fr)}
+#pal{border-right:0;border-bottom:1px solid var(--line);display:flex;gap:4px;overflow-x:auto;padding:6px 8px}
+#pal h3{display:none}.sg{display:flex;gap:2px;flex:none}.si{flex:none;width:58px}.si.wide{width:auto;flex-direction:column;gap:2px;font-size:11.5px;color:var(--mute);padding:6px 4px 4px}
+#insp{position:fixed;left:0;right:0;bottom:0;max-height:58%;z-index:15;border:0;border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(0,0,0,.15);transform:translateY(105%);transition:transform .2s}
+#insp.open{transform:none}
+#fmt{display:inline-flex}
+.lbl{display:none}
+#status{margin-left:0;order:9;width:100%;padding:0 8px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <input id="fname" type="text" aria-label="Diagram name" value="Untitled diagram">
+    <div class="grp">
+      <button class="tb" id="bFile" title="Files: new, open, import, export"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span class="lbl">File</span></button>
+    </div>
+    <div class="grp">
+      <button class="tb" id="bUndo" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+      <button class="tb" id="bRedo" title="Redo (Ctrl+Shift+Z)"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+      <button class="tb" id="bDel" title="Delete (Del)"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
+    </div>
+    <div class="grp">
+      <button class="tb" id="bLine" title="Connector style for new lines"><svg viewBox="0 0 24 24"><path d="M4 18h7V6h9"/></svg><span class="lbl" id="lineLbl">Elbow</span></button>
+      <button class="tb on" id="bSnap" title="Snap to grid"><svg viewBox="0 0 24 24"><path d="M4 4v16M10 4v16M16 4v16M4 10h16M4 16h16"/></svg><span class="lbl">Snap</span></button>
+    </div>
+    <div class="grp">
+      <button class="tb" id="bZo" title="Zoom out">−</button>
+      <span id="zoomv">100%</span>
+      <button class="tb" id="bZi" title="Zoom in">+</button>
+      <button class="tb" id="bFit" title="Fit to screen (0)"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+      <button class="tb" id="fmt" title="Show format panel">Format</button>
+    </div>
+    <span id="status">Saved in this browser</span>
+  </header>
+  <nav id="pal" aria-label="Shapes"></nav>
+  <main id="cv">
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg"><g id="world"></g></svg>
+    <textarea id="ed" spellcheck="false" aria-label="Edit text"></textarea>
+    <div id="hint">Drag shapes in · drag from a dot to connect · Space+drag or two-finger scroll to pan</div>
+  </main>
+  <div id="tabs"></div>
+  <aside id="insp" aria-label="Format"></aside>
+</div>
+<div id="menu"></div>
+<div id="dlg"><div id="dlgb"></div></div>
+<div id="toast"></div>
+<input type="file" id="fileIn" accept=".json,application/json" hidden>
+<script>
+{
+const $=s=>document.querySelector(s);
+const svg=$('#svg'),world=$('#world'),cv=$('#cv'),insp=$('#insp'),ed=$('#ed');
+const GRID=10,HEAD=32,ROW=24,LANEH=28;
+const uid=()=>Math.random().toString(36).slice(2,10);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+/* ---------- colours: [light fill, light stroke, dark fill, dark stroke] ---------- */
+const COLORS={slate:['#ffffff','#2f3640','#0d1c15','#a9b8b0'],green:['#e3f6ec','#0b8a52','#0f2a1d','#4fdc9b'],blue:['#e4eefb','#2759a8','#12223a','#86b4f2'],
+amber:['#fdf1d6','#9a6200','#2c220d','#f0c060'],red:['#fde6e4','#b3261e','#321615','#f4928a'],purple:['#efe7fb','#6a3db3','#231936','#c4a5f5'],grey:['#eef1f0','#66706b','#1a2520','#a1aea7']};
+{let css=':root{';for(const k in COLORS){const c=COLORS[k];css+=`--f-${k}:light-dark(${c[0]},${c[2]});--s-${k}:light-dark(${c[1]},${c[3]});`}
+document.head.insertAdjacentHTML('beforeend',`<style>${css}}</style>`)}
+let EXPORT=false;
+const F=c=>EXPORT?COLORS[c||'slate'][0]:`var(--f-${c||'slate'})`;
+const S=c=>EXPORT?COLORS[c||'slate'][1]:`var(--s-${c||'slate'})`;
+const INK=()=>EXPORT?'#0b0b10':'var(--ink)',MUTE=()=>EXPORT?'#5b6470':'var(--mute)',PAPER=()=>EXPORT?'#ffffff':'var(--paper)';
+
+/* ---------- shape library ---------- */
+const SHAPES={
+ process:{n:'Process',w:140,h:64},decision:{n:'Decision',w:140,h:90},terminator:{n:'Start / end',w:140,h:52},
+ data:{n:'Data',w:140,h:64},document:{n:'Document',w:140,h:70},database:{n:'Database',w:110,h:80},
+ subprocess:{n:'Subprocess',w:150,h:64},manual:{n:'Manual input',w:140,h:64},prep:{n:'Preparation',w:150,h:64},
+ delay:{n:'Delay',w:120,h:64},circle:{n:'Connector',w:48,h:48},offpage:{n:'Off-page',w:64,h:64},
+ note:{n:'Note',w:150,h:80,c:'amber'},text:{n:'Text',w:140,h:40}};
+function outline(t,w,h){
+ const k=Math.min(18,w*.15);
+ switch(t){
+ case 'decision':return `<path d="M${w/2} 0L${w} ${h/2}L${w/2} ${h}L0 ${h/2}Z"/>`;
+ case 'terminator':return `<rect width="${w}" height="${h}" rx="${h/2}"/>`;
+ case 'data':return `<path d="M${k} 0H${w}L${w-k} ${h}H0Z"/>`;
+ case 'document':return `<path d="M0 0H${w}V${h*.82}C${w*.75} ${h*.62} ${w*.25} ${h*1.08} 0 ${h*.86}Z"/>`;
+ case 'database':{const e=Math.min(14,h*.18);return `<path d="M0 ${e}V${h-e}A${w/2} ${e} 0 0 0 ${w} ${h-e}V${e}A${w/2} ${e} 0 0 0 0 ${e}Z"/><path d="M0 ${e}A${w/2} ${e} 0 0 0 ${w} ${e}" fill="none"/>`}
+ case 'subprocess':return `<rect width="${w}" height="${h}" rx="2"/><path d="M10 0V${h}M${w-10} 0V${h}" fill="none"/>`;
+ case 'manual':return `<path d="M0 ${h*.28}L${w} 0V${h}H0Z"/>`;
+ case 'prep':return `<path d="M${k} 0H${w-k}L${w} ${h/2}L${w-k} ${h}H${k}L0 ${h/2}Z"/>`;
+ case 'delay':{const r=Math.min(h/2,w/2);return `<path d="M0 0H${w-r}A${r} ${h/2} 0 0 1 ${w-r} ${h}H0Z"/>`}
+ case 'circle':return `<ellipse cx="${w/2}" cy="${h/2}" rx="${w/2}" ry="${h/2}"/>`;
+ case 'offpage':return `<path d="M0 0H${w}V${h*.6}L${w/2} ${h}L0 ${h*.6}Z"/>`;
+ case 'note':return `<path d="M0 0H${w-14}L${w} 14V${h}H0Z"/><path d="M${w-14} 0V14H${w}" fill="none"/>`;
+ case 'text':return `<rect width="${w}" height="${h}" fill="transparent" stroke="none"/>`;
+ default:return `<rect width="${w}" height="${h}" rx="4"/>`;}
+}
+function wrap(txt,maxW,fs){
+ const cw=fs*.56,out=[];
+ for(const para of String(txt||'').split('\n')){
+  let line='';
+  for(const word of para.split(' ')){const t=line?line+' '+word:word;if(t.length*cw>maxW&&line){out.push(line);line=word}else line=t}
+  out.push(line);}
+ return out;
+}
+function textBlock(txt,cx,cy,maxW,fs,fill,weight=400){
+ const ls=wrap(txt,maxW,fs),lh=fs*1.25,y0=cy-(ls.length-1)*lh/2;
+ return `<text x="${cx}" text-anchor="middle" font-size="${fs}" font-weight="${weight}" fill="${fill}">${ls.map((l,i)=>`<tspan x="${cx}" y="${y0+i*lh}" dy=".35em">${esc(l)}</tspan>`).join('')}</text>`;
+}
+
+/* ---------- document state ---------- */
+let doc,page,sel=[],selEdge=null,selField=null,views={},snap=true,lineStyle='orth';
+const undo=[],redo=[];let last='';
+const P=()=>doc.pages.find(p=>p.id===doc.cur)||doc.pages[0];
+const N=id=>page.nodes.find(n=>n.id===id);
+const view=()=>views[page.id]||(views[page.id]={x:40,y:40,z:1});
+
+function tblH(n){return HEAD+Math.max(1,n.fields.length)*ROW+6}
+function bounds(n){
+ if(n.type==='table')return{x:n.x,y:n.y,w:n.w,h:tblH(n)};
+ if(n.type==='pool'){const s=n.lanes.reduce((a,l)=>a+l.size,0);return n.dir==='v'?{x:n.x,y:n.y,w:s,h:n.h+LANEH*2}:{x:n.x,y:n.y,w:n.w+LANEH*2,h:s}}
+ return{x:n.x,y:n.y,w:n.w,h:n.h};
+}
+
+/* ---------- sample content ---------- */
+function F_(name,type,o={}){return{id:uid(),name,type,pk:!!o.pk,fk:!!o.fk,nn:!!o.nn}}
+function sample(){
+ const t=(x,y,name,c,fields)=>({id:uid(),type:'table',x,y,w:230,name,c,fields});
+ const cust=t(40,40,'customers','green',[F_('customer_id','int',{pk:1}),F_('email','varchar(255)',{nn:1}),F_('full_name','varchar(120)'),F_('region_code','char(2)'),F_('created_at','timestamp')]);
+ const ord=t(360,40,'orders','blue',[F_('order_id','int',{pk:1}),F_('customer_id','int',{fk:1,nn:1}),F_('status','varchar(20)'),F_('ordered_at','timestamp'),F_('total_amount','decimal(10,2)')]);
+ const item=t(360,290,'order_items','blue',[F_('order_item_id','int',{pk:1}),F_('order_id','int',{fk:1,nn:1}),F_('product_id','int',{fk:1,nn:1}),F_('quantity','int'),F_('unit_price','decimal(10,2)')]);
+ const prod=t(680,290,'products','amber',[F_('product_id','int',{pk:1}),F_('sku','varchar(40)',{nn:1}),F_('name','varchar(200)'),F_('category','varchar(60)')]);
+ const reg=t(40,290,'regions','grey',[F_('region_code','char(2)',{pk:1}),F_('region_name','varchar(80)')]);
+ const e=(a,af,b,bf,s,en)=>({id:uid(),a:{n:a.id,f:af.id},b:{n:b.id,f:bf.id},st:'orth',sa:s,sb:en,label:''});
+ const p1={id:uid(),name:'Order schema',nodes:[cust,ord,item,prod,reg],edges:[
+  e(ord,ord.fields[1],cust,cust.fields[0],'0N','11'),e(item,item.fields[1],ord,ord.fields[0],'1N','11'),
+  e(item,item.fields[2],prod,prod.fields[0],'0N','11'),e(cust,cust.fields[3],reg,reg.fields[0],'0N','01')]};
+ const pool={id:uid(),type:'pool',x:20,y:20,w:900,dir:'h',title:'Order fulfilment',c:'green',lanes:[{id:uid(),name:'Customer',size:140},{id:uid(),name:'Sales system',size:150},{id:uid(),name:'Warehouse',size:140}]};
+ const s=(type,x,y,label,c)=>{const d=SHAPES[type];return{id:uid(),type,x,y,w:d.w,h:d.h,label,c:c||d.c||'slate'}};
+ const n1=s('terminator',100,64,'Place order','green'),n2=s('process',300,208,'Validate order'),n3=s('decision',490,195,'In stock?'),
+ n4=s('database',700,200,'orders DB','blue'),n5=s('process',490,362,'Pick and pack'),n6=s('terminator',730,368,'Ship order','green'),n7=s('document',300,48,'Back-order email');
+ const c=(a,sa,b,sb,label='')=>({id:uid(),a:{n:a.id,s:sa},b:{n:b.id,s:sb},st:'orth',sa:'none',sb:'arrow',label});
+ const p2={id:uid(),name:'Order process',nodes:[pool,n1,n2,n3,n4,n5,n6,n7],edges:[c(n1,'b',n2,'l'),c(n2,'r',n3,'l'),c(n3,'b',n5,'t','Yes'),c(n3,'t',n7,'r','No'),
+  c(n5,'r',n6,'l'),{...c(n3,'r',n4,'l','Record'),sb:'arrow'}]};
+ return{id:uid(),name:'Order system (sample)',cur:p1.id,pages:[p1,p2],updated:Date.now()};
+}
+function blank(kind){
+ const p={id:uid(),name:'Page 1',nodes:[],edges:[]};
+ const d={id:uid(),name:'Untitled diagram',cur:p.id,pages:[p],updated:Date.now()};
+ if(kind==='erd'){d.name='New data model';p.name='Tables';p.nodes.push(newTable(60,60,'table_1'))}
+ if(kind==='flow'){d.name='New process map';p.name='Process';p.nodes.push(newPool(40,40,'h'))}
+ return d;
+}
+function newTable(x,y,name){return{id:uid(),type:'table',x,y,w:230,name:name||'new_table',c:'green',fields:[F_('id','int',{pk:1}),F_('name','varchar(100)'),F_('created_at','timestamp')]}}
+function newPool(x,y,dir){return{id:uid(),type:'pool',x,y,w:dir==='v'?0:760,h:dir==='v'?460:0,dir,title:'Process',c:'green',lanes:['Lane 1','Lane 2','Lane 3'].map(n=>({id:uid(),name:n,size:dir==='v'?220:140}))}}
+
+/* ---------- geometry ---------- */
+const SIDES={t:[0,-1],r:[1,0],b:[0,1],l:[-1,0]};
+function center(n){const b=bounds(n);return{x:b.x+b.w/2,y:b.y+b.h/2}}
+function anchor(end,other){
+ const n=N(end.n);if(!n)return null;const b=bounds(n);const oc=other?center(N(other.n)||n):center(n),c=center(n);
+ if(n.type==='table'){
+  const fi=end.f?n.fields.findIndex(f=>f.id===end.f):-1;
+  let s=end.s;if(!s||s==='t'||s==='b'){const on=N(other?.n);const ob=on?bounds(on):b;s=ob.x>=b.x+b.w-20?'r':ob.x+ob.w<=b.x+20?'l':'r'}
+  const y=fi>=0?b.y+HEAD+fi*ROW+ROW/2:b.y+HEAD/2;
+  return{x:s==='r'?b.x+b.w:b.x,y,dx:s==='r'?1:-1,dy:0,s};
+ }
+ let s=end.s;
+ if(!s){const dx=oc.x-c.x,dy=oc.y-c.y;s=Math.abs(dx)*b.h>Math.abs(dy)*b.w?(dx>0?'r':'l'):(dy>0?'b':'t')}
+ const [ux,uy]=SIDES[s];return{x:c.x+ux*b.w/2,y:c.y+uy*b.h/2,dx:ux,dy:uy,s};
+}
+function route(a,b,st){
+ if(st==='straight')return[a,b];
+ const K=20,a1={x:a.x+a.dx*K,y:a.y+a.dy*K},b1={x:b.x+b.dx*K,y:b.y+b.dy*K},pts=[a,a1];
+ const ah=a.dx!==0,bh=b.dx!==0;
+ if(ah&&bh){
+  if(a.dx===b.dx){const x=a.dx>0?Math.max(a1.x,b1.x):Math.min(a1.x,b1.x);pts.push({x,y:a1.y},{x,y:b1.y})}
+  else if((b1.x-a1.x)*a.dx>=0){const x=(a1.x+b1.x)/2;pts.push({x,y:a1.y},{x,y:b1.y})}
+  else{const y=(a1.y+b1.y)/2;pts.push({x:a1.x,y},{x:b1.x,y})}
+ }else if(!ah&&!bh){
+  if(a.dy===b.dy){const y=a.dy>0?Math.max(a1.y,b1.y):Math.min(a1.y,b1.y);pts.push({x:a1.x,y},{x:b1.x,y})}
+  else if((b1.y-a1.y)*a.dy>=0){const y=(a1.y+b1.y)/2;pts.push({x:a1.x,y},{x:b1.x,y})}
+  else{const x=(a1.x+b1.x)/2;pts.push({x,y:a1.y},{x,y:b1.y})}
+ }else if(ah)pts.push({x:b1.x,y:a1.y});else pts.push({x:a1.x,y:b1.y});
+ pts.push(b1,b);
+ return pts.filter((p,i)=>i===0||Math.abs(p.x-pts[i-1].x)+Math.abs(p.y-pts[i-1].y)>.5);
+}
+function pathD(pts,st,a,b){
+ if(st==='curve'){const k=Math.max(40,Math.hypot(b.x-a.x,b.y-a.y)/2.5);return `M${a.x} ${a.y}C${a.x+a.dx*k} ${a.y+a.dy*k} ${b.x+b.dx*k} ${b.y+b.dy*k} ${b.x} ${b.y}`}
+ return 'M'+pts.map(p=>`${p.x} ${p.y}`).join('L');
+}
+function midOf(pts){
+ let L=0;for(let i=1;i<pts.length;i++)L+=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);
+ let h=L/2;for(let i=1;i<pts.length;i++){const d=Math.hypot(pts[i].x-pts[i-1].x,pts[i].y-pts[i-1].y);if(h<=d){const t=d?h/d:0;return{x:pts[i-1].x+(pts[i].x-pts[i-1].x)*t,y:pts[i-1].y+(pts[i].y-pts[i-1].y)*t}}h-=d}
+ return pts[0];
+}
+const MARKS=[['none','None'],['arrow','Arrow'],['open','Open arrow'],['1','One'],['11','Exactly one'],['01','Zero or one'],['N','Many'],['1N','One or many'],['0N','Zero or many']];
+function marker(m,p,col){
+ if(!m||m==='none')return'';
+ const d={x:p.dx,y:p.dy},q={x:-d.y,y:d.x},at=(k,s=0)=>`${p.x+d.x*k+q.x*s} ${p.y+d.y*k+q.y*s}`;
+ const bar=k=>`<path d="M${at(k,-7)}L${at(k,7)}" stroke="${col}" stroke-width="1.6"/>`;
+ const ring=k=>`<circle cx="${p.x+d.x*k}" cy="${p.y+d.y*k}" r="4.5" fill="${PAPER()}" stroke="${col}" stroke-width="1.6"/>`;
+ const crow=`<path d="M${at(0,-8)}L${at(12)}L${at(0,8)}M${at(0)}L${at(12)}" fill="none" stroke="${col}" stroke-width="1.6"/>`;
+ switch(m){
+ case 'arrow':return `<path d="M${at(0)}L${at(11,-5.5)}L${at(11,5.5)}Z" fill="${col}"/>`;
+ case 'open':return `<path d="M${at(11,-6)}L${at(0)}L${at(11,6)}" fill="none" stroke="${col}" stroke-width="1.6"/>`;
+ case '1':return bar(9);case '11':return bar(7)+bar(13);case '01':return bar(7)+ring(18);
+ case 'N':return crow;case '1N':return crow+bar(17);case '0N':return crow+ring(19);}
+ return'';
+}
+
+/* ---------- rendering ---------- */
+function nodeSVG(n,interactive=true){
+ const sel_=interactive&&sel.includes(n.id),b=bounds(n);
+ let h=`<g class="nd${sel_?' sel':''}" data-id="${n.id}" transform="translate(${n.x} ${n.y})">`;
+ if(n.type==='table'){
+  const H=tblH(n);
+  h+=`<rect width="${n.w}" height="${H}" rx="6" fill="${F('slate')}" stroke="${S(n.c)}" stroke-width="1.4" data-id="${n.id}"/>`;
+  h+=`<path d="M0 6A6 6 0 0 1 6 0H${n.w-6}A6 6 0 0 1 ${n.w} 6V${HEAD}H0Z" fill="${S(n.c)}" data-id="${n.id}" data-part="head"/>`;
+  h+=`<text x="12" y="${HEAD/2}" dy=".35em" font-size="14" font-weight="700" fill="${EXPORT?'#fff':'var(--paper)'}">${esc(n.name)}</text>`;
+  n.fields.forEach((f,i)=>{
+   const y=HEAD+i*ROW;const hl=interactive&&selField===f.id;
+   h+=`<rect y="${y}" width="${n.w}" height="${ROW}" fill="${hl?'var(--mist)':i%2?F(n.c):'transparent'}" fill-opacity="${hl?1:.55}" data-id="${n.id}" data-field="${f.id}"/>`;
+   const key=f.pk?'PK':f.fk?'FK':'';
+   if(key)h+=`<text x="10" y="${y+ROW/2}" dy=".35em" font-size="10" font-weight="700" fill="${S(f.pk?'amber':'blue')}">${key}</text>`;
+   h+=`<text x="34" y="${y+ROW/2}" dy=".35em" font-size="13" font-weight="${f.pk?600:400}" fill="${INK()}"${f.pk?' text-decoration="underline"':''}>${esc(f.name)}${f.nn&&!f.pk?' *':''}</text>`;
+   h+=`<text x="${n.w-10}" y="${y+ROW/2}" dy=".35em" font-size="12" text-anchor="end" fill="${MUTE()}">${esc(f.type)}</text>`;
+   if(interactive)h+=`<circle class="port" cx="0" cy="${y+ROW/2}" r="4.5" data-port="${n.id}" data-field="${f.id}" data-side="l"/><circle class="port" cx="${n.w}" cy="${y+ROW/2}" r="4.5" data-port="${n.id}" data-field="${f.id}" data-side="r"/>`;
+  });
+  if(!n.fields.length)h+=`<text x="${n.w/2}" y="${HEAD+ROW/2}" dy=".35em" text-anchor="middle" font-size="12" fill="${MUTE()}">No fields yet</text>`;
+  if(interactive)h+=`<circle class="port" cx="0" cy="${HEAD/2}" r="4.5" data-port="${n.id}" data-side="l"/><circle class="port" cx="${n.w}" cy="${HEAD/2}" r="4.5" data-port="${n.id}" data-side="r"/>`;
+ }else if(n.type==='pool'){
+  const v=n.dir==='v';let off=0;
+  h+=`<rect width="${b.w}" height="${b.h}" fill="none" stroke="${S(n.c)}" stroke-width="1.4"/>`;
+  n.lanes.forEach((l,i)=>{
+   if(v){h+=`<rect x="${off}" y="${LANEH*2}" width="${l.size}" height="${n.h}" fill="${i%2?F(n.c):'transparent'}" fill-opacity=".45" pointer-events="none"/>`;
+    h+=`<rect x="${off}" y="${LANEH}" width="${l.size}" height="${LANEH}" fill="${F(n.c)}" stroke="${S(n.c)}" data-id="${n.id}" data-lane="${l.id}"/>`;
+    h+=`<text x="${off+l.size/2}" y="${LANEH*1.5}" dy=".35em" text-anchor="middle" font-size="13" font-weight="600" fill="${INK()}">${esc(l.name)}</text>`;
+    if(i)h+=`<path d="M${off} ${LANEH}V${b.h}" stroke="${S(n.c)}" stroke-opacity=".6"/>`;
+   }else{h+=`<rect x="${LANEH*2}" y="${off}" width="${n.w}" height="${l.size}" fill="${i%2?F(n.c):'transparent'}" fill-opacity=".45" pointer-events="none"/>`;
+    h+=`<rect x="${LANEH}" y="${off}" width="${LANEH}" height="${l.size}" fill="${F(n.c)}" stroke="${S(n.c)}" data-id="${n.id}" data-lane="${l.id}"/>`;
+    h+=`<text transform="translate(${LANEH*1.5} ${off+l.size/2}) rotate(-90)" dy=".35em" text-anchor="middle" font-size="13" font-weight="600" fill="${INK()}">${esc(l.name)}</text>`;
+    if(i)h+=`<path d="M${LANEH} ${off}H${b.w}" stroke="${S(n.c)}" stroke-opacity=".6"/>`;}
+   if(interactive&&sel_&&i<n.lanes.length-1)h+=v?`<rect x="${off+l.size-4}" y="${LANEH*2}" width="8" height="${n.h}" fill="transparent" style="cursor:col-resize" data-lsep="${n.id}" data-i="${i}"/>`:`<rect x="${LANEH*2}" y="${off+l.size-4}" width="${n.w}" height="8" fill="transparent" style="cursor:row-resize" data-lsep="${n.id}" data-i="${i}"/>`;
+   off+=l.size;});
+  h+=v?`<rect width="${b.w}" height="${LANEH}" fill="${S(n.c)}" data-id="${n.id}"/><text x="${b.w/2}" y="${LANEH/2}" dy=".35em" text-anchor="middle" font-size="14" font-weight="700" fill="${EXPORT?'#fff':'var(--paper)'}">${esc(n.title)}</text>`
+   :`<rect width="${LANEH}" height="${b.h}" fill="${S(n.c)}" data-id="${n.id}"/><text transform="translate(${LANEH/2} ${b.h/2}) rotate(-90)" dy=".35em" text-anchor="middle" font-size="14" font-weight="700" fill="${EXPORT?'#fff':'var(--paper)'}">${esc(n.title)}</text>`;
+ }else{
+  const c=n.c||'slate';
+  h+=`<g fill="${n.type==='text'?'transparent':F(c)}" stroke="${S(c)}" stroke-width="1.5" data-id="${n.id}">${outline(n.type,n.w,n.h)}</g>`;
+  const fs=n.fs||14,pad=n.type==='decision'?n.w*.22:n.type==='data'||n.type==='prep'?22:n.type==='subprocess'?16:10;
+  const cy=n.type==='document'?n.h*.42:n.type==='manual'?n.h*.6:n.type==='offpage'?n.h*.38:n.h/2;
+  h+=textBlock(n.label,n.w/2,cy,n.w-pad*2,fs,INK(),n.type==='terminator'?600:400);
+  if(interactive)for(const s in SIDES){const [ux,uy]=SIDES[s];h+=`<circle class="port" cx="${n.w/2+ux*n.w/2}" cy="${n.h/2+uy*n.h/2}" r="4.5" data-port="${n.id}" data-side="${s}"/>`}
+ }
+ return h+'</g>';
+}
+function edgeGeom(e){const a=anchor(e.a,e.b),b=anchor(e.b,e.a);if(!a||!b)return null;const pts=route(a,b,e.st);return{a,b,pts}}
+function edgeSVG(e,interactive=true){
+ const g=edgeGeom(e);if(!g)return'';const{a,b,pts}=g;const on=interactive&&selEdge===e.id;
+ const col=on?(EXPORT?'#00a862':'var(--acc)'):S(e.c||'slate'),d=pathD(pts,e.st,a,b);
+ let h=`<g data-edge="${e.id}"><path d="${d}" fill="none" stroke="${col}" stroke-width="${on?2.2:1.6}"${e.dash?' stroke-dasharray="6 4"':''}/>`;
+ h+=marker(e.sa,a,col)+marker(e.sb,b,col);
+ if(interactive)h+=`<path class="hit" d="${d}" data-edge="${e.id}"/>`;
+ if(e.label){const m=e.st==='curve'?{x:(a.x+b.x)/2,y:(a.y+b.y)/2}:midOf(pts);const w=e.label.length*7+12;
+  h+=`<rect x="${m.x-w/2}" y="${m.y-10}" width="${w}" height="20" rx="4" fill="${PAPER()}" data-edge="${e.id}"/><text x="${m.x}" y="${m.y}" dy=".35em" text-anchor="middle" font-size="12.5" fill="${INK()}">${esc(e.label)}</text>`}
+ if(on)h+=`<circle class="eh" cx="${a.x}" cy="${a.y}" r="6" data-eh="a"/><circle class="eh" cx="${b.x}" cy="${b.y}" r="6" data-eh="b"/>`;
+ return h+'</g>';
+}
+let temp='';
+function render(){
+ page=P();const v=view();
+ world.setAttribute('transform',`translate(${v.x} ${v.y}) scale(${v.z})`);
+ cv.style.backgroundSize=`${20*v.z}px ${20*v.z}px`;cv.style.backgroundPosition=`${v.x}px ${v.y}px`;
+ const pools=page.nodes.filter(n=>n.type==='pool'),rest=page.nodes.filter(n=>n.type!=='pool');
+ let h=pools.map(n=>nodeSVG(n)).join('')+rest.map(n=>nodeSVG(n)).join('')+page.edges.map(e=>edgeSVG(e)).join('');
+ for(const id of sel){const n=N(id);if(!n)continue;const b=bounds(n);
+  h+=`<rect x="${b.x-3}" y="${b.y-3}" width="${b.w+6}" height="${b.h+6}" fill="none" stroke="var(--acc)" stroke-dasharray="4 3" pointer-events="none"/>`;
+  if(sel.length===1){const hs=n.type==='table'?['e']:n.type==='pool'?['se']:['nw','ne','sw','se'];
+   for(const k of hs){const x=k.includes('w')?b.x:b.x+b.w,y=k==='e'?b.y+b.h/2:k.includes('n')?b.y:b.y+b.h;
+    h+=`<rect class="rh" x="${x-5}" y="${y-5}" width="10" height="10" data-rh="${k}" style="cursor:${k==='e'?'ew':k==='nw'||k==='se'?'nwse':'nesw'}-resize"/>`}}}
+ world.innerHTML=h+temp;
+ $('#zoomv').textContent=Math.round(v.z*100)+'%';
+ $('#bUndo').disabled=!undo.length;$('#bRedo').disabled=!redo.length;$('#bDel').disabled=!sel.length&&!selEdge;
+ $('#hint').style.display=page.nodes.length?'none':'';
+}
+function renderTabs(){
+ $('#tabs').innerHTML=doc.pages.map(p=>`<button class="tab${p.id===doc.cur?' on':''}" data-pg="${p.id}" title="Double-click to rename">${esc(p.name)}</button>`).join('')+`<button class="tab" id="addPg" title="Add page">+ Page</button>`;
+}
+
+/* ---------- history & save ---------- */
+function changed(full=true){
+ const now=JSON.stringify(doc);
+ if(now!==last){untouched=false;undo.push(last);if(undo.length>120)undo.shift();redo.length=0;last=now;doc.updated=Date.now();queueSave()}
+ render();if(full)renderPanel();
+}
+function restore(s){doc=JSON.parse(s);last=s;sel=[];selEdge=null;selField=null;page=P();render();renderPanel();renderTabs();$('#fname').value=doc.name;queueSave()}
+function doUndo(){if(!undo.length)return;redo.push(last);restore(undo.pop())}
+function doRedo(){if(!redo.length)return;undo.push(last);restore(redo.pop())}
+
+/* storage: browser first, then the private per-person store when the page is opened on claude.ai */
+const LS={key:'diagram-studio-files',all(){try{return JSON.parse(localStorage.getItem(this.key)||'{}')}catch{return{}}},
+ put(d){try{const a=this.all();a[d.id]={name:d.name,updated:d.updated,json:JSON.stringify(d)};localStorage.setItem(this.key,JSON.stringify(a));localStorage.setItem('diagram-studio-last',d.id);return true}catch{return false}},
+ del(id){try{const a=this.all();delete a[id];localStorage.setItem(this.key,JSON.stringify(a))}catch{}}};
+let remote=null,saveT=null,saving=false,again=false;
+function setStatus(t){$('#status').textContent=t}
+function queueSave(){clearTimeout(saveT);setStatus('Unsaved changes');saveT=setTimeout(saveNow,1200)}
+async function saveNow(){
+ const okLocal=LS.put(doc);
+ if(!remote){setStatus(okLocal?'Saved in this browser':'Not saved: storage is unavailable');return}
+ if(saving){again=true;return}saving=true;setStatus('Saving…');
+ try{const json=JSON.stringify(doc);if(json.length>250000)throw{code:'too_big'};
+  await remote.col.doc(doc.id).set({name:doc.name,updated:doc.updated,json});setStatus('Saved to your account')}
+ catch(e){setStatus(e.code==='too_big'?'Too large to sync; saved in this browser':e.code==='quota_exceeded'?'Storage full; delete old diagrams':'Saved in this browser only')}
+ saving=false;if(again){again=false;saveNow()}
+}
+async function listFiles(){
+ const map={};for(const[id,f]of Object.entries(LS.all()))map[id]={id,name:f.name,updated:f.updated,src:'local'};
+ if(remote){try{const s=await remote.col.get();for(const d of s.docs){const x=d.data();if(!map[d.id]||map[d.id].updated<=x.updated)map[d.id]={id:d.id,name:x.name,updated:x.updated,src:'remote'}}}catch{}}
+ if(!map[doc.id])map[doc.id]={id:doc.id,name:doc.name,updated:doc.updated};
+ return Object.values(map).sort((a,b)=>b.updated-a.updated);
+}
+async function loadFile(id){
+ let best=null;const l=LS.all()[id];if(l)best={updated:l.updated,json:l.json};
+ if(remote){try{const s=await remote.col.doc(id).get();if(s.exists){const x=s.data();if(!best||x.updated>best.updated)best=x}}catch{}}
+ if(!best)return toast('Could not open that diagram');
+ openDoc(JSON.parse(best.json));
+}
+function openDoc(d){doc=d;last=JSON.stringify(doc);undo.length=0;redo.length=0;sel=[];selEdge=null;selField=null;views={};page=P();$('#fname').value=doc.name;render();renderTabs();renderPanel();requestAnimationFrame(fit);LS.put(doc)}
+async function connectStore(){
+ try{if(!window.claude?.use)return;const[d,u]=await Promise.all([claude.use('db'),claude.use('user')]);if(!d||!u)return;
+  const id=await u.id();if(!id)return;remote={col:d.collection('data/users/'+id)};
+  const s=await remote.col.get();const have=new Set(s.docs.map(x=>x.id));
+  for(const[fid,f]of Object.entries(LS.all()))if(!have.has(fid)){try{await remote.col.doc(fid).set({name:f.name,updated:f.updated,json:f.json})}catch{}}
+  const mine=s.docs.find(x=>x.id===doc.id);
+  if(mine&&mine.data().updated>doc.updated)openDoc(JSON.parse(mine.data().json));
+  else if(!mine&&untouched&&s.docs.length){const top=s.docs.map(x=>x.data()).sort((a,b)=>b.updated-a.updated)[0];openDoc(JSON.parse(top.json))}
+  setStatus('Saved to your account');
+ }catch{remote=null}
+}
+let untouched=false;
+
+/* ---------- inspector ---------- */
+const swatches=(cur,attr)=>`<div class="sw">${Object.keys(COLORS).map(k=>`<button class="${(cur||'slate')===k?'on':''}" data-${attr}="${k}" title="${k}" style="background:var(--f-${k});border-color:var(--s-${k});box-shadow:0 0 0 ${(cur||'slate')===k?2:1}px ${(cur||'slate')===k?'var(--acc)':`var(--s-${k})`}"></button>`).join('')}</div>`;
+function renderPanel(){
+ let h='';
+ if(selEdge){const e=page.edges.find(x=>x.id===selEdge);if(!e){selEdge=null;return renderPanel()}
+  const opt=(v)=>MARKS.map(([k,l])=>`<option value="${k}"${v===k?' selected':''}>${l}</option>`).join('');
+  h=`<h2>Connector</h2><label for="eLabel">Label</label><input type="text" id="eLabel" value="${esc(e.label)}" placeholder="e.g. Yes, places, 1:N">
+  <label for="eSt">Line</label><select id="eSt">${[['orth','Elbow'],['straight','Straight'],['curve','Curved']].map(([k,l])=>`<option value="${k}"${e.st===k?' selected':''}>${l}</option>`).join('')}</select>
+  <div class="row"><div style="flex:1"><label for="eSa">Start end</label><select id="eSa">${opt(e.sa)}</select></div><div style="flex:1"><label for="eSb">Finish end</label><select id="eSb">${opt(e.sb)}</select></div></div>
+  <label><input type="checkbox" id="eDash"${e.dash?' checked':''}> Dashed line</label>
+  <label>Colour</label>${swatches(e.c,'ec')}
+  <div class="row" style="margin-top:16px;flex-wrap:wrap"><button class="btn" id="eSwap">Swap ends</button><button class="btn" id="eRel">Mark as 1 : many</button><button class="btn del" id="eDel">Delete</button></div>
+  <p class="note">Crow's-foot ends (one, many, zero or many) describe how rows relate. Drag the green dots at either end to reconnect.</p>`;
+ }else if(sel.length>1){
+  h=`<h2>${sel.length} shapes selected</h2><label>Align</label><div class="al">${[['l','Left'],['c','Centre'],['r','Right'],['t','Top'],['m','Middle'],['b','Bottom'],['dh','Space ↔'],['dv','Space ↕']].map(([k,l])=>`<button class="btn" data-al="${k}">${l}</button>`).join('')}</div>
+  <label>Colour</label>${swatches(null,'nc')}<div class="row" style="margin-top:16px"><button class="btn" id="nDup">Duplicate</button><button class="btn del" id="nDel">Delete</button></div>`;
+ }else if(sel.length===1){const n=N(sel[0]);if(!n){sel=[];return renderPanel()}
+  if(n.type==='table'){
+   h=`<h2>Table</h2><label for="tName">Name</label><input type="text" id="tName" value="${esc(n.name)}">
+   <label>Fields <small>(drag ⋮⋮ to reorder)</small></label><div id="fields">${n.fields.map((f,i)=>`<div class="fl${selField===f.id?' hl':''}" data-fi="${i}" draggable="true"><button class="drag" title="Drag to reorder" aria-label="Reorder">⋮⋮</button>
+   <input type="text" value="${esc(f.name)}" data-ff="name" aria-label="Field name"><input type="text" value="${esc(f.type)}" data-ff="type" aria-label="Data type">
+   <label class="k" title="Primary key" style="margin:0"><input type="checkbox" data-ff="pk"${f.pk?' checked':''}>PK</label><label class="k" title="Foreign key" style="margin:0"><input type="checkbox" data-ff="fk"${f.fk?' checked':''}>FK</label>
+   <button class="x" data-fdel="${i}" title="Remove field" aria-label="Remove field">✕</button></div>`).join('')}</div>
+   <div class="row" style="margin-top:6px"><button class="btn" id="fAdd">+ Field</button><button class="btn" id="fNN" title="Toggle NOT NULL on the highlighted field">Required *</button></div>
+   <label>Header colour</label>${swatches(n.c,'nc')}
+   <div class="row" style="margin-top:16px;flex-wrap:wrap"><button class="btn" id="nDup">Duplicate</button><button class="btn" id="sqlOne">Copy SQL</button><button class="btn del" id="nDel">Delete</button></div>
+   <p class="note">To link tables, drag from the dot at the end of a field row to a field in another table. Dragging from a foreign key to the key it points at gives a many-to-one line.</p>`;
+  }else if(n.type==='pool'){
+   h=`<h2>Swimlane pool</h2><label for="pTitle">Title</label><input type="text" id="pTitle" value="${esc(n.title)}">
+   <label for="pDir">Orientation</label><select id="pDir"><option value="h"${n.dir==='h'?' selected':''}>Horizontal lanes</option><option value="v"${n.dir==='v'?' selected':''}>Vertical lanes</option></select>
+   <label>Lanes</label>${n.lanes.map((l,i)=>`<div class="row" style="margin-bottom:4px"><input type="text" value="${esc(l.name)}" data-lane="${i}" aria-label="Lane name"><button class="btn" data-lup="${i}" title="Move up"${i?'':' disabled'}>↑</button><button class="btn del" data-ldel="${i}" title="Remove lane"${n.lanes.length>1?'':' disabled'}>✕</button></div>`).join('')}
+   <button class="btn" id="lAdd" style="margin-top:4px">+ Lane</button><label>Colour</label>${swatches(n.c,'nc')}
+   <div class="row" style="margin-top:16px"><button class="btn del" id="nDel">Delete pool</button></div>
+   <p class="note">Shapes inside the pool move with it. Drag the line between two lanes to resize them.</p>`;
+  }else{
+   h=`<h2>${SHAPES[n.type]?.n||'Shape'}</h2><label for="sLabel">Text</label><textarea id="sLabel">${esc(n.label)}</textarea>
+   <label for="sType">Shape</label><select id="sType">${Object.entries(SHAPES).map(([k,s])=>`<option value="${k}"${n.type===k?' selected':''}>${s.n}</option>`).join('')}</select>
+   <label for="sFs">Text size</label><select id="sFs">${[12,14,16,20,24].map(s=>`<option${(n.fs||14)===s?' selected':''}>${s}</option>`).join('')}</select>
+   <label>Colour</label>${swatches(n.c,'nc')}
+   <div class="row" style="margin-top:16px"><button class="btn" id="nDup">Duplicate</button><button class="btn del" id="nDel">Delete</button></div>`;
+  }
+ }else{
+  const tables=page.nodes.filter(n=>n.type==='table').length;
+  h=`<h2>Page</h2><label for="pgName">Page name</label><input type="text" id="pgName" value="${esc(page.name)}">
+  <div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="btn" id="pgDup">Duplicate page</button><button class="btn del" id="pgDel"${doc.pages.length>1?'':' disabled'}>Delete page</button></div>
+  <label>Data model</label><div class="row" style="flex-wrap:wrap"><button class="btn" id="sqlIn">Import SQL</button><button class="btn" id="sqlOut"${tables?'':' disabled'}>Export SQL</button></div>
+  <p class="note">${page.nodes.length} shapes, ${page.edges.length} connectors${tables?`, ${tables} tables`:''}.</p>
+  <p class="note"><b>Shortcuts</b><br><kbd>Dbl-click</kbd> edit text · <kbd>Del</kbd> delete<br><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate<br><kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy, paste · arrows nudge<br><kbd>Space</kbd>+drag pan · <kbd>Ctrl</kbd>+wheel zoom · <kbd>0</kbd> fit</p>`;
+ }
+ insp.innerHTML=h;
+}
+insp.addEventListener('input',ev=>{
+ const t=ev.target,n=sel.length===1?N(sel[0]):null,e=selEdge&&page.edges.find(x=>x.id===selEdge);
+ if(t.id==='eLabel'&&e)e.label=t.value;
+ else if(t.id==='tName'&&n)n.name=t.value.replace(/\s+/g,'_');
+ else if(t.id==='pTitle'&&n)n.title=t.value;
+ else if(t.id==='sLabel'&&n)n.label=t.value;
+ else if(t.id==='pgName'){page.name=t.value;renderTabs()}
+ else if(t.dataset.lane!=null&&n)n.lanes[+t.dataset.lane].name=t.value;
+ else if(t.dataset.ff&&n&&t.type==='text'){const f=n.fields[+t.closest('.fl').dataset.fi];f[t.dataset.ff]=t.value}
+ else return;
+ render();
+});
+insp.addEventListener('change',ev=>{
+ const t=ev.target,n=sel.length===1?N(sel[0]):null,e=selEdge&&page.edges.find(x=>x.id===selEdge);
+ if(e&&t.id==='eSt')e.st=t.value;else if(e&&t.id==='eSa')e.sa=t.value;else if(e&&t.id==='eSb')e.sb=t.value;else if(e&&t.id==='eDash')e.dash=t.checked;
+ else if(n&&t.id==='sType'){const d=SHAPES[t.value];n.type=t.value;if(t.value==='circle'||t.value==='offpage'){n.w=d.w;n.h=d.h}}
+ else if(n&&t.id==='sFs')n.fs=+t.value;
+ else if(n&&t.id==='pDir'){if(n.dir!==t.value){const tot=n.lanes.reduce((a,l)=>a+l.size,0);if(t.value==='v'){n.h=Math.max(300,n.w*.5);n.lanes.forEach(l=>l.size=Math.max(160,Math.round(l.size*1.4/10)*10))}else{n.w=Math.max(500,tot);n.lanes.forEach(l=>l.size=Math.max(100,Math.round(l.size/1.4/10)*10))}n.dir=t.value}}
+ else if(n&&t.dataset.ff&&t.type==='checkbox'){const f=n.fields[+t.closest('.fl').dataset.fi];f[t.dataset.ff]=t.checked;if(t.dataset.ff==='pk'&&t.checked)f.nn=true}
+ else if(t.id==='pgName'||t.id==='eLabel'||t.id==='tName'||t.id==='pTitle'||t.id==='sLabel'||t.dataset.lane!=null||t.dataset.ff){}
+ else return;
+ changed();
+});
+insp.addEventListener('focusin',ev=>{const fl=ev.target.closest('.fl');if(fl){const n=N(sel[0]);const f=n?.fields[+fl.dataset.fi];if(f&&selField!==f.id){selField=f.id;render();insp.querySelectorAll('.fl').forEach(x=>x.classList.toggle('hl',x===fl))}}});
+insp.addEventListener('click',ev=>{
+ const t=ev.target.closest('button');if(!t)return;
+ const n=sel.length===1?N(sel[0]):null,e=selEdge&&page.edges.find(x=>x.id===selEdge);
+ if(t.dataset.nc){for(const id of sel){const m=N(id);if(m)m.c=t.dataset.nc}}
+ else if(t.dataset.ec&&e)e.c=t.dataset.ec;
+ else if(t.id==='eSwap'&&e){[e.a,e.b]=[e.b,e.a];[e.sa,e.sb]=[e.sb,e.sa]}
+ else if(t.id==='eRel'&&e){e.sa='0N';e.sb='11'}
+ else if(t.id==='eDel'||t.id==='nDel')return del();
+ else if(t.id==='nDup')return dup();
+ else if(t.id==='fAdd'&&n){const f=F_('new_field','varchar(50)');n.fields.push(f);selField=f.id;changed();const ins=insp.querySelectorAll('.fl input[data-ff=name]');ins[ins.length-1]?.select();return}
+ else if(t.id==='fNN'&&n){const f=n.fields.find(f=>f.id===selField);if(!f)return toast('Click a field first');f.nn=!f.nn}
+ else if(t.dataset.fdel!=null&&n){const f=n.fields.splice(+t.dataset.fdel,1)[0];page.edges=page.edges.filter(x=>x.a.f!==f.id&&x.b.f!==f.id)}
+ else if(t.id==='lAdd'&&n)n.lanes.push({id:uid(),name:'Lane '+(n.lanes.length+1),size:n.dir==='v'?220:140});
+ else if(t.dataset.ldel!=null&&n)n.lanes.splice(+t.dataset.ldel,1);
+ else if(t.dataset.lup!=null&&n){const i=+t.dataset.lup;[n.lanes[i-1],n.lanes[i]]=[n.lanes[i],n.lanes[i-1]]}
+ else if(t.dataset.al)return align(t.dataset.al);
+ else if(t.id==='pgDup'){const p=clone(page);p.id=uid();p.name+=' copy';remap(p);doc.pages.push(p);doc.cur=p.id;renderTabs();return changed()}
+ else if(t.id==='pgDel'){if(doc.pages.length<2)return;doc.pages=doc.pages.filter(p=>p!==page);doc.cur=doc.pages[0].id;sel=[];renderTabs();return changed()}
+ else if(t.id==='sqlIn')return sqlImportDlg();
+ else if(t.id==='sqlOut')return exportDlg('sql');
+ else if(t.id==='sqlOne'&&n)return copyText(toSQL([n]),'SQL copied');
+ else return;
+ changed();
+});
+let dragFi=null;
+insp.addEventListener('dragstart',ev=>{const fl=ev.target.closest?.('.fl');if(fl){dragFi=+fl.dataset.fi;ev.dataTransfer.effectAllowed='move'}});
+insp.addEventListener('dragover',ev=>{if(dragFi!=null&&ev.target.closest('.fl'))ev.preventDefault()});
+insp.addEventListener('drop',ev=>{const fl=ev.target.closest('.fl');const n=N(sel[0]);if(fl&&n&&dragFi!=null){ev.preventDefault();const to=+fl.dataset.fi;const[f]=n.fields.splice(dragFi,1);n.fields.splice(to,0,f);dragFi=null;changed()}});
+function remap(p){const m={};for(const n of p.nodes){m[n.id]=uid();n.id=m[n.id];if(n.fields)for(const f of n.fields){m[f.id]=uid();f.id=m[f.id]}if(n.lanes)n.lanes.forEach(l=>l.id=uid())}
+ for(const e of p.edges){e.id=uid();e.a.n=m[e.a.n];e.b.n=m[e.b.n];if(e.a.f)e.a.f=m[e.a.f];if(e.b.f)e.b.f=m[e.b.f]}return m}
+
+/* ---------- editing operations ---------- */
+function del(){
+ if(selEdge){page.edges=page.edges.filter(e=>e.id!==selEdge);selEdge=null}
+ else if(sel.length){page.nodes=page.nodes.filter(n=>!sel.includes(n.id));page.edges=page.edges.filter(e=>N(e.a.n)&&N(e.b.n));sel=[];selField=null}
+ changed();
+}
+let clip=null;
+function copySel(){if(!sel.length)return;const ns=page.nodes.filter(n=>sel.includes(n.id));clip={nodes:clone(ns),edges:clone(page.edges.filter(e=>sel.includes(e.a.n)&&sel.includes(e.b.n)))}}
+function paste(dx=30){if(!clip)return;const p=clone(clip);const m=remap(p);for(const n of p.nodes){n.x+=dx;n.y+=dx}
+ page.nodes.push(...p.nodes);page.edges.push(...p.edges);sel=p.nodes.map(n=>n.id);selEdge=null;clip.nodes.forEach(n=>{n.x+=dx;n.y+=dx});changed()}
+function dup(){copySel();paste()}
+function align(k){
+ const ns=sel.map(N).filter(Boolean),bs=ns.map(bounds);
+ const minX=Math.min(...bs.map(b=>b.x)),maxX=Math.max(...bs.map(b=>b.x+b.w)),minY=Math.min(...bs.map(b=>b.y)),maxY=Math.max(...bs.map(b=>b.y+b.h));
+ ns.forEach((n,i)=>{const b=bs[i];
+  if(k==='l')n.x=minX;if(k==='r')n.x=maxX-b.w;if(k==='c')n.x=Math.round((minX+maxX)/2-b.w/2);
+  if(k==='t')n.y=minY;if(k==='b')n.y=maxY-b.h;if(k==='m')n.y=Math.round((minY+maxY)/2-b.h/2)});
+ if(k==='dh'||k==='dv'){const ax=k==='dh'?'x':'y',dim=k==='dh'?'w':'h';const o=ns.map((n,i)=>({n,b:bs[i]})).sort((p,q)=>p.b[ax]-q.b[ax]);
+  const tot=o.reduce((a,p)=>a+p.b[dim],0),span=(k==='dh'?maxX-minX:maxY-minY),gap=(span-tot)/Math.max(1,o.length-1);let pos=k==='dh'?minX:minY;
+  for(const p of o){p.n[ax]=Math.round(pos);pos+=p.b[dim]+gap}}
+ changed();
+}
+function addNode(type,x,y){
+ let n;
+ if(type==='table'){n=newTable(x,y,'table_'+(page.nodes.filter(n=>n.type==='table').length+1))}
+ else if(type==='poolh'||type==='poolv'){n=newPool(x,y,type==='poolh'?'h':'v')}
+ else{const d=SHAPES[type];n={id:uid(),type,x:x-d.w/2,y:y-d.h/2,w:d.w,h:d.h,label:type==='text'?'Text':d.n,c:d.c||'slate'}}
+ if(snap){n.x=Math.round(n.x/GRID)*GRID;n.y=Math.round(n.y/GRID)*GRID}
+ page.nodes.push(n);sel=[n.id];selEdge=null;selField=null;changed();return n;
+}
+
+/* ---------- palette ---------- */
+const ICON={table:'<rect x="4" y="2" width="38" height="26" rx="3"/><path d="M4 9h38M4 16h38M4 22h38" fill="none"/>',
+ poolh:'<rect x="2" y="3" width="42" height="24"/><path d="M8 3v24M2 15h42" fill="none"/>',poolv:'<rect x="2" y="3" width="42" height="24"/><path d="M2 8h42M23 3v24" fill="none"/>'};
+function palIcon(t){if(ICON[t])return ICON[t];const d=SHAPES[t];const s=Math.min(42/d.w,26/d.h);return `<g transform="translate(${23-d.w*s/2} ${15-d.h*s/2}) scale(${s})" vector-effect="non-scaling-stroke">${outline(t,d.w,d.h).replace(/<(\w+) /g,'<$1 vector-effect="non-scaling-stroke" ')}</g>`}
+$('#pal').innerHTML=`<h3>Data model</h3><div class="sg"><button class="si wide" data-add="table"><svg viewBox="0 0 46 30">${palIcon('table')}</svg>Table</button></div>
+<h3>Flowchart</h3><div class="sg">${Object.keys(SHAPES).map(t=>`<button class="si" data-add="${t}" title="${SHAPES[t].n}"><svg viewBox="0 0 46 30">${t==='text'?'<text x="23" y="20" text-anchor="middle" font-size="16" style="fill:var(--ink);stroke:none">Aa</text>':palIcon(t)}</svg>${SHAPES[t].n.replace(' / ','/')}</button>`).join('')}</div>
+<h3>Swimlanes</h3><div class="sg"><button class="si wide" data-add="poolh"><svg viewBox="0 0 46 30">${palIcon('poolh')}</svg>Horizontal lanes</button><button class="si wide" data-add="poolv"><svg viewBox="0 0 46 30">${palIcon('poolv')}</svg>Vertical lanes</button></div>`;
+
+/* ---------- pointer interaction ---------- */
+const toWorld=(cx,cy)=>{const r=svg.getBoundingClientRect(),v=view();return{x:(cx-r.left-v.x)/v.z,y:(cy-r.top-v.y)/v.z}};
+const sn=v=>snap?Math.round(v/GRID)*GRID:v;
+let drag=null,space=false,lastDown={t:0,id:null};
+let palDrag=null;
+$('#pal').addEventListener('pointerdown',ev=>{const b=ev.target.closest('[data-add]');if(!b)return;ev.preventDefault();palDrag={type:b.dataset.add,x:ev.clientX,y:ev.clientY,moved:false,ghost:null};b.setPointerCapture(ev.pointerId)});
+$('#pal').addEventListener('pointermove',ev=>{if(!palDrag)return;if(Math.hypot(ev.clientX-palDrag.x,ev.clientY-palDrag.y)>6){palDrag.moved=true;
+ if(!palDrag.ghost){palDrag.ghost=document.createElement('div');palDrag.ghost.style.cssText='position:fixed;z-index:50;pointer-events:none;width:60px;height:40px;border:2px dashed var(--acc);border-radius:6px;background:var(--mist);opacity:.8';document.body.appendChild(palDrag.ghost)}
+ palDrag.ghost.style.left=ev.clientX-30+'px';palDrag.ghost.style.top=ev.clientY-20+'px'}});
+$('#pal').addEventListener('pointerup',ev=>{if(!palDrag)return;const pd=palDrag;palDrag=null;pd.ghost?.remove();
+ const r=cv.getBoundingClientRect();
+ if(pd.moved){if(ev.clientX>r.left&&ev.clientX<r.right&&ev.clientY>r.top&&ev.clientY<r.bottom){const p=toWorld(ev.clientX,ev.clientY);addNode(pd.type,p.x,p.y)}}
+ else{const p=toWorld(r.left+r.width/2,r.top+r.height/2);addNode(pd.type,p.x+(Math.random()*40-20),p.y+(Math.random()*40-20))}});
+
+function hitNode(el){const g=el?.closest?.('[data-id]');return g?N(g.dataset.id):null}
+function poolChildren(p){const b=bounds(p);return page.nodes.filter(n=>n.type!=='pool'&&(()=>{const c=center(n);return c.x>b.x&&c.x<b.x+b.w&&c.y>b.y&&c.y<b.y+b.h})()).map(n=>n.id)}
+svg.addEventListener('pointerdown',ev=>{
+ if(ed.style.display==='block')commitEdit();
+ const t=ev.target,p=toWorld(ev.clientX,ev.clientY);svg.setPointerCapture(ev.pointerId);
+ if(ev.button===1||space||ev.button===2){drag={k:'pan',sx:ev.clientX,sy:ev.clientY,v:{...view()}};return}
+ const now=Date.now();
+ if(t.dataset.rh){const n=N(sel[0]);drag={k:'resize',h:t.dataset.rh,n,o:{...n,lanes:n.lanes&&clone(n.lanes)},p};return}
+ if(t.dataset.eh){const e=page.edges.find(x=>x.id===selEdge);drag={k:'reend',e,end:t.dataset.eh};return}
+ if(t.dataset.lsep){const n=N(t.dataset.lsep);drag={k:'lane',n,i:+t.dataset.i,o:clone(n.lanes),p};return}
+ if(t.dataset.port){drag={k:'link',from:{n:t.dataset.port,s:t.dataset.side,f:t.dataset.field||null},p};svg.classList.add('linking');return}
+ const eg=t.closest('[data-edge]');
+ if(eg){const id=eg.dataset.edge;if(lastDown.id===id&&now-lastDown.t<380){editEdge(page.edges.find(e=>e.id===id))}lastDown={t:now,id};selEdge=id;sel=[];selField=null;render();renderPanel();drag=null;return}
+ const n=hitNode(t);
+ if(n){
+  const fid=t.dataset.field||null,lane=t.dataset.lane||null;
+  if(lastDown.id===n.id&&now-lastDown.t<380){lastDown={t:0,id:null};editNode(n,fid,lane);return}
+  lastDown={t:now,id:n.id};
+  if(ev.shiftKey||ev.metaKey||ev.ctrlKey){sel=sel.includes(n.id)?sel.filter(x=>x!==n.id):[...sel,n.id]}
+  else if(!sel.includes(n.id))sel=[n.id];
+  if(n.type==='table'){const nf=fid&&sel.length===1?fid:null;if(nf!==selField||sel.length>1)selField=sel.length===1?fid:null}else selField=null;
+  selEdge=null;
+  const ids=new Set(sel);for(const id of sel){const m=N(id);if(m?.type==='pool')poolChildren(m).forEach(c=>ids.add(c))}
+  drag={k:'move',p,ids:[...ids],o:[...ids].map(id=>{const m=N(id);return{id,x:m.x,y:m.y}}),moved:false};
+  render();renderPanel();return;
+ }
+ lastDown={t:0,id:null};
+ if(!ev.shiftKey){sel=[];selEdge=null;selField=null}
+ drag={k:'box',p,q:p,base:[...sel]};render();renderPanel();
+});
+svg.addEventListener('contextmenu',ev=>ev.preventDefault());
+svg.addEventListener('pointermove',ev=>{
+ if(!drag)return;const p=toWorld(ev.clientX,ev.clientY);
+ if(drag.k==='pan'){const v=view();v.x=drag.v.x+ev.clientX-drag.sx;v.y=drag.v.y+ev.clientY-drag.sy;render();return}
+ if(drag.k==='move'){let dx=p.x-drag.p.x,dy=p.y-drag.p.y;if(!drag.moved&&Math.hypot(dx,dy)*view().z<3)return;drag.moved=true;
+  const o0=drag.o[0];if(snap){dx=sn(o0.x+dx)-o0.x;dy=sn(o0.y+dy)-o0.y}
+  for(const o of drag.o){const m=N(o.id);m.x=o.x+dx;m.y=o.y+dy}render();return}
+ if(drag.k==='resize'){const n=drag.n,o=drag.o,dx=p.x-drag.p.x,dy=p.y-drag.p.y,h=drag.h;
+  if(n.type==='table'){n.w=Math.max(150,sn(o.w+dx))}
+  else if(n.type==='pool'){if(n.dir==='v'){n.h=Math.max(120,sn(o.h+dy));const tot=o.lanes.reduce((a,l)=>a+l.size,0);n.lanes[n.lanes.length-1].size=Math.max(80,sn(o.lanes[o.lanes.length-1].size+dx))}
+   else{n.w=Math.max(200,sn(o.w+dx));n.lanes[n.lanes.length-1].size=Math.max(60,sn(o.lanes[o.lanes.length-1].size+dy))}}
+  else{let x=o.x,y=o.y,w=o.w,hh=o.h;
+   if(h.includes('e'))w=o.w+dx;if(h.includes('w')){w=o.w-dx;x=o.x+dx}if(h.includes('s'))hh=o.h+dy;if(h.includes('n')){hh=o.h-dy;y=o.y+dy}
+   if(ev.shiftKey){const r=o.w/o.h;if(w/hh>r)w=hh*r;else hh=w/r}
+   w=Math.max(30,sn(w));hh=Math.max(24,sn(hh));if(h.includes('w'))x=o.x+o.w-w;if(h.includes('n'))y=o.y+o.h-hh;Object.assign(n,{x,y,w,h:hh})}
+  render();return}
+ if(drag.k==='lane'){const n=drag.n,i=drag.i,d=n.dir==='v'?p.x-drag.p.x:p.y-drag.p.y;const a=drag.o[i].size,b=drag.o[i+1].size;const na=Math.max(60,Math.min(a+b-60,sn(a+d)));n.lanes[i].size=na;n.lanes[i+1].size=a+b-na;render();return}
+ if(drag.k==='link'||drag.k==='reend'){
+  const fixed=drag.k==='link'?drag.from:(drag.end==='a'?drag.e.b:drag.e.a);const a=anchor(fixed,null);
+  const tgt=hitNode(document.elementFromPoint(ev.clientX,ev.clientY));
+  temp=`<path d="M${a.x} ${a.y}L${p.x} ${p.y}" stroke="var(--acc)" stroke-width="2" stroke-dasharray="5 4" fill="none" pointer-events="none"/>`;
+  if(tgt&&tgt.id!==fixed.n){const b=bounds(tgt);temp+=`<rect x="${b.x-4}" y="${b.y-4}" width="${b.w+8}" height="${b.h+8}" rx="6" fill="none" stroke="var(--acc)" stroke-width="2" pointer-events="none"/>`}
+  render();return}
+ if(drag.k==='box'){drag.q=p;const x=Math.min(drag.p.x,p.x),y=Math.min(drag.p.y,p.y),w=Math.abs(p.x-drag.p.x),h=Math.abs(p.y-drag.p.y);
+  const hit=page.nodes.filter(n=>{const b=bounds(n);return b.x>=x&&b.y>=y&&b.x+b.w<=x+w&&b.y+b.h<=y+h}).map(n=>n.id);
+  sel=[...new Set([...drag.base,...hit])];
+  temp=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="var(--acc)" fill-opacity=".08" stroke="var(--acc)" stroke-dasharray="4 3" pointer-events="none"/>`;render()}
+});
+function endpointAt(ev,exclude){
+ const el=document.elementFromPoint(ev.clientX,ev.clientY);const n=hitNode(el);if(!n||n.id===exclude)return null;
+ const end={n:n.id};
+ if(el.dataset.port){end.s=el.dataset.side;if(el.dataset.field)end.f=el.dataset.field}
+ else if(n.type==='table'&&el.dataset.field)end.f=el.dataset.field;
+ return end;
+}
+svg.addEventListener('pointerup',ev=>{
+ if(!drag)return;const d=drag;drag=null;temp='';svg.classList.remove('linking');
+ if(d.k==='link'){
+  const fromN=N(d.from.n),end=endpointAt(ev,d.from.n);
+  if(end){const isT=fromN.type==='table'&&N(end.n).type==='table';
+   if(isT&&d.from.f&&end.f){const ff=fromN.fields.find(f=>f.id===d.from.f);if(ff&&!ff.pk)ff.fk=true}
+   const e={id:uid(),a:{...d.from},b:end,st:lineStyle,sa:isT?'0N':'none',sb:isT?'11':'arrow',label:''};
+   if(fromN.type==='table'&&!d.from.f)delete e.a.s;
+   page.edges.push(e);sel=[];selEdge=e.id;changed();
+  }else if(SHAPES[fromN.type]&&fromN.type!=='text'&&fromN.type!=='note'){
+   const p=toWorld(ev.clientX,ev.clientY);if(Math.hypot(p.x-d.p.x,p.y-d.p.y)<30){render();return}
+   const [ux,uy]=SIDES[d.from.s];const n={id:uid(),type:fromN.type==='terminator'?'process':fromN.type,w:fromN.w,h:fromN.h,label:'',c:fromN.c};
+   if(n.type!==fromN.type){n.w=SHAPES.process.w;n.h=SHAPES.process.h;n.c='slate'}
+   n.x=sn(p.x-n.w/2+ux*n.w/2);n.y=sn(p.y-n.h/2+uy*n.h/2);page.nodes.push(n);
+   const opp={t:'b',b:'t',l:'r',r:'l'}[d.from.s];
+   page.edges.push({id:uid(),a:{...d.from},b:{n:n.id,s:opp},st:lineStyle,sa:'none',sb:'arrow',label:''});
+   sel=[n.id];selEdge=null;changed();editNode(n);
+  }else render();
+  return;
+ }
+ if(d.k==='reend'){const other=d.end==='a'?d.e.b:d.e.a;const end=endpointAt(ev,other.n);if(end)d.e[d.end]=end;changed();return}
+ if(d.k==='box'){render();renderPanel();return}
+ if(d.k==='pan'){render();return}
+ changed(d.k!=='move'||d.moved);
+});
+cv.addEventListener('wheel',ev=>{
+ ev.preventDefault();const v=view();
+ if(ev.ctrlKey||ev.metaKey){const r=svg.getBoundingClientRect(),mx=ev.clientX-r.left,my=ev.clientY-r.top;const z=Math.min(3,Math.max(.2,v.z*Math.exp(-ev.deltaY*.0025)));
+  v.x=mx-(mx-v.x)*z/v.z;v.y=my-(my-v.y)*z/v.z;v.z=z}
+ else{v.x-=ev.deltaX;v.y-=ev.deltaY}
+ render();
+},{passive:false});
+function zoomBy(f){const v=view(),r=svg.getBoundingClientRect(),mx=r.width/2,my=r.height/2,z=Math.min(3,Math.max(.2,v.z*f));v.x=mx-(mx-v.x)*z/v.z;v.y=my-(my-v.y)*z/v.z;v.z=z;render()}
+function contentBox(nodes){const bs=nodes.map(bounds);if(!bs.length)return null;
+ let x0=Math.min(...bs.map(b=>b.x)),y0=Math.min(...bs.map(b=>b.y)),x1=Math.max(...bs.map(b=>b.x+b.w)),y1=Math.max(...bs.map(b=>b.y+b.h));return{x:x0,y:y0,w:x1-x0,h:y1-y0}}
+function fit(){const b=contentBox(page.nodes),r=svg.getBoundingClientRect(),v=view();if(!b||!r.width){v.x=40;v.y=40;v.z=1;return render()}
+ const z=Math.min(1.25,Math.max(.2,Math.min((r.width-60)/b.w,(r.height-60)/b.h)));v.z=z;v.x=(r.width-b.w*z)/2-b.x*z;v.y=(r.height-b.h*z)/2-b.y*z;render()}
+
+/* ---------- inline text editing ---------- */
+let editing=null;
+function placeEd(x,y,w,h,val,fs,align='center'){
+ const v=view();Object.assign(ed.style,{display:'block',left:x*v.z+v.x+'px',top:y*v.z+v.y+'px',width:Math.max(80,w*v.z)+'px',height:Math.max(30,h*v.z)+'px',fontSize:fs*v.z+'px',textAlign:align});
+ ed.value=val;ed.focus();ed.select();
+}
+function editNode(n,fid,laneId){
+ if(n.type==='table'){
+  if(fid){const f=n.fields.find(f=>f.id===fid);const i=n.fields.indexOf(f);editing={n,f};placeEd(n.x+28,n.y+HEAD+i*ROW,n.w-30,ROW,`${f.name} ${f.type}`,13,'left')}
+  else{editing={n,k:'name'};placeEd(n.x,n.y,n.w,HEAD,n.name,14,'left')}
+ }else if(n.type==='pool'){
+  if(laneId){const l=n.lanes.find(l=>l.id===laneId);editing={n,l};const b=bounds(n);let off=0;for(const x of n.lanes){if(x===l)break;off+=x.size}
+   n.dir==='v'?placeEd(n.x+off,n.y+LANEH,l.size,LANEH,l.name,13):placeEd(n.x+LANEH,n.y+off+l.size/2-15,160,30,l.name,13)}
+  else{editing={n,k:'title'};placeEd(n.x,n.y,200,30,n.title,14)}
+ }else{editing={n,k:'label'};placeEd(n.x,n.y,n.w,n.h,n.label,n.fs||14)}
+}
+function editEdge(e){const g=edgeGeom(e);const m=midOf(g.pts);editing={e};placeEd(m.x-60,m.y-15,120,30,e.label,12.5)}
+function commitEdit(cancel){
+ if(!editing)return;const v=ed.value,x=editing;editing=null;ed.style.display='none';if(cancel)return render();
+ if(x.e)x.e.label=v.trim();
+ else if(x.f){const m=v.trim().match(/^(\S+)\s*(.*)$/);if(m){x.f.name=m[1];x.f.type=m[2]||x.f.type}}
+ else if(x.l)x.l.name=v;
+ else if(x.k==='name')x.n.name=v.trim().replace(/\s+/g,'_')||x.n.name;
+ else x.n[x.k]=v;
+ changed();
+}
+ed.addEventListener('keydown',ev=>{ev.stopPropagation();if(ev.key==='Escape')commitEdit(true);else if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault();commitEdit()}});
+ed.addEventListener('blur',()=>commitEdit());
+
+/* ---------- keyboard ---------- */
+document.addEventListener('keydown',ev=>{
+ const tag=document.activeElement?.tagName;if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||$('#dlg').style.display==='grid')return;
+ const mod=ev.ctrlKey||ev.metaKey,k=ev.key.toLowerCase();
+ if(k===' '){space=true;cv.style.cursor='grab';ev.preventDefault();return}
+ if(mod&&k==='z'){ev.preventDefault();ev.shiftKey?doRedo():doUndo()}
+ else if(mod&&k==='y'){ev.preventDefault();doRedo()}
+ else if(mod&&k==='c')copySel();
+ else if(mod&&k==='v'){ev.preventDefault();paste()}
+ else if(mod&&k==='d'){ev.preventDefault();dup()}
+ else if(mod&&k==='a'){ev.preventDefault();sel=page.nodes.map(n=>n.id);selEdge=null;render();renderPanel()}
+ else if(k==='delete'||k==='backspace'){if(sel.length||selEdge){ev.preventDefault();del()}}
+ else if(k==='escape'){sel=[];selEdge=null;selField=null;render();renderPanel();closeMenu()}
+ else if(k.startsWith('arrow')&&sel.length){ev.preventDefault();const s=ev.shiftKey?GRID*2:snap?GRID:1;const[dx,dy]={arrowleft:[-s,0],arrowright:[s,0],arrowup:[0,-s],arrowdown:[0,s]}[k];
+  const ids=new Set(sel);for(const id of sel){const m=N(id);if(m?.type==='pool')poolChildren(m).forEach(c=>ids.add(c))}
+  for(const id of ids){const m=N(id);m.x+=dx;m.y+=dy}changed(false)}
+ else if(k==='0')fit();else if(k==='='||k==='+')zoomBy(1.2);else if(k==='-')zoomBy(1/1.2);
+ else if(k==='enter'&&sel.length===1){ev.preventDefault();editNode(N(sel[0]))}
+});
+document.addEventListener('keyup',ev=>{if(ev.key===' '){space=false;cv.style.cursor=''}});
+
+/* ---------- toolbar, tabs, menu ---------- */
+$('#bUndo').onclick=doUndo;$('#bRedo').onclick=doRedo;$('#bDel').onclick=del;
+$('#bZi').onclick=()=>zoomBy(1.2);$('#bZo').onclick=()=>zoomBy(1/1.2);$('#bFit').onclick=fit;
+$('#bSnap').onclick=()=>{snap=!snap;$('#bSnap').classList.toggle('on',snap)};
+const LS_=[['orth','Elbow'],['straight','Straight'],['curve','Curved']];
+$('#bLine').onclick=()=>{const i=(LS_.findIndex(x=>x[0]===lineStyle)+1)%3;lineStyle=LS_[i][0];$('#lineLbl').textContent=LS_[i][1];
+ const e=selEdge&&page.edges.find(x=>x.id===selEdge);if(e){e.st=lineStyle;changed()}else toast('New connectors: '+LS_[i][1].toLowerCase())};
+$('#fmt').onclick=()=>insp.classList.toggle('open');
+$('#fname').addEventListener('input',e=>{doc.name=e.target.value});$('#fname').addEventListener('change',()=>changed(false));
+$('#tabs').addEventListener('click',ev=>{const b=ev.target.closest('button');if(!b)return;
+ if(b.id==='addPg'){const p={id:uid(),name:'Page '+(doc.pages.length+1),nodes:[],edges:[]};doc.pages.push(p);doc.cur=p.id;sel=[];selEdge=null;renderTabs();changed();return}
+ if(b.dataset.pg&&b.dataset.pg!==doc.cur){doc.cur=b.dataset.pg;sel=[];selEdge=null;selField=null;page=P();const fresh=!views[page.id];renderTabs();render();renderPanel();if(fresh)fit()}});
+$('#tabs').addEventListener('dblclick',ev=>{const b=ev.target.closest('[data-pg]');if(!b)return;const r=b.getBoundingClientRect(),c=cv.getBoundingClientRect();
+ const inp=document.createElement('input');inp.value=page.name;inp.style.cssText=`position:fixed;left:${r.left}px;top:${r.top}px;width:${Math.max(120,r.width)}px;height:${r.height}px;z-index:20;border:2px solid var(--acc);border-radius:6px;padding:0 8px;background:var(--paper)`;
+ document.body.appendChild(inp);inp.focus();inp.select();const done=()=>{if(!inp.isConnected)return;page.name=inp.value.trim()||page.name;inp.remove();renderTabs();changed()};
+ inp.addEventListener('blur',done);inp.addEventListener('keydown',e=>{if(e.key==='Enter')done();if(e.key==='Escape')inp.remove()})});
+const menu=$('#menu');
+function closeMenu(){menu.style.display='none'}
+$('#bFile').onclick=ev=>{ev.stopPropagation();const r=ev.currentTarget.getBoundingClientRect();
+ menu.innerHTML=`<button data-m="new">New diagram…</button><button data-m="open">Open…</button><button data-m="dupdoc">Save a copy</button><hr>
+ <button data-m="import">Import diagram file (.json)</button><button data-m="sqlin">Import tables from SQL…</button><hr>
+ <button data-m="png">Export PNG <small>image</small></button><button data-m="svg">Export SVG <small>vector</small></button><button data-m="json">Export diagram file <small>.json</small></button><button data-m="sql">Export SQL <small>CREATE TABLE</small></button>`;
+ menu.style.display='block';menu.style.left=Math.min(r.left,innerWidth-230)+'px';menu.style.top=r.bottom+4+'px'};
+document.addEventListener('pointerdown',ev=>{if(!menu.contains(ev.target)&&ev.target.id!=='bFile')closeMenu()});
+menu.addEventListener('click',ev=>{const m=ev.target.closest('[data-m]')?.dataset.m;if(!m)return;closeMenu();
+ if(m==='new')newDlg();else if(m==='open')openDlg();else if(m==='import')$('#fileIn').click();else if(m==='sqlin')sqlImportDlg();
+ else if(m==='dupdoc'){const d=clone(doc);d.id=uid();d.name=doc.name+' (copy)';d.updated=Date.now();openDoc(d);queueSave();toast('Now editing the copy')}
+ else exportDlg(m)});
+$('#fileIn').addEventListener('change',async ev=>{const f=ev.target.files[0];ev.target.value='';if(!f)return;
+ try{const d=JSON.parse(await f.text());if(!d.pages)throw 0;d.id=uid();d.updated=Date.now();openDoc(d);queueSave();toast('Imported '+d.name)}catch{toast('That file is not a Diagram Studio file')}});
+
+/* ---------- dialogs ---------- */
+const dlg=$('#dlg'),dlgb=$('#dlgb');
+function showDlg(h){dlgb.innerHTML=h;dlg.style.display='grid';dlgb.querySelector('textarea,input,button')?.focus()}
+function hideDlg(){dlg.style.display='none'}
+dlg.addEventListener('pointerdown',ev=>{if(ev.target===dlg)hideDlg()});
+dlg.addEventListener('keydown',ev=>{if(ev.key==='Escape')hideDlg()});
+function newDlg(){showDlg(`<h2>New diagram</h2><div class="tpl"><button data-t="blank"><b>Blank</b><span>Empty page</span></button><button data-t="erd"><b>Data model</b><span>Tables and relationships</span></button><button data-t="flow"><b>Process map</b><span>Swimlane pool to start</span></button></div><div class="acts"><button class="btn" data-x>Cancel</button></div>`);
+ dlgb.onclick=ev=>{const b=ev.target.closest('button');if(!b)return;if(b.dataset.t){openDoc(blank(b.dataset.t));queueSave()}hideDlg()}}
+const ago=t=>{const s=(Date.now()-t)/1000;return s<60?'just now':s<3600?Math.round(s/60)+' min ago':s<86400?Math.round(s/3600)+' h ago':new Date(t).toLocaleDateString()};
+async function openDlg(){
+ showDlg(`<h2>Your diagrams</h2><div class="flist"><p class="note">Loading…</p></div><div class="acts"><button class="btn" data-x>Close</button></div>`);
+ const fs=await listFiles();
+ dlgb.querySelector('.flist').innerHTML=fs.map(f=>`<div class="fi${f.id===doc.id?' on':''}"><b>${esc(f.name)}</b><small>${ago(f.updated)}</small>${f.id===doc.id?'<small>Open now</small>':`<button class="btn" data-open="${f.id}">Open</button><button class="btn del" data-rm="${f.id}" title="Delete">✕</button>`}</div>`).join('')+
+  `<p class="note">${remote?'Saved privately to your Claude account: only you can see these.':'Saved in this browser. Open this page on claude.ai to keep diagrams in your account.'}</p>`;
+ dlgb.onclick=async ev=>{const b=ev.target.closest('button');if(!b)return;
+  if(b.dataset.open){hideDlg();loadFile(b.dataset.open)}
+  else if(b.dataset.rm){if(b.dataset.sure){LS.del(b.dataset.rm);if(remote){try{await remote.col.doc(b.dataset.rm).delete()}catch{}}b.closest('.fi').remove()}else{b.dataset.sure=1;b.textContent='Delete?'}}
+  else if(b.hasAttribute('data-x'))hideDlg()}}
+function sqlImportDlg(){showDlg(`<h2>Import tables from SQL</h2><p class="note" style="margin-top:0">Paste CREATE TABLE statements. Columns, primary keys, NOT NULL and foreign keys (inline REFERENCES or FOREIGN KEY clauses) become tables and relationship lines on this page.</p>
+ <textarea id="sqlTxt" spellcheck="false" placeholder="CREATE TABLE invoices (&#10;  invoice_id INT PRIMARY KEY,&#10;  customer_id INT NOT NULL REFERENCES customers(customer_id),&#10;  amount DECIMAL(10,2)&#10;);"></textarea>
+ <div class="acts"><button class="btn" data-x>Cancel</button><button class="btn pri" id="sqlGo">Add to page</button></div>`);
+ dlgb.onclick=ev=>{const b=ev.target.closest('button');if(!b)return;if(b.id==='sqlGo'){const r=importSQL($('#sqlTxt').value);if(r)hideDlg()}else if(b.hasAttribute('data-x'))hideDlg()}}
+
+/* ---------- SQL ---------- */
+function splitTop(s){const out=[];let d=0,cur='';for(const ch of s){if(ch==='(')d++;if(ch===')')d--;if(ch===','&&d===0){out.push(cur);cur=''}else cur+=ch}if(cur.trim())out.push(cur);return out.map(x=>x.trim())}
+const unq=s=>s.replace(/[`"\[\]]/g,'').split('.').pop();
+function importSQL(txt){
+ const re=/create\s+table\s+(?:if\s+not\s+exists\s+)?([`"\[\]\w.]+)\s*\(/gi;let m;const found=[];
+ while((m=re.exec(txt))){let i=re.lastIndex,d=1;while(i<txt.length&&d){if(txt[i]==='(')d++;else if(txt[i]===')')d--;i++}found.push({name:unq(m[1]),body:txt.slice(re.lastIndex,i-1)})}
+ if(!found.length){toast('No CREATE TABLE statements found');return false}
+ const box=contentBox(page.nodes),x0=box?box.x+box.w+80:40,y0=box?box.y:40,made={},refs=[];
+ found.forEach((t,ti)=>{
+  const n={id:uid(),type:'table',x:x0+(ti%3)*290,y:y0,w:240,name:t.name,c:'green',fields:[]};
+  for(const part of splitTop(t.body)){
+   let mm;
+   if((mm=part.match(/^(?:constraint\s+\S+\s+)?primary\s+key\s*\(([^)]+)\)/i))){mm[1].split(',').map(x=>unq(x.trim())).forEach(c=>{const f=n.fields.find(f=>f.name===c);if(f){f.pk=true;f.nn=true}});continue}
+   if((mm=part.match(/^(?:constraint\s+\S+\s+)?foreign\s+key\s*\(([^)]+)\)\s*references\s+([`"\[\]\w.]+)\s*\(([^)]+)\)/i))){refs.push({t:n,c:unq(mm[1].trim()),rt:unq(mm[2]),rc:unq(mm[3].trim())});continue}
+   if(/^(unique|index|key|check|constraint)\b/i.test(part))continue;
+   const cm=part.match(/^([`"\[\]\w]+)\s+(.+)$/s);if(!cm)continue;
+   const rest=cm[2],type=(rest.match(/^[\w]+(\s*\([^)]*\))?(\s+unsigned)?(\s+varying(\s*\([^)]*\))?)?/i)||[''])[0].replace(/\s+/g,' ');
+   const f=F_(unq(cm[1]),type.toLowerCase(),{pk:/primary\s+key/i.test(rest),nn:/not\s+null|primary\s+key/i.test(rest)});
+   const r=rest.match(/references\s+([`"\[\]\w.]+)\s*\(([^)]+)\)/i);if(r){f.fk=true;refs.push({t:n,c:f.name,rt:unq(r[1]),rc:unq(r[2].trim())})}
+   n.fields.push(f)}
+  made[n.name.toLowerCase()]=n;page.nodes.push(n)});
+ let y=[y0,y0,y0];found.forEach((t,ti)=>{const n=made[t.name.toLowerCase()];const col=ti%3;n.y=y[col];y[col]+=tblH(n)+50});
+ const all=t=>made[t.toLowerCase()]||page.nodes.find(n=>n.type==='table'&&n.name.toLowerCase()===t.toLowerCase());
+ let links=0;for(const r of refs){const tn=all(r.rt);if(!tn)continue;const fa=r.t.fields.find(f=>f.name===r.c),fb=tn.fields.find(f=>f.name===r.rc);if(!fa)continue;fa.fk=true;
+  page.edges.push({id:uid(),a:{n:r.t.id,f:fa.id},b:{n:tn.id,f:fb?.id||null},st:'orth',sa:'0N',sb:'11',label:''});links++}
+ sel=Object.values(made).map(n=>n.id);changed();fit();toast(`Added ${found.length} table${found.length>1?'s':''} and ${links} relationship${links===1?'':'s'}`);return true;
+}
+function toSQL(tables){
+ return tables.map(n=>{const lines=n.fields.map(f=>`  ${f.name} ${(f.type||'text').toUpperCase()}${f.nn&&!f.pk?' NOT NULL':''}`);
+  const pk=n.fields.filter(f=>f.pk);if(pk.length)lines.push(`  PRIMARY KEY (${pk.map(f=>f.name).join(', ')})`);
+  for(const e of page.edges){for(const[me,other]of[[e.a,e.b],[e.b,e.a]]){if(me.n!==n.id||!me.f||!other.f)continue;const f=n.fields.find(f=>f.id===me.f);const on=N(other.n),of=on?.fields?.find(x=>x.id===other.f);
+   if(f&&of&&f.fk&&!(of.fk&&!of.pk&&f.pk))lines.push(`  FOREIGN KEY (${f.name}) REFERENCES ${on.name}(${of.name})`)}}
+  return `CREATE TABLE ${n.name} (\n${lines.join(',\n')}\n);`}).join('\n\n');
+}
+
+/* ---------- export ---------- */
+function exportSVG(){
+ const b=contentBox(page.nodes);if(!b)return null;EXPORT=true;
+ const pad=24,W=Math.ceil(b.w+pad*2),H=Math.ceil(b.h+pad*2);
+ const body=page.nodes.filter(n=>n.type==='pool').map(n=>nodeSVG(n,false)).join('')+page.nodes.filter(n=>n.type!=='pool').map(n=>nodeSVG(n,false)).join('')+page.edges.map(e=>edgeSVG(e,false)).join('');
+ EXPORT=false;
+ return {W,H,s:`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Inter, Helvetica, Arial, sans-serif"><rect width="${W}" height="${H}" fill="#fff"/><g transform="translate(${pad-b.x} ${pad-b.y})">${body.replace(/ data-[\w-]+="[^"]*"/g,'')}</g></svg>`};
+}
+const safe=s=>(s||'diagram').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-').toLowerCase()||'diagram';
+async function save(filename,data,fallbackText){
+ try{const dl=window.claude?.use?await claude.use('downloads'):null;if(dl){await dl.save({filename,data});toast('Saved '+filename);return}}
+ catch(e){if(e?.code==='declined')return;}
+ if(fallbackText!=null)showDlg(`<h2>Copy ${esc(filename)}</h2><p class="note" style="margin-top:0">Downloads are not available here, so copy the contents instead.</p><textarea readonly>${esc(fallbackText)}</textarea><div class="acts"><button class="btn" data-x>Close</button><button class="btn pri" id="cpy">Copy</button></div>`);
+ else if(data instanceof Blob){const u=URL.createObjectURL(data);showDlg(`<h2>${esc(filename)}</h2><p class="note" style="margin-top:0">Downloads are not available here. Right-click or long-press the image to save it.</p><img src="${u}" style="max-width:100%;border:1px solid var(--line);border-radius:8px"><div class="acts"><button class="btn" data-x>Close</button></div>`)}
+ dlgb.onclick=ev=>{const b=ev.target.closest('button');if(!b)return;if(b.id==='cpy')copyText(fallbackText,'Copied');else hideDlg()};
+}
+function copyText(t,msg){navigator.clipboard?.writeText(t).then(()=>toast(msg),()=>toast('Copy was blocked; select the text and copy it'))}
+async function exportDlg(kind){
+ const base=safe(doc.name)+(doc.pages.length>1&&kind!=='json'?'-'+safe(page.name):'');
+ if(kind==='json'){const s=JSON.stringify(doc,null,1);return save(base+'.json',s,s)}
+ if(kind==='sql'){const t=page.nodes.filter(n=>n.type==='table');if(!t.length)return toast('This page has no tables');const s=toSQL(t);
+  showDlg(`<h2>SQL for “${esc(page.name)}”</h2><textarea readonly>${esc(s)}</textarea><div class="acts"><button class="btn" data-x>Close</button><button class="btn" id="dlS">Download .txt</button><button class="btn pri" id="cpy">Copy</button></div>`);
+  dlgb.onclick=ev=>{const b=ev.target.closest('button');if(!b)return;if(b.id==='cpy')copyText(s,'SQL copied');else if(b.id==='dlS'){hideDlg();save(base+'-schema.txt',s,s)}else hideDlg()};return}
+ const x=exportSVG();if(!x)return toast('Nothing to export on this page');
+ if(kind==='svg')return save(base+'.svg',x.s,x.s);
+ const img=new Image();img.onload=()=>{const c=document.createElement('canvas'),k=2;c.width=x.W*k;c.height=x.H*k;const g=c.getContext('2d');g.scale(k,k);g.drawImage(img,0,0);c.toBlob(bl=>bl&&save(base+'.png',bl),'image/png')};
+ img.onerror=()=>toast('Could not draw the image');img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(x.s);
+}
+let toastT;function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>e.style.display='none',2600)}
+
+/* ---------- boot ---------- */
+function start(){
+ let d=null;try{const id=localStorage.getItem('diagram-studio-last');const f=id&&LS.all()[id];if(f)d=JSON.parse(f.json)}catch{}
+ if(!d){d=sample();untouched=true}
+ doc=d;last=JSON.stringify(doc);page=P();$('#fname').value=doc.name;renderTabs();render();renderPanel();requestAnimationFrame(fit);
+ setStatus(untouched?'Sample diagram: edit it or start a new one':'Saved in this browser');
+ const ro=new ResizeObserver(()=>render());ro.observe(cv);
+ connectStore();
+}
+start();
+}
+</script>
+</body>
+</html>
