@@ -125,6 +125,7 @@ kbd{font:11.5px Inter,sans-serif;border:1px solid var(--line);border-bottom-widt
 @keyframes sp{to{transform:rotate(360deg)}}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--danger);margin-right:4px}
 @media(max-width:600px){#askTier{display:none}#ask{bottom:8px}}
+@media(pointer:coarse){.port{pointer-events:none}.nd.sel .port,#svg.linking .port{pointer-events:auto}}
 @media(prefers-reduced-motion:reduce){#mic.rec,.spin{animation:none}}
 @media(max-width:860px){
 #app{grid-template:"top" auto "pal" auto "cv" minmax(0,1fr) "tabs" auto/minmax(0,1fr)}
@@ -177,7 +178,7 @@ kbd{font:11.5px Inter,sans-serif;border:1px solid var(--line);border-bottom-widt
         <button class="btn pri" id="askGo" type="submit">Do it</button>
       </form>
     </div>
-    <div id="hint">Drag shapes in · drag from a dot to connect · Space+drag or two-finger scroll to pan</div>
+    <div id="hint">Drag shapes in · drag from a dot to connect · drag empty space to pan, pinch to zoom</div>
   </main>
   <div id="tabs"></div>
   <aside id="insp" aria-label="Format"></aside>
@@ -190,6 +191,7 @@ kbd{font:11.5px Inter,sans-serif;border:1px solid var(--line);border-bottom-widt
 {
 const $=s=>document.querySelector(s);
 const svg=$('#svg'),world=$('#world'),cv=$('#cv'),insp=$('#insp'),ed=$('#ed');
+const COARSE=matchMedia('(pointer:coarse)').matches,PR=COARSE?8:4.5,HS=COARSE?20:10;
 const GRID=10,HEAD=32,ROW=24,LANEH=28;
 const uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -360,10 +362,10 @@ function nodeSVG(n,interactive=true){
    if(key)h+=`<text x="10" y="${y+ROW/2}" dy=".35em" font-size="10" font-weight="700" fill="${S(f.pk?'amber':'blue')}">${key}</text>`;
    h+=`<text x="34" y="${y+ROW/2}" dy=".35em" font-size="13" font-weight="${f.pk?600:400}" fill="${INK()}"${f.pk?' text-decoration="underline"':''}>${esc(f.name)}${f.nn&&!f.pk?' *':''}</text>`;
    h+=`<text x="${n.w-10}" y="${y+ROW/2}" dy=".35em" font-size="12" text-anchor="end" fill="${MUTE()}">${esc(f.type)}</text>`;
-   if(interactive)h+=`<circle class="port" cx="0" cy="${y+ROW/2}" r="4.5" data-port="${n.id}" data-field="${f.id}" data-side="l"/><circle class="port" cx="${n.w}" cy="${y+ROW/2}" r="4.5" data-port="${n.id}" data-field="${f.id}" data-side="r"/>`;
+   if(interactive)h+=`<circle class="port" cx="0" cy="${y+ROW/2}" r="${PR}" data-port="${n.id}" data-field="${f.id}" data-side="l"/><circle class="port" cx="${n.w}" cy="${y+ROW/2}" r="${PR}" data-port="${n.id}" data-field="${f.id}" data-side="r"/>`;
   });
   if(!n.fields.length)h+=`<text x="${n.w/2}" y="${HEAD+ROW/2}" dy=".35em" text-anchor="middle" font-size="12" fill="${MUTE()}">No fields yet</text>`;
-  if(interactive)h+=`<circle class="port" cx="0" cy="${HEAD/2}" r="4.5" data-port="${n.id}" data-side="l"/><circle class="port" cx="${n.w}" cy="${HEAD/2}" r="4.5" data-port="${n.id}" data-side="r"/>`;
+  if(interactive)h+=`<circle class="port" cx="0" cy="${HEAD/2}" r="${PR}" data-port="${n.id}" data-side="l"/><circle class="port" cx="${n.w}" cy="${HEAD/2}" r="${PR}" data-port="${n.id}" data-side="r"/>`;
  }else if(n.type==='pool'){
   const v=n.dir==='v';let off=0;
   h+=`<rect width="${b.w}" height="${b.h}" fill="none" stroke="${S(n.c)}" stroke-width="1.4"/>`;
@@ -386,7 +388,7 @@ function nodeSVG(n,interactive=true){
   const fs=n.fs||14,pad=n.type==='decision'?n.w*.22:n.type==='data'||n.type==='prep'?22:n.type==='subprocess'?16:10;
   const cy=n.type==='document'?n.h*.42:n.type==='manual'?n.h*.6:n.type==='offpage'?n.h*.38:n.h/2;
   h+=textBlock(n.label,n.w/2,cy,n.w-pad*2,fs,INK(),n.type==='terminator'?600:400);
-  if(interactive)for(const s in SIDES){const [ux,uy]=SIDES[s];h+=`<circle class="port" cx="${n.w/2+ux*n.w/2}" cy="${n.h/2+uy*n.h/2}" r="4.5" data-port="${n.id}" data-side="${s}"/>`}
+  if(interactive)for(const s in SIDES){const [ux,uy]=SIDES[s];h+=`<circle class="port" cx="${n.w/2+ux*n.w/2}" cy="${n.h/2+uy*n.h/2}" r="${PR}" data-port="${n.id}" data-side="${s}"/>`}
  }
  return h+'</g>';
 }
@@ -399,7 +401,7 @@ function edgeSVG(e,interactive=true){
  if(interactive)h+=`<path class="hit" d="${d}" data-edge="${e.id}"/>`;
  if(e.label){const m=e.st==='curve'?{x:(a.x+b.x)/2,y:(a.y+b.y)/2}:midOf(pts);const w=e.label.length*7+12;
   h+=`<rect x="${m.x-w/2}" y="${m.y-10}" width="${w}" height="20" rx="4" fill="${PAPER()}" data-edge="${e.id}"/><text x="${m.x}" y="${m.y}" dy=".35em" text-anchor="middle" font-size="12.5" fill="${INK()}">${esc(e.label)}</text>`}
- if(on)h+=`<circle class="eh" cx="${a.x}" cy="${a.y}" r="6" data-eh="a"/><circle class="eh" cx="${b.x}" cy="${b.y}" r="6" data-eh="b"/>`;
+ if(on)h+=`<circle class="eh" cx="${a.x}" cy="${a.y}" r="${COARSE?10:6}" data-eh="a"/><circle class="eh" cx="${b.x}" cy="${b.y}" r="${COARSE?10:6}" data-eh="b"/>`;
  return h+'</g>';
 }
 let temp='';
@@ -413,7 +415,7 @@ function render(){
   h+=`<rect x="${b.x-3}" y="${b.y-3}" width="${b.w+6}" height="${b.h+6}" fill="none" stroke="var(--acc)" stroke-dasharray="4 3" pointer-events="none"/>`;
   if(sel.length===1){const hs=n.type==='table'?['e']:n.type==='pool'?['se']:['nw','ne','sw','se'];
    for(const k of hs){const x=k.includes('w')?b.x:b.x+b.w,y=k==='e'?b.y+b.h/2:k.includes('n')?b.y:b.y+b.h;
-    h+=`<rect class="rh" x="${x-5}" y="${y-5}" width="10" height="10" data-rh="${k}" style="cursor:${k==='e'?'ew':k==='nw'||k==='se'?'nwse':'nesw'}-resize"/>`}}}
+    h+=`<rect class="rh" x="${x-HS/2}" y="${y-HS/2}" width="${HS}" height="${HS}" data-rh="${k}" style="cursor:${k==='e'?'ew':k==='nw'||k==='se'?'nwse':'nesw'}-resize"/>`}}}
  world.innerHTML=h+temp;
  $('#zoomv').textContent=Math.round(v.z*100)+'%';
  $('#bUndo').disabled=!undo.length;$('#bRedo').disabled=!redo.length;$('#bDel').disabled=!sel.length&&!selEdge;
@@ -636,9 +638,17 @@ $('#pal').addEventListener('pointerup',ev=>{if(!palDrag)return;const pd=palDrag;
 
 function hitNode(el){const g=el?.closest?.('[data-id]');return g?N(g.dataset.id):null}
 function poolChildren(p){const b=bounds(p);return page.nodes.filter(n=>n.type!=='pool'&&(()=>{const c=center(n);return c.x>b.x&&c.x<b.x+b.w&&c.y>b.y&&c.y<b.y+b.h})()).map(n=>n.id)}
+const touches=new Map();
+function cancelDrag(){if(!drag)return;clearTimeout(drag.lp);
+ if(drag.k==='move')for(const o of drag.o){const m=N(o.id);if(m){m.x=o.x;m.y=o.y}}
+ if(drag.k==='resize')Object.assign(drag.n,drag.o);if(drag.k==='lane')drag.n.lanes=drag.o;
+ drag=null;temp='';svg.classList.remove('linking')}
+function startPinch(){const[a,b]=[...touches.values()],r=svg.getBoundingClientRect();
+ drag={k:'pinch',d0:Math.hypot(a.x-b.x,a.y-b.y)||1,m0:{x:(a.x+b.x)/2-r.left,y:(a.y+b.y)/2-r.top},v0:{...view()}}}
 svg.addEventListener('pointerdown',ev=>{
  if(ed.style.display==='block')commitEdit();
  const t=ev.target,p=toWorld(ev.clientX,ev.clientY);svg.setPointerCapture(ev.pointerId);
+ if(ev.pointerType==='touch'){touches.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});if(touches.size>=2){cancelDrag();startPinch();render();return}}
  if(ev.button===1||space||ev.button===2){drag={k:'pan',sx:ev.clientX,sy:ev.clientY,v:{...view()}};return}
  const now=Date.now();
  if(t.dataset.rh){const n=N(sel[0]);drag={k:'resize',h:t.dataset.rh,n,o:{...n,lanes:n.lanes&&clone(n.lanes)},p};return}
@@ -662,13 +672,20 @@ svg.addEventListener('pointerdown',ev=>{
  }
  lastDown={t:0,id:null};
  if(!ev.shiftKey){sel=[];selEdge=null;selField=null}
+ if(ev.pointerType==='touch'){drag={k:'pan',sx:ev.clientX,sy:ev.clientY,v:{...view()},touch:true,p};
+  drag.lp=setTimeout(()=>{if(drag?.k==='pan'&&drag.touch&&!drag.moved){drag={k:'box',p:drag.p,q:drag.p,base:[...sel]};navigator.vibrate?.(15);toast('Drag to select shapes')}},550);render();renderPanel();return}
  drag={k:'box',p,q:p,base:[...sel]};render();renderPanel();
 });
+svg.addEventListener('pointercancel',ev=>{touches.delete(ev.pointerId);if(drag?.k!=='pinch'||!touches.size){cancelDrag();render()}});
 svg.addEventListener('contextmenu',ev=>ev.preventDefault());
 svg.addEventListener('pointermove',ev=>{
+ if(touches.has(ev.pointerId))touches.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+ if(drag?.k==='pinch'){if(touches.size<2)return;const[a,b]=[...touches.values()],r=svg.getBoundingClientRect(),o=drag.v0,v=view();
+  const d=Math.hypot(a.x-b.x,a.y-b.y),mx=(a.x+b.x)/2-r.left,my=(a.y+b.y)/2-r.top,z=Math.min(3,Math.max(.2,o.z*d/drag.d0));
+  const wx=(drag.m0.x-o.x)/o.z,wy=(drag.m0.y-o.y)/o.z;v.z=z;v.x=mx-wx*z;v.y=my-wy*z;render();return}
  if(!drag)return;const p=toWorld(ev.clientX,ev.clientY);
- if(drag.k==='pan'){const v=view();v.x=drag.v.x+ev.clientX-drag.sx;v.y=drag.v.y+ev.clientY-drag.sy;render();return}
- if(drag.k==='move'){let dx=p.x-drag.p.x,dy=p.y-drag.p.y;if(!drag.moved&&Math.hypot(dx,dy)*view().z<3)return;drag.moved=true;
+ if(drag.k==='pan'){if(Math.hypot(ev.clientX-drag.sx,ev.clientY-drag.sy)>6)drag.moved=true;const v=view();v.x=drag.v.x+ev.clientX-drag.sx;v.y=drag.v.y+ev.clientY-drag.sy;render();return}
+ if(drag.k==='move'){let dx=p.x-drag.p.x,dy=p.y-drag.p.y;if(!drag.moved&&Math.hypot(dx,dy)*view().z<(ev.pointerType==='touch'?8:3))return;drag.moved=true;
   const o0=drag.o[0];if(snap){dx=sn(o0.x+dx)-o0.x;dy=sn(o0.y+dy)-o0.y}
   for(const o of drag.o){const m=N(o.id);m.x=o.x+dx;m.y=o.y+dy}render();return}
  if(drag.k==='resize'){const n=drag.n,o=drag.o,dx=p.x-drag.p.x,dy=p.y-drag.p.y,h=drag.h;
@@ -700,7 +717,9 @@ function endpointAt(ev,exclude){
  return end;
 }
 svg.addEventListener('pointerup',ev=>{
- if(!drag)return;const d=drag;drag=null;temp='';svg.classList.remove('linking');
+ touches.delete(ev.pointerId);
+ if(drag?.k==='pinch'){if(!touches.size)drag=null;render();return}
+ if(!drag)return;clearTimeout(drag.lp);const d=drag;drag=null;temp='';svg.classList.remove('linking');
  if(d.k==='link'){
   const fromN=N(d.from.n),end=endpointAt(ev,d.from.n);
   if(end){const isT=fromN.type==='table'&&N(end.n).type==='table';
