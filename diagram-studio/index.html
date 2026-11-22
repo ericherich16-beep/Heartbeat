@@ -102,6 +102,14 @@ kbd{font:11.5px Inter,sans-serif;border:1px solid var(--line);border-bottom-widt
 .tpl button{border:1px solid var(--line);border-radius:8px;background:var(--chrome);padding:12px;text-align:left;min-height:72px}
 .tpl button:hover{border-color:var(--acc)}
 .tpl b{display:block;margin-bottom:2px}.tpl span{color:var(--mute);font-size:12.5px}
+.row2{display:flex;gap:6px;flex-wrap:wrap}.row2 input{flex:1 1 200px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;background:var(--paper);font-size:15px}
+.hl2{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+#dlg details{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}#dlg summary{cursor:pointer;font-weight:600}
+#dlg textarea.pr{min-height:110px;margin:8px 0}
+.gh3{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.4fr) minmax(0,1fr);gap:6px}.gh3 input{border:1px solid var(--line);border-radius:6px;padding:7px 8px;background:var(--paper);font-size:14px}
+@media(max-width:600px){.gh3{grid-template-columns:minmax(0,1fr)}}
+h3.lib{font:600 16px/1.2 "Space Grotesk",Inter,sans-serif;margin:18px 0 8px}
+.k2{display:flex !important;align-items:center;gap:6px;margin:0 !important;color:var(--ink) !important;font-size:13.5px !important}
 #toast{position:fixed;left:50%;bottom:56px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:40;font-size:13.5px}
 #fmt{display:none}
 #ask{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:min(660px,calc(100% - 24px));z-index:6;display:flex;flex-direction:column;gap:6px}
@@ -146,6 +154,7 @@ kbd{font:11.5px Inter,sans-serif;border:1px solid var(--line);border-bottom-widt
     <input id="fname" type="text" aria-label="Diagram name" value="Untitled diagram">
     <div class="grp">
       <button class="tb" id="bFile" title="Files: new, open, import, export"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span class="lbl">File</span></button>
+      <button class="tb" id="bHand" title="Hand off to AI: build spec, library, GitHub"><svg viewBox="0 0 24 24"><path d="M5 12h12M13 6l6 6-6 6"/><path d="M5 5v14"/></svg><span class="lbl">Hand off</span></button>
     </div>
     <div class="grp">
       <button class="tb" id="bUndo" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
@@ -268,6 +277,8 @@ function sample(){
  const item=t(360,290,'order_items','blue',[F_('order_item_id','int',{pk:1}),F_('order_id','int',{fk:1,nn:1}),F_('product_id','int',{fk:1,nn:1}),F_('quantity','int'),F_('unit_price','decimal(10,2)')]);
  const prod=t(680,290,'products','amber',[F_('product_id','int',{pk:1}),F_('sku','varchar(40)',{nn:1}),F_('name','varchar(200)'),F_('category','varchar(60)')]);
  const reg=t(40,290,'regions','grey',[F_('region_code','char(2)',{pk:1}),F_('region_name','varchar(80)')]);
+ cust.desc='One row per customer account.';ord.desc='One row per order a customer places.';item.desc='Line items: one row per product on an order.';prod.desc='Catalogue of products that can be ordered.';reg.desc='Sales regions used for reporting.';
+ cust.fields[1].uq=true;cust.fields[1].desc='Login and contact email.';ord.fields[2].ex='pending, paid, shipped, cancelled';ord.fields[2].def="'pending'";ord.fields[4].desc='Sum of line items at the time of ordering.';
  const e=(a,af,b,bf,s,en)=>({id:uid(),a:{n:a.id,f:af.id},b:{n:b.id,f:bf.id},st:'orth',sa:s,sb:en,label:''});
  const p1={id:uid(),name:'Order schema',nodes:[cust,ord,item,prod,reg],edges:[
   e(ord,ord.fields[1],cust,cust.fields[0],'0N','11'),e(item,item.fields[1],ord,ord.fields[0],'1N','11'),
@@ -466,7 +477,7 @@ async function loadFile(id){
 function openDoc(d){doc=d;last=JSON.stringify(doc);undo.length=0;redo.length=0;sel=[];selEdge=null;selField=null;views={};page=P();$('#fname').value=doc.name;render();renderTabs();renderPanel();requestAnimationFrame(fit);LS.put(doc)}
 async function connectStore(){
  try{if(!window.claude?.use)return;const[d,u]=await Promise.all([claude.use('db'),claude.use('user')]);if(!d||!u)return;
-  const id=await u.id();if(!id)return;remote={col:d.collection('data/users/'+id)};
+  const id=await u.id();if(!id)return;remote={db:d,col:d.collection('data/users/'+id)};
   const s=await remote.col.get();const have=new Set(s.docs.map(x=>x.id));
   for(const[fid,f]of Object.entries(LS.all()))if(!have.has(fid)){try{await remote.col.doc(fid).set({name:f.name,updated:f.updated,json:f.json})}catch{}}
   const mine=s.docs.find(x=>x.id===doc.id);
@@ -479,6 +490,11 @@ let untouched=false;
 
 /* ---------- inspector ---------- */
 const swatches=(cur,attr)=>`<div class="sw">${Object.keys(COLORS).map(k=>`<button class="${(cur||'slate')===k?'on':''}" data-${attr}="${k}" title="${k}" style="background:var(--f-${k});border-color:var(--s-${k});box-shadow:0 0 0 ${(cur||'slate')===k?2:1}px ${(cur||'slate')===k?'var(--acc)':`var(--s-${k})`}"></button>`).join('')}</div>`;
+function fdetHTML(n){const f=n.fields.find(f=>f.id===selField);
+ if(!f)return'<p class="note">Select a field to describe it and set its default, examples and constraints.</p>';
+ return `<label for="fDesc">Field details: <b>${esc(f.name)}</b></label><textarea id="fDesc" placeholder="What this field holds, in plain words">${esc(f.desc||'')}</textarea>
+ <div class="row" style="margin-top:6px"><input type="text" id="fDef" placeholder="Default, e.g. now()" value="${esc(f.def||'')}" aria-label="Default value"><input type="text" id="fEx" placeholder="Examples or allowed values" value="${esc(f.ex||'')}" aria-label="Examples or allowed values"></div>
+ <div class="row" style="margin-top:6px;gap:14px"><label class="k2"><input type="checkbox" id="fNn"${f.nn||f.pk?' checked':''}${f.pk?' disabled':''}> Required</label><label class="k2"><input type="checkbox" id="fUq"${f.uq?' checked':''}> Unique</label></div>`}
 function renderPanel(){
  let h='';
  if(selEdge){const e=page.edges.find(x=>x.id===selEdge);if(!e){selEdge=null;return renderPanel()}
@@ -496,11 +512,12 @@ function renderPanel(){
  }else if(sel.length===1){const n=N(sel[0]);if(!n){sel=[];return renderPanel()}
   if(n.type==='table'){
    h=`<h2>Table</h2><label for="tName">Name</label><input type="text" id="tName" value="${esc(n.name)}">
+   <label for="tDesc">Description <small>what one row represents</small></label><textarea id="tDesc" placeholder="e.g. One row per customer account">${esc(n.desc||'')}</textarea>
    <label>Fields <small>(drag ⋮⋮ to reorder)</small></label><div id="fields">${n.fields.map((f,i)=>`<div class="fl${selField===f.id?' hl':''}" data-fi="${i}" draggable="true"><button class="drag" title="Drag to reorder" aria-label="Reorder">⋮⋮</button>
    <input type="text" value="${esc(f.name)}" data-ff="name" aria-label="Field name"><input type="text" value="${esc(f.type)}" data-ff="type" aria-label="Data type">
    <label class="k" title="Primary key" style="margin:0"><input type="checkbox" data-ff="pk"${f.pk?' checked':''}>PK</label><label class="k" title="Foreign key" style="margin:0"><input type="checkbox" data-ff="fk"${f.fk?' checked':''}>FK</label>
    <button class="x" data-fdel="${i}" title="Remove field" aria-label="Remove field">✕</button></div>`).join('')}</div>
-   <div class="row" style="margin-top:6px"><button class="btn" id="fAdd">+ Field</button><button class="btn" id="fNN" title="Toggle NOT NULL on the highlighted field">Required *</button></div>
+   <div class="row" style="margin-top:6px"><button class="btn" id="fAdd">+ Field</button></div><div id="fdet">${fdetHTML(n)}</div>
    <label>Header colour</label>${swatches(n.c,'nc')}
    <div class="row" style="margin-top:16px;flex-wrap:wrap"><button class="btn" id="nDup">Duplicate</button><button class="btn" id="sqlOne">Copy SQL</button><button class="btn del" id="nDel">Delete</button></div>
    <p class="note">To link tables, drag from the dot at the end of a field row to a field in another table. Dragging from a foreign key to the key it points at gives a many-to-one line.</p>`;
@@ -522,7 +539,8 @@ function renderPanel(){
   const tables=page.nodes.filter(n=>n.type==='table').length;
   h=`<h2>Page</h2><label for="pgName">Page name</label><input type="text" id="pgName" value="${esc(page.name)}">
   <div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="btn" id="pgDup">Duplicate page</button><button class="btn del" id="pgDel"${doc.pages.length>1?'':' disabled'}>Delete page</button></div>
-  <label>Data model</label><div class="row" style="flex-wrap:wrap"><button class="btn" id="sqlIn">Import SQL</button><button class="btn" id="sqlOut"${tables?'':' disabled'}>Export SQL</button></div>
+  <label for="pgNotes">Notes for the builder <small>goes into the AI handoff</small></label><textarea id="pgNotes" placeholder="Purpose, scale, database engine, naming rules, anything an agent should know">${esc(page.notes||'')}</textarea>
+  <label>Data model</label><div class="row" style="flex-wrap:wrap"><button class="btn pri" id="pgHand"${tables?'':' disabled'}>Hand off to AI</button><button class="btn" id="sqlIn">Import SQL</button><button class="btn" id="sqlOut"${tables?'':' disabled'}>Export SQL</button></div>
   <p class="note">${page.nodes.length} shapes, ${page.edges.length} connectors${tables?`, ${tables} tables`:''}.</p>
   <p class="note"><b>Shortcuts</b><br><kbd>Dbl-click</kbd> edit text · <kbd>Del</kbd> delete<br><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate<br><kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy, paste · arrows nudge<br><kbd>/</kbd> describe a change · <kbd>Space</kbd>+drag pan · <kbd>Ctrl</kbd>+wheel zoom · <kbd>0</kbd> fit</p>`;
  }
@@ -532,6 +550,9 @@ insp.addEventListener('input',ev=>{
  const t=ev.target,n=sel.length===1?N(sel[0]):null,e=selEdge&&page.edges.find(x=>x.id===selEdge);
  if(t.id==='eLabel'&&e)e.label=t.value;
  else if(t.id==='tName'&&n)n.name=t.value.replace(/\s+/g,'_');
+ else if(t.id==='tDesc'&&n)n.desc=t.value;
+ else if(t.id==='pgNotes')page.notes=t.value;
+ else if((t.id==='fDesc'||t.id==='fDef'||t.id==='fEx')&&n){const f=n.fields.find(f=>f.id===selField);if(f)f[{fDesc:'desc',fDef:'def',fEx:'ex'}[t.id]]=t.value}
  else if(t.id==='pTitle'&&n)n.title=t.value;
  else if(t.id==='sLabel'&&n)n.label=t.value;
  else if(t.id==='pgName'){page.name=t.value;renderTabs()}
@@ -547,11 +568,13 @@ insp.addEventListener('change',ev=>{
  else if(n&&t.id==='sFs')n.fs=+t.value;
  else if(n&&t.id==='pDir'){if(n.dir!==t.value){const tot=n.lanes.reduce((a,l)=>a+l.size,0);if(t.value==='v'){n.h=Math.max(300,n.w*.5);n.lanes.forEach(l=>l.size=Math.max(160,Math.round(l.size*1.4/10)*10))}else{n.w=Math.max(500,tot);n.lanes.forEach(l=>l.size=Math.max(100,Math.round(l.size/1.4/10)*10))}n.dir=t.value}}
  else if(n&&t.dataset.ff&&t.type==='checkbox'){const f=n.fields[+t.closest('.fl').dataset.fi];f[t.dataset.ff]=t.checked;if(t.dataset.ff==='pk'&&t.checked)f.nn=true}
+ else if(n&&(t.id==='fNn'||t.id==='fUq')){const f=n.fields.find(f=>f.id===selField);if(f)f[t.id==='fNn'?'nn':'uq']=t.checked}
+ else if(t.id==='tDesc'||t.id==='pgNotes'||t.id==='fDesc'||t.id==='fDef'||t.id==='fEx'){}
  else if(t.id==='pgName'||t.id==='eLabel'||t.id==='tName'||t.id==='pTitle'||t.id==='sLabel'||t.dataset.lane!=null||t.dataset.ff){}
  else return;
  changed();
 });
-insp.addEventListener('focusin',ev=>{const fl=ev.target.closest('.fl');if(fl){const n=N(sel[0]);const f=n?.fields[+fl.dataset.fi];if(f&&selField!==f.id){selField=f.id;render();insp.querySelectorAll('.fl').forEach(x=>x.classList.toggle('hl',x===fl))}}});
+insp.addEventListener('focusin',ev=>{const fl=ev.target.closest('.fl');if(fl){const n=N(sel[0]);const f=n?.fields[+fl.dataset.fi];if(f&&selField!==f.id){selField=f.id;render();insp.querySelectorAll('.fl').forEach(x=>x.classList.toggle('hl',x===fl));const d=$('#fdet');if(d)d.innerHTML=fdetHTML(n)}}});
 insp.addEventListener('click',ev=>{
  const t=ev.target.closest('button');if(!t)return;
  const n=sel.length===1?N(sel[0]):null,e=selEdge&&page.edges.find(x=>x.id===selEdge);
@@ -562,7 +585,7 @@ insp.addEventListener('click',ev=>{
  else if(t.id==='eDel'||t.id==='nDel')return del();
  else if(t.id==='nDup')return dup();
  else if(t.id==='fAdd'&&n){const f=F_('new_field','varchar(50)');n.fields.push(f);selField=f.id;changed();const ins=insp.querySelectorAll('.fl input[data-ff=name]');ins[ins.length-1]?.select();return}
- else if(t.id==='fNN'&&n){const f=n.fields.find(f=>f.id===selField);if(!f)return toast('Click a field first');f.nn=!f.nn}
+ else if(t.id==='pgHand')return handoffDlg();
  else if(t.dataset.fdel!=null&&n){const f=n.fields.splice(+t.dataset.fdel,1)[0];page.edges=page.edges.filter(x=>x.a.f!==f.id&&x.b.f!==f.id)}
  else if(t.id==='lAdd'&&n)n.lanes.push({id:uid(),name:'Lane '+(n.lanes.length+1),size:n.dir==='v'?220:140});
  else if(t.dataset.ldel!=null&&n)n.lanes.splice(+t.dataset.ldel,1);
@@ -808,7 +831,7 @@ document.addEventListener('keydown',ev=>{
 document.addEventListener('keyup',ev=>{if(ev.key===' '){space=false;cv.style.cursor=''}});
 
 /* ---------- toolbar, tabs, menu ---------- */
-$('#bUndo').onclick=doUndo;$('#bRedo').onclick=doRedo;$('#bDel').onclick=del;
+$('#bHand').onclick=()=>handoffDlg();$('#bUndo').onclick=doUndo;$('#bRedo').onclick=doRedo;$('#bDel').onclick=del;
 $('#bZi').onclick=()=>zoomBy(1.2);$('#bZo').onclick=()=>zoomBy(1/1.2);$('#bFit').onclick=fit;
 $('#bSnap').onclick=()=>{snap=!snap;$('#bSnap').classList.toggle('on',snap)};
 const LS_=[['orth','Elbow'],['straight','Straight'],['curve','Curved']];
@@ -878,7 +901,7 @@ function importSQL(txt){
    if(/^(unique|index|key|check|constraint)\b/i.test(part))continue;
    const cm=part.match(/^([`"\[\]\w]+)\s+(.+)$/s);if(!cm)continue;
    const rest=cm[2],type=(rest.match(/^[\w]+(\s*\([^)]*\))?(\s+unsigned)?(\s+varying(\s*\([^)]*\))?)?/i)||[''])[0].replace(/\s+/g,' ');
-   const f=F_(unq(cm[1]),type.toLowerCase(),{pk:/primary\s+key/i.test(rest),nn:/not\s+null|primary\s+key/i.test(rest)});
+   const f=F_(unq(cm[1]),type.toLowerCase(),{pk:/primary\s+key/i.test(rest),nn:/not\s+null|primary\s+key/i.test(rest)});if(/\bunique\b/i.test(rest))f.uq=true;{const dm=rest.match(/\bdefault\s+('(?:[^']|'')*'|\S+?)(?=\s|$|,)/i);if(dm)f.def=dm[1]}{const cmm=rest.match(/\bcomment\s+'((?:[^']|'')*)'/i);if(cmm)f.desc=cmm[1].replace(/''/g,"'")}
    const r=rest.match(/references\s+([`"\[\]\w.]+)\s*\(([^)]+)\)/i);if(r){f.fk=true;refs.push({t:n,c:f.name,rt:unq(r[1]),rc:unq(r[2].trim())})}
    n.fields.push(f)}
   made[n.name.toLowerCase()]=n;page.nodes.push(n)});
@@ -889,11 +912,12 @@ function importSQL(txt){
  sel=Object.values(made).map(n=>n.id);changed();fit();toast(`Added ${found.length} table${found.length>1?'s':''} and ${links} relationship${links===1?'':'s'}`);return true;
 }
 function toSQL(tables){
- return tables.map(n=>{const lines=n.fields.map(f=>`  ${f.name} ${(f.type||'text').toUpperCase()}${f.nn&&!f.pk?' NOT NULL':''}`);
+ return tables.map(n=>{const lines=n.fields.map(f=>`  ${f.name} ${(f.type||'text').toUpperCase()}${f.nn&&!f.pk?' NOT NULL':''}${f.uq&&!f.pk?' UNIQUE':''}${f.def?' DEFAULT '+f.def:''}`);
   const pk=n.fields.filter(f=>f.pk);if(pk.length)lines.push(`  PRIMARY KEY (${pk.map(f=>f.name).join(', ')})`);
   for(const e of page.edges){for(const[me,other]of[[e.a,e.b],[e.b,e.a]]){if(me.n!==n.id||!me.f||!other.f)continue;const f=n.fields.find(f=>f.id===me.f);const on=N(other.n),of=on?.fields?.find(x=>x.id===other.f);
    if(f&&of&&f.fk&&!(of.fk&&!of.pk&&f.pk))lines.push(`  FOREIGN KEY (${f.name}) REFERENCES ${on.name}(${of.name})`)}}
-  return `CREATE TABLE ${n.name} (\n${lines.join(',\n')}\n);`}).join('\n\n');
+  const cm=[n.desc?`-- ${n.name}: ${n.desc.replace(/\s+/g,' ').trim()}`:'',...n.fields.filter(f=>f.desc).map(f=>`--   ${f.name}: ${f.desc.replace(/\s+/g,' ').trim()}`)].filter(Boolean).join('\n');
+  return `${cm?cm+'\n':''}CREATE TABLE ${n.name} (\n${lines.join(',\n')}\n);`}).join('\n\n');
 }
 
 /* ---------- export ---------- */
@@ -934,11 +958,11 @@ function snapshotForAI(){
  const r=v=>Math.round(v);
  const tables=[],shapes=[],pools=[];
  for(const n of page.nodes){const b=bounds(n);
-  if(n.type==='table')tables.push({id:n.id,name:n.name,x:r(b.x),y:r(b.y),w:r(b.w),h:r(b.h),color:n.c,fields:n.fields.map(f=>({id:f.id,name:f.name,type:f.type,...(f.pk?{pk:true}:{}),...(f.fk?{fk:true}:{}),...(f.nn?{nn:true}:{})}))});
+  if(n.type==='table')tables.push({id:n.id,name:n.name,x:r(b.x),y:r(b.y),w:r(b.w),h:r(b.h),color:n.c,description:n.desc||undefined,fields:n.fields.map(f=>({id:f.id,name:f.name,type:f.type,description:f.desc||undefined,default:f.def||undefined,examples:f.ex||undefined,...(f.uq?{unique:true}:{}),...(f.pk?{pk:true}:{}),...(f.fk?{fk:true}:{}),...(f.nn?{nn:true}:{})}))});
   else if(n.type==='pool'){let off=n.dir==='v'?n.x:n.y;pools.push({id:n.id,title:n.title,dir:n.dir,x:r(b.x),y:r(b.y),w:r(b.w),h:r(b.h),color:n.c,lanes:n.lanes.map(l=>{const o={name:l.name,from:r(off),to:r(off+l.size)};off+=l.size;return o})})}
   else shapes.push({id:n.id,type:n.type,label:n.label,x:r(b.x),y:r(b.y),w:r(b.w),h:r(b.h),color:n.c})}
  const connectors=page.edges.map(e=>({id:e.id,from:e.a.n,...(e.a.f?{fromField:e.a.f}:{}),to:e.b.n,...(e.b.f?{toField:e.b.f}:{}),label:e.label||undefined,start:e.sa,end:e.sb,style:e.st}));
- return{page:page.name,otherPages:doc.pages.filter(p=>p!==page).map(p=>p.name),selected:selEdge?[selEdge]:sel,tables,pools,shapes,connectors};
+ return{page:page.name,notes:page.notes||undefined,otherPages:doc.pages.filter(p=>p!==page).map(p=>p.name),selected:selEdge?[selEdge]:sel,tables,pools,shapes,connectors};
 }
 const AI_RULES=`You edit diagrams in Diagram Studio, a web diagram editor for table relationship diagrams (ERDs) and process maps with swimlanes.
 You get the current page as JSON and a request from the user, often spoken aloud, so expect loose wording and speech-to-text mistakes; infer the intent.
@@ -953,10 +977,11 @@ Shape types: process, decision, terminator (start/end), data, document, database
 Connector ends: none, arrow, open, 1, 11 (exactly one), 01 (zero or one), N (many), 1N (one or many), 0N (zero or many). Styles: orth, straight, curve.
 
 Ops (all keys besides "op" optional unless noted):
-{"op":"add_table","ref","name"*,"x","y","color","fields":[{"name"*,"type","pk","fk","nn"}]}
-{"op":"update_table","id"*,"name","color"}
-{"op":"add_field","table"*,"name"*,"type","pk","fk","nn","after":field}
-{"op":"update_field","table"*,"field"*,"name","type","pk","fk","nn"}
+{"op":"add_table","ref","name"*,"description","x","y","color","fields":[{"name"*,"type","pk","fk","nn","unique","default","description","examples"}]}
+{"op":"update_table","id"*,"name","description","color"}
+{"op":"add_field","table"*,"name"*,"type","pk","fk","nn","unique","default","description","examples","after":field}
+{"op":"update_field","table"*,"field"*,"name","type","pk","fk","nn","unique","default","description","examples"}
+{"op":"set_notes","text"*}   // replaces the page's notes for the builder
 {"op":"remove_field","table"*,"field"*}
 {"op":"add_shape","ref","type"*,"label","x","y","color","pool","lane"}   // pool+lane (lane name) puts it inside that swimlane
 {"op":"update_shape","id"*,"label","type","color","w","h"}
@@ -984,16 +1009,16 @@ function applyOps(ops){
  const num=v=>typeof v==='number'&&isFinite(v)?v:undefined;
  const autoPos=(w,h)=>{if(!auto){const b=contentBox(page.nodes.filter(n=>!made.includes(n.id)));auto={x:b?b.x+b.w+80:60,y0:b?b.y:60,y:b?b.y:60,cw:0}}
   if(auto.y-auto.y0>520){auto.x+=auto.cw+70;auto.y=auto.y0;auto.cw=0}const p={x:auto.x,y:auto.y};auto.y+=h+60;auto.cw=Math.max(auto.cw,w);return p};
- const fld=f=>F_(String(f.name||'field').replace(/\s+/g,'_'),String(f.type||'varchar(50)'),{pk:f.pk,fk:f.fk,nn:f.nn||f.pk});
+ const fld=f=>{const x=F_(String(f.name||'field').replace(/\s+/g,'_'),String(f.type||'varchar(50)'),{pk:f.pk,fk:f.fk,nn:f.nn||f.pk});if(f.unique)x.uq=true;if(f.default!=null)x.def=String(f.default);if(f.description)x.desc=String(f.description);if(f.examples)x.ex=String(f.examples);return x};
  const lanesOf=(pool,names)=>names.map(nm=>{const old=pool?.lanes.find(l=>l.name===nm);return old||{id:uid(),name:String(nm),size:pool?.dir==='v'?220:140}});
  for(const o of Array.isArray(ops)?ops:[]){try{
   switch(o.op){
-  case 'add_table':{const n={id:uid(),type:'table',x:0,y:0,w:230,name:String(o.name||'new_table').replace(/\s+/g,'_'),c:col(o.color)||'green',fields:(o.fields||[]).map(fld)};
+  case 'add_table':{const n={id:uid(),type:'table',x:0,y:0,w:230,name:String(o.name||'new_table').replace(/\s+/g,'_'),c:col(o.color)||'green',fields:(o.fields||[]).map(fld)};if(o.description)n.desc=String(o.description);
    if(!n.fields.length)n.fields.push(F_('id','int',{pk:1,nn:1}));
    const p=num(o.x)!=null&&num(o.y)!=null?{x:o.x,y:o.y}:autoPos(n.w,tblH(n));n.x=p.x;n.y=p.y;page.nodes.push(n);made.push(n.id);if(o.ref)refs[o.ref]=n.id;break}
-  case 'update_table':{const n=NR(o.id);if(o.name)n.name=String(o.name).replace(/\s+/g,'_');if(col(o.color))n.c=o.color;break}
+  case 'update_table':{const n=NR(o.id);if(o.description!=null)n.desc=String(o.description);if(o.name)n.name=String(o.name).replace(/\s+/g,'_');if(col(o.color))n.c=o.color;break}
   case 'add_field':{const n=NR(o.table);if(!n.fields)throw Error('not a table');const f=fld(o);const a=FD(n,o.after);n.fields.splice(a?n.fields.indexOf(a)+1:n.fields.length,0,f);break}
-  case 'update_field':{const n=NR(o.table),f=FD(n,o.field);if(!f)throw Error('no field');if(o.name)f.name=String(o.name).replace(/\s+/g,'_');if(o.type)f.type=String(o.type);for(const k of['pk','fk','nn'])if(typeof o[k]==='boolean')f[k]=o[k];break}
+  case 'update_field':{const n=NR(o.table),f=FD(n,o.field);if(!f)throw Error('no field');if(o.name)f.name=String(o.name).replace(/\s+/g,'_');if(o.type)f.type=String(o.type);for(const k of['pk','fk','nn'])if(typeof o[k]==='boolean')f[k]=o[k];if(typeof o.unique==='boolean')f.uq=o.unique;if(o.default!=null)f.def=String(o.default);if(o.description!=null)f.desc=String(o.description);if(o.examples!=null)f.ex=String(o.examples);break}
   case 'remove_field':{const n=NR(o.table),f=FD(n,o.field);if(!f)throw Error('no field');n.fields.splice(n.fields.indexOf(f),1);page.edges=page.edges.filter(e=>e.a.f!==f.id&&e.b.f!==f.id);break}
   case 'add_shape':{const type=SHAPES[o.type]?o.type:'process',d=SHAPES[type];const n={id:uid(),type,x:0,y:0,w:d.w,h:d.h,label:String(o.label??d.n),c:col(o.color)||d.c||'slate'};
    let pool=o.pool!=null?N(R(o.pool)):null,lane=null;
@@ -1018,6 +1043,7 @@ function applyOps(ops){
    const cols=Math.max(1,Math.ceil(Math.sqrt(ts.length))),ys=Array(cols).fill(60);ts.forEach((t,i)=>{const c=i%cols;t.x=60+c*320;t.y=ys[c];ys[c]+=tblH(t)+70});needFit=true;break}
   case 'add_page':{const p={id:uid(),name:String(o.name||'Page '+(doc.pages.length+1)),nodes:[],edges:[]};doc.pages.push(p);doc.cur=p.id;page=p;auto=null;needFit=true;break}
   case 'switch_page':{const p=doc.pages.find(p=>p.name.toLowerCase()===String(o.name).toLowerCase());if(!p)throw Error('no page');doc.cur=p.id;page=p;auto=null;needFit=true;break}
+  case 'set_notes':page.notes=String(o.text||'');break;
   case 'rename_page':page.name=String(o.name||page.name);break;
   default:throw Error('unknown op '+o.op);}
   done++;}catch(err){skipped++;console.warn('Skipped op',o,err)}}
@@ -1071,6 +1097,107 @@ function wireDictation(d){
 async function connectAI(){
  if(!window.claude?.use)return;
  try{const[s,d]=await Promise.all([claude.use('sample'),claude.use('dictation')]);if(s){sampler=s;$('#ask').classList.remove('off')}if(d)wireDictation(d)}catch{}
+}
+
+
+/* ---------- AI handoff: build spec, library, GitHub ---------- */
+const ART_SLUG='b1cf202d-9d7a-49de-9fb1-b8ea85e9427c',ART_URL='https://claude.ai/artifact/NxV5nhUHB5SzwTCnUgfBh5';
+const CARD={'0N':'zero or more','1N':'one or more','N':'many','11':'exactly one','1':'one','01':'zero or one'};
+const isMany=m=>m==='0N'||m==='1N'||m==='N',isOne=m=>m==='11'||m==='1'||m==='01';
+const slugify=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'schema';
+const mdc=s=>String(s??'').replace(/\|/g,'\\|').replace(/\n+/g,' ').trim();
+function schemaModel(){
+ const tables=page.nodes.filter(n=>n.type==='table');const byId=Object.fromEntries(tables.map(t=>[t.id,t]));
+ const rels=[];
+ for(const e of page.edges){const A=byId[e.a.n],B=byId[e.b.n];if(!A||!B)continue;
+  const fa=A.fields.find(f=>f.id===e.a.f),fb=B.fields.find(f=>f.id===e.b.f);
+  rels.push({from:{table:A.name,field:fa?.name||null},to:{table:B.name,field:fb?.name||null},fromCardinality:CARD[e.sa]||null,toCardinality:CARD[e.sb]||null,_sa:e.sa,_sb:e.sb,label:e.label||''})}
+ return{tables:tables.map(t=>({name:t.name,description:t.desc||'',fields:t.fields.map(f=>({name:f.name,type:f.type||'',...(f.pk?{primaryKey:true}:{}),...(f.fk?{foreignKey:true}:{}),required:!!(f.nn||f.pk),...(f.uq?{unique:true}:{}),...(f.def?{default:f.def}:{}),...(f.desc?{description:f.desc}:{}),...(f.ex?{examples:f.ex}:{})}))})),relationships:rels};
+}
+function relKind(sa,sb){if(isMany(sa)&&isOne(sb))return'many-to-one';if(isOne(sa)&&isMany(sb))return'one-to-many';if(isMany(sa)&&isMany(sb))return'many-to-many';if(isOne(sa)&&isOne(sb))return'one-to-one';return'relationship'}
+function specChecks(m){
+ const out=[];
+ for(const t of m.tables){if(!t.fields.some(f=>f.primaryKey))out.push(`\`${t.name}\` has no primary key.`);
+  for(const f of t.fields){if(!f.type)out.push(`\`${t.name}.${f.name}\` has no data type.`);
+   if(f.foreignKey&&!m.relationships.some(r=>(r.from.table===t.name&&r.from.field===f.name)||(r.to.table===t.name&&r.to.field===f.name)))out.push(`\`${t.name}.${f.name}\` is marked as a foreign key but no relationship line says what it points to.`)}}
+ for(const r of m.relationships)if(!r.from.field||!r.to.field)out.push(`The line between \`${r.from.table}\` and \`${r.to.table}\` is not tied to specific fields, so the join columns are not defined.`);
+ const undocumented=m.tables.filter(t=>!t.description).map(t=>`\`${t.name}\``);if(undocumented.length)out.push(`No description yet for ${undocumented.join(', ')}.`);
+ return out;
+}
+function mermaidType(t){return(String(t||'text').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'text')}
+const ML={'11':'||','1':'||','01':'|o','0N':'}o','1N':'}|','N':'}|'},MR={'11':'||','1':'||','01':'o|','0N':'o{','1N':'|{','N':'|{'};
+function buildSpec(){
+ const m=schemaModel(),now=new Date().toISOString().slice(0,16).replace('T',' ');
+ let s=`# ${page.name}: data schema\n\nSource: Diagram Studio, diagram “${doc.name}”, page “${page.name}”. Generated ${now} UTC.\nTreat this as the source of truth for the data model. Table and field names are final unless a check below says otherwise.\n`;
+ if(page.notes?.trim())s+=`\n## Notes for the builder\n\n${page.notes.trim()}\n`;
+ s+=`\n## Summary\n\n${m.tables.length} table${m.tables.length===1?'':'s'}, ${m.relationships.length} relationship${m.relationships.length===1?'':'s'}.\n\n| Table | Purpose | Fields |\n|---|---|---|\n`;
+ s+=m.tables.map(t=>`| \`${t.name}\` | ${mdc(t.description)||'(not described)'} | ${t.fields.length} |`).join('\n')+'\n';
+ s+=`\n## Tables\n`;
+ for(const t of m.tables){
+  s+=`\n### ${t.name}\n\n${t.description?t.description.trim()+'\n\n':''}| Field | Type | Key | Required | Unique | Default | Description / examples |\n|---|---|---|---|---|---|---|\n`;
+  s+=t.fields.map(f=>{const ref=m.relationships.find(r=>r.from.table===t.name&&r.from.field===f.name&&r.to.field)||m.relationships.find(r=>r.to.table===t.name&&r.to.field===f.name&&r.from.field&&isMany(r._sb));
+   const tgt=ref?(ref.from.table===t.name?`${ref.to.table}.${ref.to.field}`:`${ref.from.table}.${ref.from.field}`):'';
+   const key=[f.primaryKey?'PK':'',f.foreignKey?`FK${tgt?' → '+tgt:''}`:''].filter(Boolean).join(', ');
+   const d=[mdc(f.description),f.examples?`Examples / allowed: ${mdc(f.examples)}`:''].filter(Boolean).join('. ');
+   return`| \`${f.name}\` | ${mdc(f.type)||'?'} | ${key} | ${f.required?'yes':''} | ${f.unique?'yes':''} | ${mdc(f.default)} | ${d} |`}).join('\n')+'\n';
+ }
+ if(m.relationships.length){s+=`\n## Relationships\n\nRead “A → B” as “A refers to B”.\n\n`;
+  s+=m.relationships.map(r=>{const a=r.from.field?`${r.from.table}.${r.from.field}`:r.from.table,b=r.to.field?`${r.to.table}.${r.to.field}`:r.to.table;
+   const words=r.fromCardinality&&r.toCardinality?` Each \`${r.to.table}\` row relates to ${r.fromCardinality} \`${r.from.table}\` rows; each \`${r.from.table}\` row relates to ${r.toCardinality} \`${r.to.table}\` row.`:'';
+   return`- **\`${a}\` → \`${b}\`** (${relKind(r._sa,r._sb)}).${words}${r.label?` Label: “${r.label}”.`:''}${r.from.field&&r.to.field?` Join: \`${a} = ${b}\`.`:''}`}).join('\n')+'\n'}
+ s+=`\n## Diagram (Mermaid)\n\n\`\`\`mermaid\nerDiagram\n`;
+ for(const t of m.tables){s+=`  ${t.name} {\n`+t.fields.map(f=>`    ${mermaidType(f.type)} ${f.name}${f.primaryKey||f.foreignKey?' '+[f.primaryKey?'PK':'',f.foreignKey?'FK':''].filter(Boolean).join(', '):''}${f.description?` "${String(f.description).replace(/"/g,"'").slice(0,80)}"`:''}`).join('\n')+`\n  }\n`}
+ for(const r of m.relationships)s+=`  ${r.from.table} ${ML[r._sa]||'||'}--${MR[r._sb]||'||'} ${r.to.table} : "${(r.label||(r.from.field?r.from.field:'relates')).replace(/"/g,"'")}"\n`;
+ s+=`\`\`\`\n\n## SQL (generic; adapt types to your database)\n\n\`\`\`sql\n${toSQL(page.nodes.filter(n=>n.type==='table'))}\n\`\`\`\n`;
+ const ch=specChecks(m);s+=`\n## Checks\n\n${ch.length?ch.map(c=>'- '+c).join('\n'):'- No problems found.'}\n`;
+ const other=page.nodes.filter(n=>n.type!=='table').length;if(other)s+=`\n(${other} non-table shape${other>1?'s':''} on this page ${other>1?'are':'is'} not included.)\n`;
+ return{markdown:s,model:m,checks:ch};
+}
+function agentPrompt(name){return `Use the data-schema handoff named “${name}” from my Diagram Studio artifact as the source of truth for the data model.\nIt is the document handoffs/${name} in the data store of artifact ${ART_SLUG} (${ART_URL}); read it with your Claude artifacts tools (db_get on that slug and path). Its "markdown" field is the full spec (tables, fields, relationships, Mermaid diagram, SQL, open checks) and its "schema" field is the same model as JSON.\nIf you cannot reach it, stop and ask me to paste the spec.`}
+function ghPrompt(name,repo,path,branch){return `${agentPrompt(name)}\n\nThen commit that spec's "markdown" field, unchanged, to the GitHub repo ${repo||'OWNER/REPO'} at ${path||`docs/specs/${name}.md`} ${branch?`on branch ${branch}`:'on a new branch'}, and tell me the commit link.`}
+const GHK='diagram-studio-github';const ghGet=()=>{try{return JSON.parse(localStorage.getItem(GHK)||'{}')}catch{return{}}};const ghSet=o=>{try{localStorage.setItem(GHK,JSON.stringify(o))}catch{}};
+async function listHandoffs(){if(!remote?.db)return null;try{const s=await remote.db.collection('handoffs').get();return s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>b.updated-a.updated)}catch{return null}}
+async function handoffDlg(){
+ const tables=page.nodes.filter(n=>n.type==='table');
+ if(!tables.length)return toast('This page has no tables to hand off yet');
+ const sp=buildSpec(),name=page.handoff||slugify(page.name),gh=ghGet();
+ showDlg(`<h2>Hand off to AI</h2>
+ <p class="note" style="margin-top:0">A build spec for the tables on “${esc(page.name)}”: every table and field, relationships in words, a Mermaid diagram, SQL and open checks.${sp.checks.length?` <b>${sp.checks.length} check${sp.checks.length>1?'s':''} to review</b> are listed at the end.`:''}</p>
+ <label class="hl2" for="hoName">Handoff name <small>agents refer to it by this</small></label>
+ <div class="row2"><input type="text" id="hoName" value="${esc(name)}" spellcheck="false"><button class="btn pri" id="hoPub">${page.handoff?'Update in library':'Publish to library'}</button><button class="btn" id="hoCopy">Copy spec</button></div>
+ <div id="hoMsg" class="note"></div>
+ <details><summary>Preview the spec</summary><textarea readonly id="hoPrev">${esc(sp.markdown)}</textarea></details>
+ <details id="hoGh"><summary>Save to a GitHub repo</summary>
+  <p class="note">One-click push needs the GitHub connector in claude.ai (Settings → Connectors), which you have not added yet. Until then, copy this instruction into a Claude Code session: it reads the handoff from the library and commits it for you. Publish to the library first.</p>
+  <div class="gh3"><input type="text" id="ghRepo" placeholder="owner/repo" value="${esc(gh.repo||'')}" aria-label="Repository"><input type="text" id="ghPath" placeholder="docs/specs/${esc(name)}.md" value="${esc(gh.path||'')}" aria-label="File path"><input type="text" id="ghBranch" placeholder="branch (optional)" value="${esc(gh.branch||'')}" aria-label="Branch"></div>
+  <div class="acts" style="justify-content:flex-start"><button class="btn" id="ghCopy">Copy GitHub instruction</button></div></details>
+ <h3 class="lib">Handoff library</h3><div id="hoLib" class="flist"><p class="note">${remote?'Loading…':'The library is available when this page is opened in Claude and you are signed in. You can still copy the spec.'}</p></div>
+ <div class="acts"><button class="btn" data-x>Close</button></div>`);
+ const msg=t=>{$('#hoMsg').innerHTML=t};
+ const drawLib=async()=>{if(!remote)return;const hs=await listHandoffs();const el=$('#hoLib');if(!el)return;
+  if(!hs){el.innerHTML='<p class="note">Could not load the library.</p>';return}
+  el.innerHTML=hs.length?hs.map(h=>`<div class="fi${h.id===page.handoff?' on':''}"><b title="${esc(h.diagram||'')} › ${esc(h.page||'')}">${esc(h.id)}</b><small>v${h.version||1} · ${ago(h.updated)}</small><button class="btn" data-hp="${esc(h.id)}">Copy prompt</button><button class="btn del" data-hd="${esc(h.id)}" title="Remove from library">✕</button></div>`).join(''):'<p class="note">Nothing published yet.</p>'};
+ drawLib();
+ dlgb.onclick=async ev=>{const b=ev.target.closest('button');if(!b)return;
+  const nm=slugify($('#hoName').value);
+  if(b.hasAttribute('data-x'))return hideDlg();
+  if(b.id==='hoCopy')return copyText(sp.markdown,'Spec copied');
+  if(b.id==='hoPub'){
+   if(!remote?.db)return msg('The library needs this page to be open in Claude while you are signed in. Use Copy spec for now.');
+   b.disabled=true;msg('<span class="spin"></span> Publishing…');
+   try{const ref=remote.db.doc('handoffs/'+nm);const old=await ref.get();
+    if(old.exists&&old.data().pageId&&old.data().pageId!==page.id&&page.handoff!==nm&&!b.dataset.sure){b.disabled=false;b.dataset.sure=1;b.textContent='Replace it';return msg(`“${esc(nm)}” already holds a handoff from another page (${esc(old.data().page||'')}). Click Replace it to overwrite, or pick another name.`)}
+    const v=(old.exists?old.data().version||1:0)+1;
+    await ref.set({name:nm,kind:'data-schema',diagram:doc.name,diagramId:doc.id,page:page.name,pageId:page.id,updated:Date.now(),version:v,markdown:sp.markdown,schema:sp.model});
+    page.handoff=nm;changed(false);b.textContent='Update in library';delete b.dataset.sure;
+    msg(`Published <b>${esc(nm)}</b> (version ${v}). Give an agent this prompt:<textarea readonly class="pr">${esc(agentPrompt(nm))}</textarea><button class="btn pri" data-hp="${esc(nm)}">Copy agent prompt</button>`);drawLib();
+   }catch(e){msg(e?.code==='quota_exceeded'?'The library is full. Remove old handoffs and try again.':e?.code==='invalid_argument'?'You do not have permission to publish here, or the spec is too large.':'Could not publish just now. Try again.')}
+   b.disabled=false;return}
+  if(b.dataset.hp)return copyText(agentPrompt(b.dataset.hp),'Agent prompt copied');
+  if(b.dataset.hd){if(!b.dataset.sure){b.dataset.sure=1;b.textContent='Remove?';return}try{await remote.db.doc('handoffs/'+b.dataset.hd).delete();if(page.handoff===b.dataset.hd){delete page.handoff;changed(false)}drawLib()}catch{toast('Could not remove it')}return}
+  if(b.id==='ghCopy'){const o={repo:$('#ghRepo').value.trim(),path:$('#ghPath').value.trim(),branch:$('#ghBranch').value.trim()};ghSet(o);return copyText(ghPrompt(nm,o.repo,o.path||`docs/specs/${nm}.md`,o.branch),'GitHub instruction copied')}
+ };
+ $('#hoName').addEventListener('input',e=>{const p=$('#ghPath');if(p)p.placeholder=`docs/specs/${slugify(e.target.value)}.md`});
 }
 
 /* ---------- boot ---------- */
