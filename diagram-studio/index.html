@@ -49,6 +49,8 @@ button{cursor:pointer}
 #cv{grid-area:cv;position:relative;overflow:hidden;background-color:var(--paper);background-image:radial-gradient(var(--dot) 1.1px,transparent 1.2px);touch-action:none}
 #svg{position:absolute;inset:0;width:100%;height:100%;user-select:none;-webkit-user-select:none}
 #svg text{font-family:Inter,system-ui,sans-serif;pointer-events:none}
+#svg.focus .nd:not(.hot),#svg.focus g[data-edge]:not(.hot){opacity:.16}
+@media(prefers-reduced-motion:no-preference){#svg .nd,#svg g[data-edge]{transition:opacity .15s}}
 .port{opacity:0;fill:var(--paper);stroke:var(--acc);stroke-width:1.5;cursor:crosshair;transition:opacity .12s}
 .nd:hover .port,#svg.linking .port,.nd.sel .port{opacity:1}
 .port:hover{fill:var(--acc);r:6}
@@ -163,6 +165,8 @@ h3.lib{font:600 16px/1.2 "Space Grotesk",Inter,sans-serif;margin:18px 0 8px}
     </div>
     <div class="grp">
       <button class="tb" id="bLine" title="Connector style for new lines"><svg viewBox="0 0 24 24"><path d="M4 18h7V6h9"/></svg><span class="lbl" id="lineLbl">Elbow</span></button>
+      <button class="tb" id="bTidy" title="Tidy tables into columns: referenced tables on the left"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="6" height="7" rx="1"/><rect x="15" y="4" width="6" height="7" rx="1"/><rect x="15" y="14" width="6" height="6" rx="1"/><path d="M9 7.5h6M12 7.5v9h3"/></svg><span class="lbl">Tidy</span></button>
+      <button class="tb" id="bKeys" title="Show only key and linked fields"><svg viewBox="0 0 24 24"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M21 12v2"/></svg><span class="lbl">Keys only</span></button>
       <button class="tb on" id="bSnap" title="Snap to grid"><svg viewBox="0 0 24 24"><path d="M4 4v16M10 4v16M16 4v16M4 10h16M4 16h16"/></svg><span class="lbl">Snap</span></button>
     </div>
     <div class="grp">
@@ -261,7 +265,7 @@ const P=()=>doc.pages.find(p=>p.id===doc.cur)||doc.pages[0];
 const N=id=>page.nodes.find(n=>n.id===id);
 const view=()=>views[page.id]||(views[page.id]={x:40,y:40,z:1});
 
-function tblH(n){return HEAD+Math.max(1,n.fields.length)*ROW+6}
+function tblH(n){const vf=visFields(n);return HEAD+Math.max(1,vf.v.length+(vf.more||vf.canCollapse?1:0))*ROW+6}
 function bounds(n){
  if(n.type==='table')return{x:n.x,y:n.y,w:n.w,h:tblH(n)};
  if(n.type==='pool'){const s=n.lanes.reduce((a,l)=>a+l.size,0);return n.dir==='v'?{x:n.x,y:n.y,w:s,h:n.h+LANEH*2}:{x:n.x,y:n.y,w:n.w+LANEH*2,h:s}}
@@ -305,11 +309,11 @@ function newPool(x,y,dir){return{id:uid(),type:'pool',x,y,w:dir==='v'?0:760,h:di
 /* ---------- geometry ---------- */
 const SIDES={t:[0,-1],r:[1,0],b:[0,1],l:[-1,0]};
 function center(n){const b=bounds(n);return{x:b.x+b.w/2,y:b.y+b.h/2}}
-function anchor(end,other){
+function anchor(end,other,force){
  const n=N(end.n);if(!n)return null;const b=bounds(n);const oc=other?center(N(other.n)||n):center(n),c=center(n);
  if(n.type==='table'){
-  const fi=end.f?n.fields.findIndex(f=>f.id===end.f):-1;
-  let s=end.s;if(!s||s==='t'||s==='b'){const on=N(other?.n);const ob=on?bounds(on):b;s=ob.x>=b.x+b.w-20?'r':ob.x+ob.w<=b.x+20?'l':'r'}
+  const fi=end.f?visFields(n).v.findIndex(f=>f.id===end.f):-1;
+  let s=force||end.s;if(!s||s==='t'||s==='b'){const on=N(other?.n);const ob=on?bounds(on):b;s=ob.x>=b.x+b.w-20?'r':ob.x+ob.w<=b.x+20?'l':'r'}
   const y=fi>=0?b.y+HEAD+fi*ROW+ROW/2:b.y+HEAD/2;
   return{x:s==='r'?b.x+b.w:b.x,y,dx:s==='r'?1:-1,dy:0,s};
  }
@@ -360,13 +364,14 @@ function marker(m,p,col){
 /* ---------- rendering ---------- */
 function nodeSVG(n,interactive=true){
  const sel_=interactive&&sel.includes(n.id),b=bounds(n);
- let h=`<g class="nd${sel_?' sel':''}" data-id="${n.id}" transform="translate(${n.x} ${n.y})">`;
+ let h=`<g class="nd${sel_?' sel':''}${interactive&&hot?.has(n.id)?' hot':''}" data-id="${n.id}" transform="translate(${n.x} ${n.y})">`;
  if(n.type==='table'){
   const H=tblH(n);
   h+=`<rect width="${n.w}" height="${H}" rx="6" fill="${F('slate')}" stroke="${S(n.c)}" stroke-width="1.4" data-id="${n.id}"/>`;
   h+=`<path d="M0 6A6 6 0 0 1 6 0H${n.w-6}A6 6 0 0 1 ${n.w} 6V${HEAD}H0Z" fill="${S(n.c)}" data-id="${n.id}" data-part="head"/>`;
   h+=`<text x="12" y="${HEAD/2}" dy=".35em" font-size="14" font-weight="700" fill="${EXPORT?'#fff':'var(--paper)'}">${esc(n.name)}</text>`;
-  n.fields.forEach((f,i)=>{
+  const vf=visFields(n);
+  vf.v.forEach((f,i)=>{
    const y=HEAD+i*ROW;const hl=interactive&&selField===f.id;
    h+=`<rect y="${y}" width="${n.w}" height="${ROW}" fill="${hl?'var(--mist)':i%2?F(n.c):'transparent'}" fill-opacity="${hl?1:.55}" data-id="${n.id}" data-field="${f.id}"/>`;
    const key=f.pk?'PK':f.fk?'FK':'';
@@ -375,6 +380,7 @@ function nodeSVG(n,interactive=true){
    h+=`<text x="${n.w-10}" y="${y+ROW/2}" dy=".35em" font-size="12" text-anchor="end" fill="${MUTE()}">${esc(f.type)}</text>`;
    if(interactive)h+=`<circle class="port" cx="0" cy="${y+ROW/2}" r="${PR}" data-port="${n.id}" data-field="${f.id}" data-side="l"/><circle class="port" cx="${n.w}" cy="${y+ROW/2}" r="${PR}" data-port="${n.id}" data-field="${f.id}" data-side="r"/>`;
   });
+  if(vf.more||vf.canCollapse){const y=HEAD+vf.v.length*ROW;h+=`<rect y="${y}" width="${n.w}" height="${ROW}" fill="transparent" data-id="${n.id}"${interactive?` data-more="${n.id}" style="cursor:pointer"`:''}/><text x="34" y="${y+ROW/2}" dy=".35em" font-size="12.5" font-style="italic" fill="${MUTE()}">${vf.more?`+${vf.more} more field${vf.more>1?'s':''}`:'Show key fields only'}</text>`}
   if(!n.fields.length)h+=`<text x="${n.w/2}" y="${HEAD+ROW/2}" dy=".35em" text-anchor="middle" font-size="12" fill="${MUTE()}">No fields yet</text>`;
   if(interactive)h+=`<circle class="port" cx="0" cy="${HEAD/2}" r="${PR}" data-port="${n.id}" data-side="l"/><circle class="port" cx="${n.w}" cy="${HEAD/2}" r="${PR}" data-port="${n.id}" data-side="r"/>`;
  }else if(n.type==='pool'){
@@ -403,14 +409,19 @@ function nodeSVG(n,interactive=true){
  }
  return h+'</g>';
 }
-function edgeGeom(e){const a=anchor(e.a,e.b),b=anchor(e.b,e.a);if(!a||!b)return null;const pts=route(a,b,e.st);return{a,b,pts}}
+function edgeGeom(e){
+ if(e.via?.length&&e.st==='orth'){const a=anchor(e.a,e.b,e.vsa),b=anchor(e.b,e.a,e.vsb);
+  if(a&&b){const v0=e.via[0],v1=e.via[e.via.length-1];
+   if(Math.abs(v0.y-a.y)<.5&&(v0.x-a.x)*a.dx>0&&Math.abs(v1.y-b.y)<.5&&(v1.x-b.x)*b.dx>0)return{a,b,pts:[a,...e.via,b]}}}
+ const a=anchor(e.a,e.b),b=anchor(e.b,e.a);if(!a||!b)return null;const pts=route(a,b,e.st);return{a,b,pts}}
+let hot=null;
 function edgeSVG(e,interactive=true){
  const g=edgeGeom(e);if(!g)return'';const{a,b,pts}=g;const on=interactive&&selEdge===e.id;
  const col=on?(EXPORT?'#00a862':'var(--acc)'):S(e.c||'slate'),d=pathD(pts,e.st,a,b);
- let h=`<g data-edge="${e.id}"><path d="${d}" fill="none" stroke="${col}" stroke-width="${on?2.2:1.6}"${e.dash?' stroke-dasharray="6 4"':''}/>`;
+ let h=`<g data-edge="${e.id}"${interactive&&hot?.has(e.id)?' class="hot"':''}><path d="${d}" fill="none" stroke="${col}" stroke-width="${on?2.2:1.6}"${e.dash?' stroke-dasharray="6 4"':''}/>`;
  h+=marker(e.sa,a,col)+marker(e.sb,b,col);
  if(interactive)h+=`<path class="hit" d="${d}" data-edge="${e.id}"/>`;
- if(e.label){const m=e.st==='curve'?{x:(a.x+b.x)/2,y:(a.y+b.y)/2}:midOf(pts);const w=e.label.length*7+12;
+ if(e.label){const w=e.label.length*7+12;let m=e.st==='curve'?{x:(a.x+b.x)/2,y:(a.y+b.y)/2}:midOf(pts);if(e.st==='orth'){let bl=0;for(let i=1;i<pts.length;i++){const p0=pts[i-1],p1=pts[i],l=Math.abs(p1.x-p0.x);if(Math.abs(p0.y-p1.y)<.5&&l>bl){bl=l;if(l>w+16)m={x:(p0.x+p1.x)/2,y:p0.y}}}}
   h+=`<rect x="${m.x-w/2}" y="${m.y-10}" width="${w}" height="20" rx="4" fill="${PAPER()}" data-edge="${e.id}"/><text x="${m.x}" y="${m.y}" dy=".35em" text-anchor="middle" font-size="12.5" fill="${INK()}">${esc(e.label)}</text>`}
  if(on)h+=`<circle class="eh" cx="${a.x}" cy="${a.y}" r="${COARSE?10:6}" data-eh="a"/><circle class="eh" cx="${b.x}" cy="${b.y}" r="${COARSE?10:6}" data-eh="b"/>`;
  return h+'</g>';
@@ -420,6 +431,9 @@ function render(){
  page=P();const v=view();
  world.setAttribute('transform',`translate(${v.x} ${v.y}) scale(${v.z})`);
  cv.style.backgroundSize=`${20*v.z}px ${20*v.z}px`;cv.style.backgroundPosition=`${v.x}px ${v.y}px`;
+ hot=null;const fn=sel.length===1&&!selEdge?N(sel[0]):null;
+ if(fn?.type==='table'){hot=new Set([fn.id]);for(const e of page.edges)if(e.a.n===fn.id||e.b.n===fn.id){hot.add(e.id);hot.add(e.a.n);hot.add(e.b.n)}}
+ svg.classList.toggle('focus',!!hot);
  const pools=page.nodes.filter(n=>n.type==='pool'),rest=page.nodes.filter(n=>n.type!=='pool');
  let h=pools.map(n=>nodeSVG(n)).join('')+rest.map(n=>nodeSVG(n)).join('')+page.edges.map(e=>edgeSVG(e)).join('');
  for(const id of sel){const n=N(id);if(!n)continue;const b=bounds(n);
@@ -427,7 +441,7 @@ function render(){
   if(sel.length===1){const hs=n.type==='table'?['e']:n.type==='pool'?['se']:['nw','ne','sw','se'];
    for(const k of hs){const x=k.includes('w')?b.x:b.x+b.w,y=k==='e'?b.y+b.h/2:k.includes('n')?b.y:b.y+b.h;
     h+=`<rect class="rh" x="${x-HS/2}" y="${y-HS/2}" width="${HS}" height="${HS}" data-rh="${k}" style="cursor:${k==='e'?'ew':k==='nw'||k==='se'?'nwse':'nesw'}-resize"/>`}}}
- world.innerHTML=h+temp;
+ world.innerHTML=h+temp;syncKeysBtn();
  $('#zoomv').textContent=Math.round(v.z*100)+'%';
  $('#bUndo').disabled=!undo.length;$('#bRedo').disabled=!redo.length;$('#bDel').disabled=!sel.length&&!selEdge;
  $('#hint').style.display=page.nodes.length?'none':'';
@@ -614,10 +628,11 @@ function del(){
 }
 let clip=null;
 function copySel(){if(!sel.length)return;const ns=page.nodes.filter(n=>sel.includes(n.id));clip={nodes:clone(ns),edges:clone(page.edges.filter(e=>sel.includes(e.a.n)&&sel.includes(e.b.n)))}}
-function paste(dx=30){if(!clip)return;const p=clone(clip);const m=remap(p);for(const n of p.nodes){n.x+=dx;n.y+=dx}
+function paste(dx=30){if(!clip)return;untidy();const p=clone(clip);const m=remap(p);for(const n of p.nodes){n.x+=dx;n.y+=dx}
  page.nodes.push(...p.nodes);page.edges.push(...p.edges);sel=p.nodes.map(n=>n.id);selEdge=null;clip.nodes.forEach(n=>{n.x+=dx;n.y+=dx});changed()}
 function dup(){copySel();paste()}
 function align(k){
+ untidy();
  const ns=sel.map(N).filter(Boolean),bs=ns.map(bounds);
  const minX=Math.min(...bs.map(b=>b.x)),maxX=Math.max(...bs.map(b=>b.x+b.w)),minY=Math.min(...bs.map(b=>b.y)),maxY=Math.max(...bs.map(b=>b.y+b.h));
  ns.forEach((n,i)=>{const b=bs[i];
@@ -629,6 +644,7 @@ function align(k){
  changed();
 }
 function addNode(type,x,y){
+ untidy();
  let n;
  if(type==='table'){n=newTable(x,y,'table_'+(page.nodes.filter(n=>n.type==='table').length+1))}
  else if(type==='poolh'||type==='poolv'){n=newPool(x,y,type==='poolh'?'h':'v')}
@@ -677,6 +693,7 @@ svg.addEventListener('pointerdown',ev=>{
  if(t.dataset.rh){const n=N(sel[0]);drag={k:'resize',h:t.dataset.rh,n,o:{...n,lanes:n.lanes&&clone(n.lanes)},p};return}
  if(t.dataset.eh){const e=page.edges.find(x=>x.id===selEdge);drag={k:'reend',e,end:t.dataset.eh};return}
  if(t.dataset.lsep){const n=N(t.dataset.lsep);drag={k:'lane',n,i:+t.dataset.i,o:clone(n.lanes),p};return}
+ if(t.dataset.more){const n=N(t.dataset.more);if(n){if(n.expand)delete n.expand;else n.expand=true;sel=[n.id];selEdge=null;changed()}return}
  if(t.dataset.port){drag={k:'link',from:{n:t.dataset.port,s:t.dataset.side,f:t.dataset.field||null},p};svg.classList.add('linking');return}
  const eg=t.closest('[data-edge]');
  if(eg){const id=eg.dataset.edge;if(lastDown.id===id&&now-lastDown.t<380){editEdge(page.edges.find(e=>e.id===id))}lastDown={t:now,id};selEdge=id;sel=[];selField=null;render();renderPanel();drag=null;return}
@@ -761,9 +778,10 @@ svg.addEventListener('pointerup',ev=>{
   }else render();
   return;
  }
- if(d.k==='reend'){const other=d.end==='a'?d.e.b:d.e.a;const end=endpointAt(ev,other.n);if(end)d.e[d.end]=end;changed();return}
+ if(d.k==='reend'){const other=d.end==='a'?d.e.b:d.e.a;const end=endpointAt(ev,other.n);if(end){d.e[d.end]=end;delete d.e.via}changed();return}
  if(d.k==='box'){render();renderPanel();return}
  if(d.k==='pan'){render();return}
+ if((d.k==='move'&&d.moved)||d.k==='resize')untidy();
  changed(d.k!=='move'||d.moved);
 });
 cv.addEventListener('wheel',ev=>{
@@ -787,7 +805,7 @@ function placeEd(x,y,w,h,val,fs,align='center'){
 }
 function editNode(n,fid,laneId){
  if(n.type==='table'){
-  if(fid){const f=n.fields.find(f=>f.id===fid);const i=n.fields.indexOf(f);editing={n,f};placeEd(n.x+28,n.y+HEAD+i*ROW,n.w-30,ROW,`${f.name} ${f.type}`,13,'left')}
+  if(fid){const f=n.fields.find(f=>f.id===fid);const i=visFields(n).v.indexOf(f);if(i<0)return;editing={n,f};placeEd(n.x+28,n.y+HEAD+i*ROW,n.w-30,ROW,`${f.name} ${f.type}`,13,'left')}
   else{editing={n,k:'name'};placeEd(n.x,n.y,n.w,HEAD,n.name,14,'left')}
  }else if(n.type==='pool'){
   if(laneId){const l=n.lanes.find(l=>l.id===laneId);editing={n,l};const b=bounds(n);let off=0;for(const x of n.lanes){if(x===l)break;off+=x.size}
@@ -823,7 +841,7 @@ document.addEventListener('keydown',ev=>{
  else if(k==='escape'){sel=[];selEdge=null;selField=null;render();renderPanel();closeMenu()}
  else if(k.startsWith('arrow')&&sel.length){ev.preventDefault();const s=ev.shiftKey?GRID*2:snap?GRID:1;const[dx,dy]={arrowleft:[-s,0],arrowright:[s,0],arrowup:[0,-s],arrowdown:[0,s]}[k];
   const ids=new Set(sel);for(const id of sel){const m=N(id);if(m?.type==='pool')poolChildren(m).forEach(c=>ids.add(c))}
-  for(const id of ids){const m=N(id);m.x+=dx;m.y+=dy}changed(false)}
+  for(const id of ids){const m=N(id);m.x+=dx;m.y+=dy}untidy();changed(false)}
  else if(k==='0')fit();else if(k==='='||k==='+')zoomBy(1.2);else if(k==='-')zoomBy(1/1.2);
  else if(k==='/'||(mod&&k==='k')){ev.preventDefault();askIn.focus()}
  else if(k==='enter'&&sel.length===1){ev.preventDefault();editNode(N(sel[0]))}
@@ -833,6 +851,7 @@ document.addEventListener('keyup',ev=>{if(ev.key===' '){space=false;cv.style.cur
 /* ---------- toolbar, tabs, menu ---------- */
 $('#bHand').onclick=()=>handoffDlg();$('#bUndo').onclick=doUndo;$('#bRedo').onclick=doRedo;$('#bDel').onclick=del;
 $('#bZi').onclick=()=>zoomBy(1.2);$('#bZo').onclick=()=>zoomBy(1/1.2);$('#bFit').onclick=fit;
+$('#bTidy').onclick=doTidy;$('#bKeys').onclick=toggleKeys;
 $('#bSnap').onclick=()=>{snap=!snap;$('#bSnap').classList.toggle('on',snap)};
 const LS_=[['orth','Elbow'],['straight','Straight'],['curve','Curved']];
 $('#bLine').onclick=()=>{const i=(LS_.findIndex(x=>x[0]===lineStyle)+1)%3;lineStyle=LS_[i][0];$('#lineLbl').textContent=LS_[i][1];
@@ -991,7 +1010,8 @@ Ops (all keys besides "op" optional unless noted):
 {"op":"update_connector","id"*,"label","start","end","style","dashed","color"}
 {"op":"move","id"*,"x","y","dx","dy"}
 {"op":"delete","id"*}   // a shape, table, pool or connector; connectors on a deleted object go too
-{"op":"layout"}   // tidy all tables on this page into a neat grid
+{"op":"layout"}   // tidy the tables into dependency columns (referenced tables left), lines routed in the gaps
+{"op":"keys_only","on":true|false}   // show only key and linked fields on tables
 {"op":"add_page","name"*}  {"op":"switch_page","name"*}  {"op":"rename_page","name"*}
 
 Conventions: for a foreign key, connect FROM the child table's FK field TO the parent's primary key field with start "0N" (or "1N") and end "11"; mark the child field fk true. Name tables in snake_case. New tables normally get an id primary key. In process maps connect steps in order with end "arrow"; label decision branches (Yes / No). Put each step in the lane of whoever does it. "Selected" means the ids in "selected".`;
@@ -1034,15 +1054,15 @@ function applyOps(ops){
    const b=bounds(n),p=num(o.x)!=null&&num(o.y)!=null?{x:o.x,y:o.y}:autoPos(b.w,b.h);n.x=p.x;n.y=p.y;page.nodes.unshift(n);made.push(n.id);if(o.ref)refs[o.ref]=n.id;break}
   case 'update_pool':{const n=NR(o.id);if(n.type!=='pool')throw Error('not a pool');if(o.title)n.title=String(o.title);if(col(o.color))n.c=o.color;if(Array.isArray(o.lanes)&&o.lanes.length)n.lanes=lanesOf(n,o.lanes);break}
   case 'connect':{const a=NR(o.from),b=NR(o.to);const isT=a.type==='table'&&b.type==='table';const fa=FD(a,o.fromField),fb=FD(b,o.toField);
-   if(isT&&fa&&!fa.pk)fa.fk=true;
+   if(isT&&fa&&!fa.pk&&!['none','arrow','open'].includes(mk(o.start)||(isT?'0N':'none')))fa.fk=true;
    page.edges.push({id:uid(),a:{n:a.id,...(fa?{f:fa.id}:{})},b:{n:b.id,...(fb?{f:fb.id}:{})},st:sty(o.style)||lineStyle,sa:mk(o.start)||(isT?'0N':'none'),sb:mk(o.end)||(isT?'11':'arrow'),label:String(o.label||''),...(o.dashed?{dash:true}:{})});break}
   case 'update_connector':{const e=page.edges.find(e=>e.id===o.id);if(!e)throw Error('no connector');if(o.label!=null)e.label=String(o.label);if(mk(o.start))e.sa=o.start;if(mk(o.end))e.sb=o.end;if(sty(o.style))e.st=o.style;if(typeof o.dashed==='boolean')e.dash=o.dashed;if(col(o.color))e.c=o.color;break}
   case 'move':{const n=NR(o.id);const ids=new Set([n.id]);if(n.type==='pool')poolChildren(n).forEach(c=>ids.add(c));const dx=num(o.dx)??(num(o.x)!=null?o.x-n.x:0),dy=num(o.dy)??(num(o.y)!=null?o.y-n.y:0);for(const id of ids){const m=N(id);m.x+=dx;m.y+=dy}break}
   case 'delete':{if(page.edges.some(e=>e.id===o.id)){page.edges=page.edges.filter(e=>e.id!==o.id);break}const n=NR(o.id);page.nodes=page.nodes.filter(m=>m!==n);page.edges=page.edges.filter(e=>e.a.n!==n.id&&e.b.n!==n.id);break}
-  case 'layout':{const ts=page.nodes.filter(n=>n.type==='table');const deg=t=>page.edges.filter(e=>e.a.n===t.id||e.b.n===t.id).length;ts.sort((p,q)=>deg(q)-deg(p));
-   const cols=Math.max(1,Math.ceil(Math.sqrt(ts.length))),ys=Array(cols).fill(60);ts.forEach((t,i)=>{const c=i%cols;t.x=60+c*320;t.y=ys[c];ys[c]+=tblH(t)+70});needFit=true;break}
+  case 'layout':{tidyTables();needFit=true;break}
   case 'add_page':{const p={id:uid(),name:String(o.name||'Page '+(doc.pages.length+1)),nodes:[],edges:[]};doc.pages.push(p);doc.cur=p.id;page=p;auto=null;needFit=true;break}
   case 'switch_page':{const p=doc.pages.find(p=>p.name.toLowerCase()===String(o.name).toLowerCase());if(!p)throw Error('no page');doc.cur=p.id;page=p;auto=null;needFit=true;break}
+  case 'keys_only':page.keysOnly=!!o.on;for(const n of page.nodes)if(n.type==='table')delete n.expand;if(page.tidied)tidyTables();break;
   case 'set_notes':page.notes=String(o.text||'');break;
   case 'rename_page':page.name=String(o.name||page.name);break;
   default:throw Error('unknown op '+o.op);}
@@ -1199,6 +1219,76 @@ async function handoffDlg(){
  };
  $('#hoName').addEventListener('input',e=>{const p=$('#ghPath');if(p)p.placeholder=`docs/specs/${slugify(e.target.value)}.md`});
 }
+
+
+/* ---------- table diagrams: keys-only view, highlight, flow tidy ---------- */
+const isManyM=m=>m==='0N'||m==='1N'||m==='N',isOneM=m=>m==='11'||m==='1'||m==='01';
+function linkedFieldIds(n){const s=new Set();for(const e of page.edges){if(e.a.n===n.id&&e.a.f)s.add(e.a.f);if(e.b.n===n.id&&e.b.f)s.add(e.b.f)}return s}
+/* the fields a table shows, plus how many are hidden; keys-only keeps keys and linked fields */
+function visFields(n){
+ if(!page?.keysOnly||n.expand)return{v:n.fields,more:0,canCollapse:!!page?.keysOnly&&n.expand};
+ const L=linkedFieldIds(n),v=n.fields.filter(f=>f.pk||f.fk||L.has(f.id));
+ return{v,more:n.fields.length-v.length,canCollapse:false};
+}
+/* who points at whom: the parent goes left of the child */
+function relOf(e){
+ if(isManyM(e.sa))return{p:e.b,c:e.a,pm:e.sb,cm:e.sa};
+ if(isManyM(e.sb))return{p:e.a,c:e.b,pm:e.sa,cm:e.sb};
+ if(e.sb==='arrow'||e.sb==='open')return{p:e.a,c:e.b,pm:e.sa,cm:e.sb};
+ return{p:e.b,c:e.a,pm:e.sb,cm:e.sa};
+}
+function rowYOf(n,fid){if(!fid)return n.y+HEAD/2;const i=visFields(n).v.findIndex(f=>f.id===fid);return i<0?n.y+HEAD/2:n.y+HEAD+i*ROW+ROW/2}
+function tidyTables(){
+ const ts=page.nodes.filter(n=>n.type==='table');if(!ts.length)return false;
+ const by=Object.fromEntries(ts.map(t=>[t.id,t]));
+ const rel=[];for(const e of page.edges){if(!by[e.a.n]||!by[e.b.n]||e.a.n===e.b.n)continue;const r=relOf(e);rel.push({e,...r})}
+ const rank=Object.fromEntries(ts.map(t=>[t.id,0]));
+ for(let i=0;i<ts.length;i++)for(const r of rel)rank[r.c.n]=Math.min(ts.length,Math.max(rank[r.c.n],rank[r.p.n]+1));
+ const used=[...new Set(Object.values(rank))].sort((a,b)=>a-b),remap=Object.fromEntries(used.map((r,i)=>[r,i]));for(const k in rank)rank[k]=remap[rank[k]];
+ const R=used.length-1,cols=[...Array(R+1)].map((_,k)=>ts.filter(t=>rank[t.id]===k));
+ const linked=t=>rel.some(r=>r.p.n===t.id||r.c.n===t.id);
+ const idx=()=>{const m={};cols.forEach(c=>c.forEach((t,i)=>m[t.id]=i));return m};
+ const sweep=(k,nk)=>{const m=idx();const bc=t=>{if(!linked(t))return 1e9;const ns=rel.filter(r=>(r.p.n===t.id&&rank[r.c.n]===nk)||(r.c.n===t.id&&rank[r.p.n]===nk)).map(r=>m[r.p.n===t.id?r.c.n:r.p.n]);return ns.length?ns.reduce((a,b)=>a+b,0)/ns.length:m[t.id]};cols[k].sort((p,q)=>bc(p)-bc(q))};
+ for(let it=0;it<4;it++){for(let k=1;k<=R;k++)sweep(k,k-1);for(let k=R-1;k>=0;k--)sweep(k,k+1)}
+ const box=contentBox(ts),X0=Math.round((box?box.x:60)/GRID)*GRID,Y0=Math.round((box?box.y:60)/GRID)*GRID;
+ const colW=cols.map(c=>Math.max(...c.map(t=>t.w)));
+ const place=gs=>cols.forEach((c,k)=>{let y=Y0+(gs[k][0]||0);c.forEach((t,i)=>{t.y=Math.round(y/GRID)*GRID;y=t.y+tblH(t)+(gs[k][i+1]||50)})});
+ let gs=cols.map(c=>Array(c.length+1).fill(0));place(gs);
+ const gapUse=cols.map(c=>c.map(()=>[]).concat([[]]));
+ for(const r of rel){const rp=rank[r.p.n],rc=rank[r.c.n];for(let m=rp+1;m<rc;m++){
+  const tgt=(rowYOf(by[r.c.n],r.c.f)+rowYOf(by[r.p.n],r.p.f))/2,c=cols[m];
+  const centers=c.map((t,i)=>i===0?t.y-25:(c[i-1].y+tblH(c[i-1])+t.y)/2).concat([c[c.length-1].y+tblH(c[c.length-1])+25]);
+  let best=0;centers.forEach((v,i)=>{if(Math.abs(v-tgt)<Math.abs(centers[best]-tgt))best=i});gapUse[m][best].push(r)}}
+ gs=cols.map((c,k)=>gapUse[k].map((u,i)=>u.length?40+18*u.length:(i===0?0:50)));place(gs);
+ const cy={};cols.forEach((c,m)=>gapUse[m].forEach((u,g)=>{if(!u.length)return;const top=g===0?c[0].y-gs[m][0]:c[g-1].y+tblH(c[g-1]);
+  u.sort((p,q)=>rowYOf(by[p.p.n],p.p.f)-rowYOf(by[q.p.n],q.p.f)).forEach((r,j)=>cy[r.e.id+':'+m]=Math.round(top+gs[m][g]/2-(u.length-1)*9+j*18))}));
+ const tkey=r=>`${r.p.n}:${r.p.f||'*'}`,lanes=[...Array(R)].map(()=>new Map());
+ for(const r of rel){const rp=rank[r.p.n],rc=rank[r.c.n];for(let k=rp;k<rc;k++){const key=k===rp?'T'+tkey(r):'E'+r.e.id+':'+k;if(!lanes[k].has(key))lanes[k].set(key,{key,trunk:k===rp,ys:[]})}}
+ const lab=lanes.map(()=>0);for(const r of rel)if(r.e.label&&rank[r.c.n]>0)lab[rank[r.c.n]-1]=Math.max(lab[rank[r.c.n]-1],r.e.label.length*7+12);
+ const cw=lanes.map((m,k)=>Math.max(140,70+(m.size-1)*18,lab[k]?lab[k]+80+m.size*18:0));
+ const colX=[];let x=X0;cols.forEach((c,k)=>{colX[k]=x;c.forEach(t=>t.x=x);x+=colW[k]+(cw[k]||0);x=Math.round(x/GRID)*GRID});
+ for(const r of rel){const rp=rank[r.p.n],rc=rank[r.c.n];let y=rowYOf(by[r.c.n],r.c.f);
+  for(let k=rc-1;k>=rp;k--){const L=lanes[k].get(k===rp?'T'+tkey(r):'E'+r.e.id+':'+k);L.ys.push(y);const ny=k>rp?cy[r.e.id+':'+k]:rowYOf(by[r.p.n],r.p.f);L.ys.push(ny);y=ny}}
+ lanes.forEach((m,k)=>{const arr=[...m.values()].map(L=>({key:L.key,trunk:L.trunk,span:Math.max(...L.ys)-Math.min(...L.ys)}));
+  arr.sort((p,q)=>p.trunk===q.trunk?q.span-p.span:p.trunk?-1:1);const x0=colX[k]+colW[k]+40;arr.forEach((L,i)=>m.get(L.key).x=x0+i*18)});
+ for(const r of rel){const P=by[r.p.n],C=by[r.c.n],rp=rank[P.id],rc=rank[C.id];let y=rowYOf(C,r.c.f);const via=[];
+  for(let k=rc-1;k>=rp;k--){const lx=lanes[k].get(k===rp?'T'+tkey(r):'E'+r.e.id+':'+k).x;via.push({x:lx,y});
+   if(k>rp){y=cy[r.e.id+':'+k];via.push({x:lx,y})}else via.push({x:lx,y:rowYOf(P,r.p.f)})}
+  const e=r.e,childIsA=r.c===e.a;
+  e.st='orth';e.via=childIsA?via:via.slice().reverse();e.vsa=childIsA?'l':'r';e.vsb=childIsA?'r':'l';
+  if(!e.a.f)delete e.a.s;if(!e.b.f)delete e.b.s;}
+ for(const e of page.edges)if(!rel.some(r=>r.e===e))delete e.via;
+ page.tidied=true;return true;
+}
+function untidy(ids){if(!page?.tidied)return;page.tidied=false}
+function doTidy(){if(!tidyTables())return toast('Tidy arranges tables. This page has none.');changed();fit();toast('Tables arranged: referenced tables on the left')}
+function toggleKeys(){
+ if(!page.nodes.some(n=>n.type==='table'))return toast('Keys only applies to tables. This page has none.');
+ page.keysOnly=!page.keysOnly;for(const n of page.nodes)if(n.type==='table')delete n.expand;
+ if(page.tidied){tidyTables();changed();fit()}else{changed();toast(page.keysOnly?'Showing key and linked fields. Tidy to close the gaps.':'Showing all fields. Tidy to rearrange.')}
+ syncKeysBtn();
+}
+function syncKeysBtn(){const b=$('#bKeys');if(!b)return;const has=page.nodes.some(n=>n.type==='table');b.classList.toggle('on',!!page.keysOnly);b.disabled=!has;$('#bTidy').disabled=!has}
 
 /* ---------- boot ---------- */
 function start(){
